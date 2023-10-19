@@ -1,3 +1,5 @@
+from prettytable import PrettyTable
+
 dictionary_spinners = {
     1.8:    3,
     1.6:    4,
@@ -20,4 +22,4 @@ dictionary_spinners = {
     0.26:   21
 }
 
-param_table = Pere
+param_table = PrettyTable(["Марка", "Диметр", "Длина", "Барабан"])
