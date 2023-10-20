@@ -9,4 +9,5 @@ def counting_spinners():
 
 if __name__ == '__main__':
     print()
-
+    print("Helllo, морды")
+    
