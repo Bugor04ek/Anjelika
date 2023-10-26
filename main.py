@@ -15,13 +15,12 @@ def counting_spinners(table):
     :param table: главная таблица с основными параметрами
     """
     # массивы для диаметров из таблицы
-    d, d_plus = [], []
+    d = []
     # временные массивы для фильер
-    temp_spin, temp_spin_plus = [], []
+    temp_spin = []
 
     for row in table.rows:
-        d.append(row[5])
-        d_plus.append(row[6])
+        d.append(row[6])
 
     for num in d:
         # Расшифровка строки ниже:
@@ -34,16 +33,9 @@ def counting_spinners(table):
         #  4. Добавляем полученное значение во временный массив
         temp_spin.append(consts.dictionary_spinners[min(consts.dictionary_spinners, key=lambda x: abs(num - x))])
 
-    for num in d_plus:
-        # если диаметр 0, значит кабель не плюсовой, значит 0 фильер
-        if num != 0:
-            # описание смотри выше
-            temp_spin_plus.append(consts.dictionary_spinners[min(consts.dictionary_spinners, key=lambda x: abs(num - x))])
-        else:
-            temp_spin_plus.append(0)
+    # Здесь был плюсовой, мб потом что-то доработаем
 
     table.add_column("Количество фильер", temp_spin)
-    table.add_column("Количество фильер +", temp_spin_plus)
 
 
 if __name__ == '__main__':

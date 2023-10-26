@@ -1,3 +1,5 @@
+from ast import slice
+
 import pandas as pd
 from consts import *
 import numpy as np
@@ -5,7 +7,19 @@ import numpy as np
 file_name = 'Заказы.xlsx'
 
 
-def calculating_length_piece(table, table_param):
+def calculating_bobbin(length_strands, volume_bobbin, sliver):
+    number_full_bobbin = length_strands // volume_bobbin # количество полных катушек в расчете на 1 прядь
+    volume_half_bobbin = round(length_strands % volume_bobbin, 2)  # меди на неполной катушки на 1 прядь
+
+    all_full_bobbin = number_full_bobbin * sliver
+    all_half_bobbin = sliver  # = количеству прядей, т.к. последняя заправка
+
+    res = [[volume_bobbin for _ in range(sliver)] for _ in range(int(number_full_bobbin))]
+    res.append([volume_half_bobbin for _ in range(sliver)])
+    return res
+
+
+def calculating(table, table_param):
     """
     Процедура параметры из table_param и вычисляет длину меди потраченной с каждой корзины на мультике. Все
     вычисленные длины записываются во временный массив, а потом добавляются столбцом в table
@@ -13,8 +27,11 @@ def calculating_length_piece(table, table_param):
     :param table_param: таблица для вычислений длин куска
     """
 
-    # временный массив для длины кусков
-    res = []
+    # временные массивы для длины кусков, длины прядей и полных катушек
+    res_length_piece = []
+    res_length_strands = []
+    res_full_bobbin = []
+
     for row in table_param.rows:
         # "Длина кабеля, км", "Количество жил", "Кол-во стренг" * -- длина стренги, количество прядей определяет
         # количество барабанов. Однако важно учитывать еще и кратность заказа полным намоткам (40 км заказ на барабан,
@@ -23,47 +40,46 @@ def calculating_length_piece(table, table_param):
 
         # 0 - Кол-во километров в производство
         # 1 - Кол-во жил
-        # 2 - Перед мультиком -> d_mult = 2.08
-        # 3 - Диаметр проволоки
-        # 4 - Кол-во стренг
-        # 5 - Кол-во прядей
-        # 6 - Кол-во проволок в пряди
-        # 7 - Кол-во прядей доп
-        # 8 - Кол-во проволок доп
+        # Перед мультиком -> d_mult = 2.08
+        # 2 - Диаметр проволоки
+        # 3 - Кол-во стренг (strand)
+        # 4 - Кол-во прядей (sliver)
+        # 5 - Кол-во проволок в пряди
+        # 6 - Кол-во прядей доп
+        # 7 - Кол-во проволок доп
+        # 8 - Километраж масса VS Длина
 
         order_length = row[0]
         number_of_veins = int(row[1])
-        number_of_strands = int(row[4])
-        number_of_sliver = int(row[5])
-        wires_in_sliver = int(row[6])
-        number_of_sliver_extra = int(row[7])
-        wires_in_sliver_extra = int(row[8])
-        diameter = row[3]
+        diameter = row[2]
+        number_of_strands = int(row[3])
+        number_of_sliver = int(row[4])
+        wires_in_sliver = int(row[5])
+        number_of_sliver_extra = int(row[6])
+        wires_in_sliver_extra = int(row[7])
 
         # суммарная длина проволочек
         total_length_delays = ((number_of_sliver * wires_in_sliver + number_of_sliver_extra * wires_in_sliver_extra)
                                * number_of_strands * number_of_veins * order_length)
 
-        length_piece = total_length_delays * (diameter ** 2 / d_mult ** 2)
+        length_piece = round(total_length_delays * (diameter ** 2 / d_mult ** 2), 3)
 
-        if row[5] != '0':
-            count_veins_plus = int(row[5])
-            count_strands_plus = row[6]
-            delays_vein_plus = row[7]
-            diameter_plus = row[8]
+        # длина заказа в расчете на одну прядь (весь заказ это length_strands *
+        # (number_of_sliver + number_of_sliver_extra))
+        length_strands = round((order_length * number_of_veins * number_of_strands), 2)
 
-            # суммарная длина проволочек плюсовой части
-            total_length_delays_plus = delays_vein_plus * count_strands_plus * count_veins_plus * order_length
+        # подсчет барабанов
+        res_full_bobbin.append(calculating_bobbin(length_strands, row[8], number_of_sliver + number_of_sliver_extra))
 
-            length_piece_plus = total_length_delays_plus * (diameter_plus ** 2 / d_mult ** 2)
-        else:
-            length_piece_plus = 0
+        # Здесь был плюсовой, мб потом что-то доработаем
 
-        length_piece = round(length_piece + length_piece_plus, 3)
+        res_length_piece.append(length_piece)
+        res_length_strands.append(length_strands)
 
-        res.append(length_piece)
-
-    table.add_column('Длина куска 1 корзины', res)
+    table.add_column('Длина куска 1 корзины', res_length_piece)
+    table.add_column('Длина стренг', res_length_strands)
+    table.add_column('Барабаны', res_full_bobbin)
+    table.align["Барабаны"] = "l"
 
 
 def create_tables():
@@ -81,11 +97,15 @@ def create_tables():
     # F - Количество жил
     # G - Перед мультиком -> d_mult = 2.08
     # H - Диаметр проволоки
+    # J - Кол-во прядей
+    # K - Кол-во проволок в пряди
+    # L - Кол-во прядей доп
+    # M - Кол-во проволок доп
     # N - Вид барабана
     # O - Количество заправок
     # P - Километраж масса VS Длина
 
-    excel_data = pd.read_excel(file_name, usecols="A:H, N:P")
+    excel_data = pd.read_excel(file_name, usecols="B:H, J:M, N:P")
     data = pd.DataFrame(excel_data).fillna(0)
     for row in data.values:
         main_table.add_row(row)
@@ -99,14 +119,13 @@ def create_tables():
     # K - Кол-во проволок в пряди
     # L - Кол-во прядей доп
     # M - Кол-во проволок доп
+    # P - Километраж масса VS Длина
 
-    print(main_table)
-
-    excel_data_calculation = pd.read_excel(file_name, usecols="E, F, H:M")
+    excel_data_calculation = pd.read_excel(file_name, usecols="E, F, H:M, P")
     data = pd.DataFrame(excel_data_calculation).fillna(0)
     for row in data.values:
         second_param_table.add_row(row)
 
-    calculating_length_piece(main_table, second_param_table)
+    calculating(main_table, second_param_table)
 
-    #return first_param_table
+    return main_table
