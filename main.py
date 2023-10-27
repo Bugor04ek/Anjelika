@@ -40,7 +40,7 @@ def counting_spinners(table):
 
 if __name__ == '__main__':
     info_table = CreateTable.create_tables()
-    counting_spinners(info_table)
-    print(info_table)
+    # counting_spinners(info_table)
+    print(info_table.get_string(sortby="Дата выпуска"))
 
 
