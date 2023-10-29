@@ -1,10 +1,12 @@
+from datetime import datetime
 from ast import slice
+from typing import Type
 
 import pandas as pd
 from consts import *
 import numpy as np
 
-file_name = 'Заказы с временем.xlsx'
+file_name = 'Заказы.xlsx'
 
 
 def calculating_bobbin(length_strands, volume_bobbin, sliver):
@@ -124,7 +126,9 @@ def create_tables():
     # Q - Время на мультике
 
     excel_data = pd.read_excel(file_name, usecols="B:E, N, Q")
+    excel_data['Дата выпуска по заказу'] = pd.to_datetime(excel_data['Дата выпуска по заказу'], format='%d.%m.%Y').dt.date
     data = pd.DataFrame(excel_data).fillna(0)
+    print(type(excel_data['Дата выпуска по заказу'][0]))
     for row in data.values:
         main_table.add_row(row)
 
