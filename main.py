@@ -1,4 +1,5 @@
 import pandas as pd
+import xlsxwriter
 import scipy
 import consts
 import CreateTable
@@ -20,7 +21,7 @@ def counting_spinners(table):
     temp_spin = []
 
     for row in table.rows:
-        d.append(row[6])
+        d.append(row[7][0])
 
     for num in d:
         # Расшифровка строки ниже:
@@ -40,7 +41,8 @@ def counting_spinners(table):
 
 if __name__ == '__main__':
     info_table = CreateTable.create_tables()
-    # counting_spinners(info_table)
-    print(info_table.get_string(sortby="Дата выпуска"))
+    counting_spinners(info_table)
+    CreateTable.forming_file_with_groups(info_table)
+    print(info_table.get_string(sortby="Группа"))
 
 

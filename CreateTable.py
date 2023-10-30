@@ -1,12 +1,40 @@
+import os
 from datetime import datetime
 from ast import slice
 from typing import Type
 
 import pandas as pd
+from pandas.io.excel import ExcelWriter
 from consts import *
 import numpy as np
 
 file_name = 'Заказы.xlsx'
+
+
+def forming_file_with_groups(table):
+    # Загрузка существующего файла Excel
+    existing_file = 'output.xlsx'
+
+    groups = max(row[8] for row in table.rows) # максимальное число групп, для количества листов
+
+    # Извлекаем заголовки столбцов
+    headers = table.field_names
+
+    for group in range(groups + 1):
+        # Инициализируем пустой список для хранения данных
+        data = []
+
+        # Извлекаем данные из PrettyTable и добавляем их в список
+        for row in table.rows:
+            for i in range(len(headers)):
+                if row[8] == group:
+                    data.append(row[i])
+
+        # Создаем DataFrame из списка данных и заголовков
+        df = pd.DataFrame(data, columns=headers)
+
+        with ExcelWriter(existing_file, mode="a" if os.path.exists(existing_file) else "w", engine="openpyxl") as writer:
+            df.to_excel(writer, sheet_name="Лист {}".format(group))
 
 
 def calculating_bobbin(length_strands, volume_bobbin, sliver):
@@ -67,7 +95,7 @@ def calculating(table, table_param):
         wires_in_sliver_extra = int(row[7])
         type_bobbin = row[8]
 
-        key = (diameter, number_of_sliver + number_of_sliver_extra, wires_in_sliver, wires_in_sliver_extra, type_bobbin)
+        key = (diameter, number_of_sliver, wires_in_sliver, number_of_sliver_extra, wires_in_sliver_extra, type_bobbin)
 
         if dict_key_group.get(key) is None:
             dict_key_group[key] = len(dict_key_group)
@@ -125,10 +153,10 @@ def create_tables():
     # P - Километраж масса VS Длина
     # Q - Время на мультике
 
-    excel_data = pd.read_excel(file_name, usecols="B:E, N, Q")
+    excel_data = pd.read_excel(file_name, usecols="B:E, Q")
     excel_data['Дата выпуска по заказу'] = pd.to_datetime(excel_data['Дата выпуска по заказу'], format='%d.%m.%Y').dt.date
     data = pd.DataFrame(excel_data).fillna(0)
-    print(type(excel_data['Дата выпуска по заказу'][0]))
+
     for row in data.values:
         main_table.add_row(row)
 
@@ -145,7 +173,7 @@ def create_tables():
     # P - Километраж масса VS Длина
     # Q - Время на мультике
 
-    excel_data_calculation = pd.read_excel(file_name, usecols="E, F, H:M, P:Q")
+    excel_data_calculation = pd.read_excel(file_name, usecols="E, F, H:M, N, P:Q")
     data = pd.DataFrame(excel_data_calculation).fillna(0)
     for row in data.values:
         second_param_table.add_row(row)
