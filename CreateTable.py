@@ -26,9 +26,8 @@ def forming_file_with_groups(table):
 
         # Извлекаем данные из PrettyTable и добавляем их в список
         for row in table.rows:
-            for i in range(len(headers)):
-                if row[8] == group:
-                    data.append(row[i])
+            if row[8] == group:
+                data.append(row)
 
         # Создаем DataFrame из списка данных и заголовков
         df = pd.DataFrame(data, columns=headers)
