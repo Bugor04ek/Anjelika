@@ -15,25 +15,28 @@ def forming_file_with_groups(table):
     # Загрузка существующего файла Excel
     existing_file = 'output.xlsx'
 
-    groups = max(row[8] for row in table.rows) # максимальное число групп, для количества листов
+    groups = max(row[9] for row in table.rows) # максимальное число групп, для количества листов
 
     # Извлекаем заголовки столбцов
     headers = table.field_names
+    data = []
 
     for group in range(groups + 1):
         # Инициализируем пустой список для хранения данных
-        data = []
 
         # Извлекаем данные из PrettyTable и добавляем их в список
         for row in table.rows:
-            if row[8] == group:
+            if row[9] == group:
                 data.append(row)
+        else:
+            data.append('')
 
         # Создаем DataFrame из списка данных и заголовков
-        df = pd.DataFrame(data, columns=headers)
 
-        with ExcelWriter(existing_file, mode="a" if os.path.exists(existing_file) else "w", engine="openpyxl") as writer:
-            df.to_excel(writer, sheet_name="Лист {}".format(group))
+    df = pd.DataFrame(data, columns=headers)
+
+    with ExcelWriter(existing_file, mode="a" if os.path.exists(existing_file) else "w", engine="openpyxl") as writer:
+        df.to_excel(writer)
 
 
 def calculating_bobbin(length_strands, volume_bobbin, sliver):
@@ -113,7 +116,7 @@ def calculating(table, table_param):
         length_strands = round((order_length * number_of_veins * number_of_strands), 2)
 
         # подсчет барабанов
-        res_full_bobbin.append(calculating_bobbin(length_strands, row[8], number_of_sliver + number_of_sliver_extra))
+        res_full_bobbin.append(calculating_bobbin(length_strands, row[9], number_of_sliver + number_of_sliver_extra))
 
         # Здесь был плюсовой, мб потом что-то доработаем
 
@@ -122,6 +125,7 @@ def calculating(table, table_param):
 
     # table.add_column('Длина куска 1 корзины', res_length_piece)
     table.add_column('Длина стренг', res_length_strands)
+
     table.add_column('Барабаны (Кол-во полных катушек, Объем на частичной катушки)', res_full_bobbin)
     table.add_column('Параметры', groups_key)
     table.add_column('Группа', groups_num)
@@ -152,7 +156,7 @@ def create_tables():
     # P - Километраж масса VS Длина
     # Q - Время на мультике
 
-    excel_data = pd.read_excel(file_name, usecols="B:E, Q")
+    excel_data = pd.read_excel(file_name, usecols="B:E, P, Q")
     excel_data['Дата выпуска по заказу'] = pd.to_datetime(excel_data['Дата выпуска по заказу'], format='%d.%m.%Y').dt.date
     data = pd.DataFrame(excel_data).fillna(0)
 

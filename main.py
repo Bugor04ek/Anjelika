@@ -21,7 +21,7 @@ def counting_spinners(table):
     temp_spin = []
 
     for row in table.rows:
-        d.append(row[7][0])
+        d.append(row[8][0])
 
     for num in d:
         # Расшифровка строки ниже:
