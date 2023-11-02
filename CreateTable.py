@@ -10,6 +10,8 @@ import numpy as np
 
 file_name = 'Заказы.xlsx'
 
+def sort_date(row):
+    return row[2]
 
 def forming_file_with_groups(table):
     # Загрузка существующего файла Excel
@@ -19,23 +21,26 @@ def forming_file_with_groups(table):
 
     # Извлекаем заголовки столбцов
     headers = table.field_names
-    data = []
+    data_res = []
 
     for group in range(groups + 1):
         # Инициализируем пустой список для хранения данных
-
+        data = []
         # Извлекаем данные из PrettyTable и добавляем их в список
-        for row in table.rows:
+        for row in sorted(table.rows, key=sort_date):
             if row[9] == group:
                 data.append(row)
-        else:
-            data.append('')
 
+        data.append('')
+        data_res.extend(data)
+        data.clear()
         # Создаем DataFrame из списка данных и заголовков
 
-    df = pd.DataFrame(data, columns=headers)
+    df = pd.DataFrame(data_res, columns=headers)
 
-    with ExcelWriter(existing_file, mode="a" if os.path.exists(existing_file) else "w", engine="openpyxl") as writer:
+    mode = "w" if os.path.exists(existing_file) else "a"
+
+    with ExcelWriter(existing_file, mode=mode, engine="openpyxl") as writer:
         df.to_excel(writer)
 
 

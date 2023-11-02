@@ -1,4 +1,5 @@
 import pandas as pd
+import pulp
 import xlsxwriter
 import scipy
 import consts
