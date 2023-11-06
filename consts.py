@@ -54,3 +54,8 @@ second_param_table = PrettyTable(["Длина кабеля, км", "Количе
 # одной пряди, шт."
 
 d_mult = 2.08
+
+class Order:
+
+    def __init__(self, account_number):
+        self.account_number = account_number
