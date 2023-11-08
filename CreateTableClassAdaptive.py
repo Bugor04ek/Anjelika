@@ -13,24 +13,20 @@ file_name = 'Заказы.xlsx'
 
 
 def pack_cables(orders: list[Order], container_capacity: float):
-    containers = []  # Список контейнеров
+    check_list_temp = Check_List()
 
     for order in orders:
         placed = False
-        for container in containers:
-            if sum(item[2] for item in container) + order.full_bobbin[1] <= container_capacity:
-                bobbin.add(order.full_bobbin[1])
-                bobbin.append_order(order)
-                container.append((order.account_number, bobbin, order.full_bobbin[1]))
+        for container in check_list_temp.bobbins:
+            if container.volume + order.full_bobbin[1] <= container.max_volume:
+                container.add(order.full_bobbin[1], order)
                 placed = True
                 break
-        if not placed:
-            bobbin = Bobbin(order.full_bobbin[1], order.release_date)
-            bobbin.append_order(order)
-            containers.append([(order.account_number, bobbin, order.full_bobbin[1])])
+        if not placed:  # Ветка в которой начинается новая намотка на катушку
+            bobbin = Bobbin(order.full_bobbin[1], order.volume_bobbin, order.release_date, order)
+            check_list_temp.append(bobbin)
 
-
-    return len(containers)  # Возвращает количество используемых контейнеров
+    return check_list_temp  # Возвращает массив катушек, на которых сидят заказы
 
 
 def sort_date(order):
@@ -61,18 +57,13 @@ def forming_file_with_groups(arr_orders: list[Order]):
                 #              order.group, order.num_group, order.spin])
                 container_capacity = order.volume_bobbin
 
-        pack_cables(data, container_capacity)
+        check_list + pack_cables(data, container_capacity)
+
         data.append('')
         data_res.extend(data)
         data.clear()
-        # Создаем DataFrame из списка данных и заголовков
 
-    df = pd.DataFrame(data_res, columns=headers)
-
-    mode = "w" if os.path.exists(existing_file) else "a"
-
-    with ExcelWriter(existing_file, mode=mode, engine="openpyxl") as writer:
-        df.to_excel(writer)
+    check_list.output_in_excel()
 
 
 def create_orders():

@@ -56,20 +56,67 @@ second_param_table = PrettyTable(["Длина кабеля, км", "Количе
 d_mult = 2.08
 
 
+class Check_List:
+
+    def __init__(self):
+        self.bobbins: [Bobbin] = []
+        # self.sum_time: float = 0
+
+    def append(self, bobbin):
+        self.bobbins.append(bobbin)
+
+    def __add__(self, other):
+        self.bobbins.extend(other.bobbins)
+
+    def get_sum_time(self):
+        return sum(bobbin.time_on_mult for bobbin in self.bobbins)
+
+    @staticmethod
+    def sort_date(bobbin):
+        return bobbin.date_first_order
+
+    def output_in_excel(self):
+        """
+        0 - как есть
+        1 - по дате
+        :return:
+        """
+        print('Выберите сортировку:')
+        print('0 - как есть')
+        print('1 - по дате')
+        k = int(input())
+        if k == 1:
+            self.bobbins = sorted(self.bobbins, key=self.sort_date)
+
+        pass
+
+
+check_list = Check_List()
+
+
 class Bobbin:
+    count = 0
 
-    def __init__(self, volume, date):
-        self.volume = volume
-        self.orders = [Order]
+    def __init__(self, volume, max_volume, date, order):
+        Bobbin.count += 1
+        self.number = Bobbin.count
+        self.max_volume = max_volume
         self.date_first_order = date
+        self.volume: float = 0
+        self.orders: [Order] = []
+        self.time_on_mult: float = 0
+        self.add(volume, order)
 
-    def add(self, volume):
+    def add(self, volume, order):
         self.volume += volume
-
-    def append_order(self, order):
         self.orders.append(order)
+        self.time_on_mult += order.time_on_mult
+
 
 class Order:
+    """
+
+    """
 
     def __init__(self, account_number, mark, release_date, order_length, number_of_veins, diameter, number_of_strands,
                  number_of_sliver, wires_in_sliver, number_of_sliver_extra, wires_in_sliver_extra, type_bobbin,
