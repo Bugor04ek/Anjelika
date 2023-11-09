@@ -1,4 +1,8 @@
+import os
+
+from pandas import ExcelWriter
 from prettytable import PrettyTable
+import pandas as pd
 
 dictionary_spinners = {
     1.8: 3,
@@ -81,6 +85,7 @@ class Check_List:
         1 - по дате
         :return:
         """
+
         print('Выберите сортировку:')
         print('0 - как есть')
         print('1 - по дате')
@@ -88,7 +93,33 @@ class Check_List:
         if k == 1:
             self.bobbins = sorted(self.bobbins, key=self.sort_date)
 
-        pass
+        existing_file = 'excel/group_with_date.xlsx' if k else 'excel/group_without_date.xlsx'
+
+        header = ['Номер группы', 'Номер катушки', 'Номер счета', 'Намотка', 'Max намотка', 'Дата']
+
+        data = []
+        for bobbin in self.bobbins:
+            # Инициализируем пустой список для хранения данных
+            # Извлекаем данные из PrettyTable и добавляем их в список
+            i = 0
+            for order in bobbin.orders:
+                if i == 0:
+                    data.append([order.num_group, bobbin.number, order.account_number,
+                                 bobbin.volume, bobbin.max_volume, bobbin.date_first_order])
+                    i += 1
+                else:
+                    data.append(
+                        [order.num_group, bobbin.number, order.account_number, '', '', ''])
+
+        df = pd.DataFrame(data, columns=header, index=None)
+
+        mode = "w" if os.path.exists(existing_file) else "a"
+
+        with ExcelWriter(existing_file, mode=mode, engine="openpyxl") as writer:
+            df.to_excel(writer)
+
+
+
 
 
 check_list = Check_List()

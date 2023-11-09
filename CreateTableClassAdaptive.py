@@ -9,7 +9,7 @@ from pandas.io.excel import ExcelWriter
 from consts import *
 import numpy as np
 
-file_name = 'Заказы.xlsx'
+file_name = 'excel/Заказы.xlsx'
 
 
 def pack_cables(orders: list[Order], container_capacity: float):
@@ -35,7 +35,7 @@ def sort_date(order):
 
 def forming_file_with_groups(arr_orders: list[Order]):
     # Загрузка существующего файла Excel
-    existing_file = 'output_class.xlsx'
+    existing_file = 'excel/output_class.xlsx'
 
     groups = max(order.num_group for order in arr_orders)  # максимальное число групп, для количества листов
 
@@ -62,8 +62,6 @@ def forming_file_with_groups(arr_orders: list[Order]):
         data.append('')
         data_res.extend(data)
         data.clear()
-
-    check_list.output_in_excel()
 
 
 def create_orders():
@@ -108,4 +106,5 @@ def create_orders():
 if __name__ == '__main__':
     orders = create_orders()
     forming_file_with_groups(orders)
+    check_list.output_in_excel()
 
