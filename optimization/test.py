@@ -1,60 +1,76 @@
-import scipy
-
-length1 = 20.4
-length2 = 30.6
-length3 = 1.5
-length4 = 20.4
-length5 = 20.2
-length6 = 15.3
-
-arr_len = [length1, length2, length3, length4, length5, length6]
-
-reel_length = 32.365
-
-sum_weight = sum(arr_len)
-reel_length_weight = reel_length / sum_weight
-arr_weight = list(enumerate(map(lambda x: x / sum_weight, arr_len)))
-
-def target_function(arr_weight, weight):
-    pass
+from ortools.linear_solver import pywraplp
 
 
+def create_data_model(weights, container_capacity):
+    """Create the data for the example."""
+    data = {}
+    weights = weights
+    data["weights"] = weights
+    data["items"] = list(range(len(weights)))
+    data["bins"] = data["items"]
+    data["bin_capacity"] = container_capacity
+    return data
 
-scipy.optimize.minimize(fun=target_function(arr_weight, reel_length_weight))
-#
-#
-#
-# # Определите переменные для количество каждого кабеля на каждой катушке
-# # Для каждой катушки и каждого кабеля создайте переменную, которая определяет количество этого кабеля на катушке
-# x11 = pulp.LpVariable("x11", lowBound=0, cat='Integer')  # Количество кабеля 1 на катушке 1
-# x12 = pulp.LpVariable("x12", lowBound=0, cat='Integer')  # Количество кабеля 2 на катушке 1
-# x13 = pulp.LpVariable("x14", lowBound=0, cat='Integer')  # Количество кабеля 3 на катушке 1
-# x14 = pulp.LpVariable("x14", lowBound=0, cat='Integer')  # Количество кабеля 4 на катушке 1
-# x15 = pulp.LpVariable("x15", lowBound=0, cat='Integer')  # Количество кабеля 5 на катушке 1
-# x16 = pulp.LpVariable("x16", lowBound=0, cat='Integer')  # Количество кабеля 6 на катушке 1
-#
-#
-# # Определите целевую функцию: максимизация общей длины намотки
-# problem += (x11 * length11 + x12 * length12 + x13 * length13 + x14 * length14 + x15 * length15 + x16 * length16), "Total Cable Length"
-#
-# # Ограничения на доступную длину намотки на каждой катушке
-# problem += (x11 * length11 <= reel_length, "Reel 1 Length Constraint")
-# problem += (x12 * length12 <= reel_length, "Reel 2 Length Constraint")
-# problem += (x13 * length13 <= reel_length, "Reel 3 Length Constraint")
-# problem += (x14 * length14 <= reel_length, "Reel 4 Length Constraint")
-# problem += (x15 * length15 <= reel_length, "Reel 5 Length Constraint")
-# problem += (x16 * length16 <= reel_length, "Reel 6 Length Constraint")
-#
-# # Добавьте ограничения для других катушек
-#
-# # Ограничения на количество кабелей каждого типа
-# problem += (x11 * length11 + x12 * length12 + x13 * length13 + x14 * length14 + x15 * length15 + x16 * length16 <= reel_length, "Cable Count Constraint")
-#
-# problem.solve()
-#
-# print("Status:", pulp.LpStatus[problem.status])
-# print("Total Cable Length =", pulp.value(problem.objective))
-# print("Optimal solution:")
-# print("x11 =", x11.varValue)
-# print("x12 =", x12.varValue)
-# # Выведите результаты для других переменных
+
+def create_solution(weights: list, container_capacity: float):
+
+    data = create_data_model(weights, container_capacity)
+
+    # Create the mip solver with the SCIP backend.
+    solver = pywraplp.Solver.CreateSolver("SCIP")
+
+    if not solver:
+        return
+
+    # Variables
+    # x[i, j] = 1 if item i is packed in bin j.
+    x = {}
+    for i in data["items"]:
+        for j in data["bins"]:
+            x[(i, j)] = solver.IntVar(0, 1, "x_%i_%i" % (i, j))
+
+    # y[j] = 1 if bin j is used.
+    y = {}
+    for j in data["bins"]:
+        y[j] = solver.IntVar(0, 1, "y[%i]" % j)
+
+    # Constraints
+    # Each item must be in exactly one bin.
+    for i in data["items"]:
+        solver.Add(sum(x[i, j] for j in data["bins"]) == 1)
+
+    # The amount packed in each bin cannot exceed its capacity.
+    for j in data["bins"]:
+        solver.Add(
+            sum(x[(i, j)] * data["weights"][i] for i in data["items"])
+            <= y[j] * data["bin_capacity"]
+        )
+
+    # Objective: minimize the number of bins used.
+    solver.Minimize(solver.Sum([y[j] for j in data["bins"]]))
+
+    status = solver.Solve()
+
+    if status == pywraplp.Solver.OPTIMAL:
+        num_bins = 0
+        for j in data["bins"]:
+            if y[j].solution_value() == 1:
+                bin_items = []
+                bin_weight = 0
+                for i in data["items"]:
+                    if x[i, j].solution_value() > 0:
+                        bin_items.append(i)
+                        bin_weight += data["weights"][i]
+                if bin_items:
+                    num_bins += 1
+                    print("Bin number", j)
+                    print("  Items packed:", bin_items)
+                    print("  Total weight:", bin_weight)
+                    print()
+        print()
+        print("Number of bins used:", num_bins)
+        print("Time = ", solver.WallTime(), " milliseconds")
+    else:
+        print("The problem does not have an optimal solution.")
+
+    return num_bins

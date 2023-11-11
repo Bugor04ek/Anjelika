@@ -9,8 +9,9 @@ from pandas.io.excel import ExcelWriter
 from consts import *
 import numpy as np
 
-file_name = 'excel/Заказы.xlsx'
+from optimization.test import *
 
+file_name = 'excel/Заказы.xlsx'
 
 def pack_cables(orders: list[Order], container_capacity: float):
     check_list_temp = Check_List()
@@ -44,24 +45,26 @@ def forming_file_with_groups(arr_orders: list[Order]):
                "Длина стренг", "Барабаны (Кол-во полных катушек, Объем на частичной катушки)", "Параметры", "Группа",
                "Количество фильер"]
     data_res = []
-
+    bin = 0
     for group in range(groups + 1):
         # Инициализируем пустой список для хранения данных
         data = []
         # Извлекаем данные из PrettyTable и добавляем их в список
         for order in sorted(arr_orders, key=sort_date):
             if order.num_group == group:
-                data.append(order)
+                data.append(order.full_bobbin[1])
                 # data.append([order.account_number, order.mark, order.release_date, order.order_length,
                 #              order.volume_bobbin, order.time_on_mult, order.length_strands, order.full_bobbin,
                 #              order.group, order.num_group, order.spin])
                 container_capacity = order.volume_bobbin
 
-        check_list + pack_cables(data, container_capacity)
+        bin += create_solution(data, container_capacity)
 
         data.append('')
         data_res.extend(data)
         data.clear()
+
+    print("Всего катушек", bin)
 
 
 def create_orders():
