@@ -52,7 +52,7 @@ def forming_file_with_groups(arr_orders: list[Order]):
         # Извлекаем данные из PrettyTable и добавляем их в список
         for order in sorted(arr_orders, key=sort_date):
             if order.num_group == group:
-                data.append(order.full_bobbin[1])
+                data.append(order)
                 # data.append([order.account_number, order.mark, order.release_date, order.order_length,
                 #              order.volume_bobbin, order.time_on_mult, order.length_strands, order.full_bobbin,
                 #              order.group, order.num_group, order.spin])

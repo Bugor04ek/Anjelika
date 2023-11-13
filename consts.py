@@ -119,9 +119,6 @@ class Check_List:
             df.to_excel(writer)
 
 
-
-
-
 check_list = Check_List()
 
 

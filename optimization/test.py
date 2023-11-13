@@ -1,20 +1,20 @@
 from ortools.linear_solver import pywraplp
+from consts import *
 
 
-def create_data_model(weights, container_capacity):
+def create_data_model(orders, container_capacity):
     """Create the data for the example."""
     data = {}
-    weights = weights
-    data["weights"] = weights
-    data["items"] = list(range(len(weights)))
+    data["orders"] = orders
+    data["items"] = list(range(len(orders)))
     data["bins"] = data["items"]
     data["bin_capacity"] = container_capacity
     return data
 
 
-def create_solution(weights: list, container_capacity: float):
+def create_solution(orders: list[Order], container_capacity: float):
 
-    data = create_data_model(weights, container_capacity)
+    data = create_data_model(orders, container_capacity)
 
     # Create the mip solver with the SCIP backend.
     solver = pywraplp.Solver.CreateSolver("SCIP")
@@ -42,7 +42,7 @@ def create_solution(weights: list, container_capacity: float):
     # The amount packed in each bin cannot exceed its capacity.
     for j in data["bins"]:
         solver.Add(
-            sum(x[(i, j)] * data["weights"][i] for i in data["items"])
+            sum(x[(i, j)] * data["orders"][i].full_bobbin[1] for i in data["items"])
             <= y[j] * data["bin_capacity"]
         )
 
@@ -55,17 +55,20 @@ def create_solution(weights: list, container_capacity: float):
         num_bins = 0
         for j in data["bins"]:
             if y[j].solution_value() == 1:
-                bin_items = []
-                bin_weight = 0
-                for i in data["items"]:
+                bin_orders = []
+                bin_length = 0
+                bin_dates = []
+                for i in data["bins"]:
                     if x[i, j].solution_value() > 0:
-                        bin_items.append(i)
-                        bin_weight += data["weights"][i]
-                if bin_items:
+                        bin_orders.append(data["orders"][i].account_number)
+                        bin_length += data["orders"][i].full_bobbin[1]  # Используем длину кабеля на неполной катушке
+                        bin_dates.append(data["orders"][i].release_date)
+                if bin_orders:
                     num_bins += 1
                     print("Bin number", j)
-                    print("  Items packed:", bin_items)
-                    print("  Total weight:", bin_weight)
+                    print("  Orders packed:", bin_orders)
+                    print("  Total length:", bin_length)
+                    print("  Release dates:", bin_dates)
                     print()
         print()
         print("Number of bins used:", num_bins)
