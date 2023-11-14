@@ -136,9 +136,10 @@ class Bobbin:
         self.add(volume, order)
 
     def add(self, volume, order):
-        self.volume += volume
-        self.orders.append(order)
-        self.time_on_mult += order.time_on_mult
+        if volume != 0 and order is not None:
+            self.volume += volume
+            self.orders.append(order)
+            self.time_on_mult += order.time_on_mult
 
 
 class Order:
