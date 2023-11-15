@@ -1,5 +1,6 @@
 import os
-
+import tkinter as tk
+from tkinter import ttk
 from pandas import ExcelWriter
 from prettytable import PrettyTable
 import pandas as pd
@@ -58,6 +59,69 @@ second_param_table = PrettyTable(["Длина кабеля, км", "Количе
 # одной пряди, шт."
 
 d_mult = 2.08
+
+
+
+class CablePackingApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Cable Packing App")
+
+        self.orders = []  # Здесь должны быть ваши заказы
+        self.container_capacity = 100.0  # Замените на вашу вместимость катушки
+
+        self.create_widgets()
+
+    def create_widgets(self):
+        # Frame для отображения информации о упакованных заказах
+        info_frame = ttk.Frame(self.root, padding="10")
+        info_frame.grid(row=0, column=0, sticky="nsew")
+
+        # Label с информацией о упакованных заказах
+        self.info_label = ttk.Label(info_frame, text="Упакованные заказы:")
+        self.info_label.grid(row=0, column=0, sticky="w", pady=(0, 10))
+
+        # Treeview для отображения таблицы с упакованными заказами
+        self.tree = ttk.Treeview(info_frame, columns=("Order", "Length", "Release Date"))
+        self.tree.heading("#0", text="Катушка")
+        self.tree.heading("Order", text="Заказ")
+        self.tree.heading("Length", text="Длина")
+        self.tree.heading("Release Date", text="Дата выпуска")
+        self.tree.grid(row=1, column=0, sticky="nsew")
+
+        # Scrollbar для Treeview
+        tree_scroll = ttk.Scrollbar(info_frame, orient="vertical", command=self.tree.yview)
+        tree_scroll.grid(row=1, column=1, sticky="ns")
+        self.tree.configure(yscroll=tree_scroll.set)
+
+        # Frame для отображения катушек с кабелем
+        bobbin_frame = ttk.Frame(self.root, padding="10")
+        bobbin_frame.grid(row=0, column=1, sticky="nsew")
+
+        # Label с информацией о катушках
+        self.bobbin_label = ttk.Label(bobbin_frame, text="Информация о катушках:")
+        self.bobbin_label.grid(row=0, column=0, sticky="w", pady=(0, 10))
+
+        # Canvas для отображения катушек с кабелем
+        self.canvas = tk.Canvas(bobbin_frame, bg="white", width=300, height=200)
+        self.canvas.grid(row=1, column=0)
+
+        # Кнопка для пересчета упаковки
+        recalculate_button = ttk.Button(self.root, text="Пересчитать упаковку", command=self.recalculate_packing)
+        recalculate_button.grid(row=1, column=0, columnspan=2, pady=(10, 0))
+
+        # Настройка размещения виджетов
+        self.root.columnconfigure(0, weight=1)
+        self.root.columnconfigure(1, weight=1)
+        self.root.rowconfigure(0, weight=1)
+
+    def recalculate_packing(self):
+        # Ваш код для пересчета упаковки
+        # Обновите информацию о упакованных заказах и катушках в Treeview и Canvas
+        pass
+
+    def run(self):
+        self.root.mainloop()
 
 
 class Check_List:
