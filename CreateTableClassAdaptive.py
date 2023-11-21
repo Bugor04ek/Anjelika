@@ -137,7 +137,8 @@ def create_orders():
     return orders
 
 
-if __name__ == '__main__':
+#
+def main():
     orders = create_orders()
     forming_file_with_groups(orders)
     check_list.output_in_excel()
