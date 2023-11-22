@@ -10,7 +10,7 @@ import numpy as np
 
 from optimization.test import *
 
-file_name = 'excel/Заказы.xlsx'
+file_name = '../excel/Заказы.xlsx'
 
 
 def pack_cables(orders: list[Order], container_capacity: float):
@@ -69,7 +69,7 @@ def forming_file_with_groups(arr_orders: list[Order]):
           "\n1. Да"
           "\n2. Нет")
     k = int(input())
-    date_range = int(input('Введите диапазон дат: '))
+
 
     sort_orders = sorted(arr_orders, key=sort_date)
     for group in range(groups + 1):
@@ -82,6 +82,7 @@ def forming_file_with_groups(arr_orders: list[Order]):
 
         if k == 1:
             groups_by_dates = {}
+            date_range = int(input('Введите диапазон дат: '))
             formation_of_orders_in_the_date_range(data, date_range, groups_by_dates)
 
             for key in groups_by_dates.keys():
@@ -89,7 +90,7 @@ def forming_file_with_groups(arr_orders: list[Order]):
             else:
                 groups_by_dates.clear()
         else:
-            bin += create_solution(data, container_capacity)
+            bin += create_solution(data, container_capacity, release_date=data[0].release_date)
 
         data.append('')
         data_res.extend(data)
@@ -141,5 +142,5 @@ def create_orders():
 def main():
     orders = create_orders()
     forming_file_with_groups(orders)
-    check_list.output_in_excel()
+    # check_list.output_in_excel()
 
