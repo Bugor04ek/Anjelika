@@ -46,6 +46,12 @@ def create_solution(orders: list[Order], container_capacity: float, release_date
             <= y[j] * data["bin_capacity"]
         )
 
+    for j in data["bins"]:
+        solver.Add(
+            sum(x[(i, j)] * data["orders"][i].full_bobbin[2] for i in data["items"])
+            <= y[j] * 2
+        )
+
     # Objective: minimize the number of bins used.
     solver.Minimize(solver.Sum([y[j] for j in data["bins"]]))
 

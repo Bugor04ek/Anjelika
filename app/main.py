@@ -50,12 +50,6 @@ def main(page: ft.Page):
         show_checkbox_column=True,
         columns=list(map(lambda x: ft.DataColumn(ft.Text(x)), header)),
         rows=output(row)
-        #     ft.DataRow(
-        #         cells=[
-        #             ft.DataCell(ft.Text("John")),
-        #             ft.DataCell(ft.Text("Smith")),
-        #             ft.DataCell(ft.Text("43")),
-        #         ]
     ))
 
 
