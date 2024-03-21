@@ -10,7 +10,7 @@ import numpy as np
 
 from optimization.test import *
 
-file_name = '../excel/Заказы.xlsx'
+file_name = 'excel/Заказы.xlsx'
 
 
 def pack_cables(orders: list[Order], container_capacity: float):
@@ -100,7 +100,7 @@ def forming_file_with_groups(arr_orders: list[Order]):
 
 def forming_file_with_groups_excel(arr_orders: list[Order]):
     # Загрузка существующего файла Excel
-    existing_file = '../excel/output_class.xlsx'
+    existing_file = 'excel/output_class.xlsx'
 
     groups = max(order.num_group for order in arr_orders)  # максимальное число групп, для количества листов
 
@@ -175,7 +175,7 @@ def create_orders():
 
 
 #
-def main():
+if __name__ == "__main__":
     orders = create_orders()
     forming_file_with_groups(orders)
     forming_file_with_groups_excel(orders)
