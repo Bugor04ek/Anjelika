@@ -94,7 +94,7 @@ class Check_List:
         if k == 1:
             self.bobbins = sorted(self.bobbins, key=self.sort_date)
 
-        existing_file = '../excel/group_with_date.xlsx' if k else '../excel/group_without_date.xlsx'
+        existing_file = 'excel/group_with_date.xlsx' if k else 'excel/group_without_date.xlsx'
 
         header = ['Номер группы', 'Номер катушки', 'Номер счета', 'Намотка', 'Max намотка', 'Дата']
 
@@ -228,3 +228,15 @@ class Order:
     def __str__(self) -> str:
         return "{} | {} | {} | {} | {} | {}".format(self.account_number, self.mark, self.release_date,
                                                     self.order_length, self.num_group, self.spin)
+
+
+class Mark:
+
+    def __init__(self, mark):
+        self.mark: str = mark
+        self.checking_GOST()
+        self.сable_Parameters = {}
+
+    def checking_GOST(self):
+
+        pass
