@@ -4,6 +4,8 @@ from tkinter import ttk
 from pandas import ExcelWriter
 from prettytable import PrettyTable
 import pandas as pd
+import re
+from gosts import GOSTS
 
 dictionary_spinners = {
     1.8: 3,
@@ -159,7 +161,7 @@ class Order:
         self.group = ()
         self.total_length_delays = 0
         self.account_number = account_number
-        self.mark = mark
+        self.mark = Mark(mark)
         self.release_date = release_date
         self.order_length = order_length
         self.number_of_veins = number_of_veins
@@ -234,9 +236,22 @@ class Mark:
 
     def __init__(self, mark):
         self.mark: str = mark
-        self.checking_GOST()
+        self.type_definition(mark)
         self.сable_Parameters = {}
 
-    def checking_GOST(self):
+    def type_definition(self, mark):
+        for gosts in GOSTS.keys():
+            res = re.search(GOSTS[gosts]['pattern'], mark, flags=0)
 
-        pass
+            if res is not None:
+                self.cable_decryption(res, gosts)
+                break
+
+    def cable_decryption(result, gosts):
+        name_groups = GOSTS[gosts]['param']
+
+        print(gosts)
+
+        for group in name_groups:
+            if result.group(group) != '' and result.group(group) is not None:
+                self.сable_Parameters[name_groups[group]] = result.group(group)

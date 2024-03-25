@@ -177,6 +177,7 @@ def create_orders():
 #
 if __name__ == "__main__":
     orders = create_orders()
+    print(*orders, sep='\n')
     forming_file_with_groups(orders)
     forming_file_with_groups_excel(orders)
     check_list.output_in_excel()
