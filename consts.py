@@ -28,8 +28,8 @@ dictionary_spinners = {
     0.2795: 20,
     0.26: 21
 }
-dict_key_group = {
-}
+change_basket = 20 # смена корзины на мультике
+dict_key_group = {}
 
 # A - IDZak
 # B - Номер счета
@@ -50,11 +50,14 @@ dict_key_group = {
 # Q - Время на мультике
 
 main_table = PrettyTable(
-    ["Номер счета", "Марка", "Дата выпуска", "Длина кабеля, км", "Километраж", "Время на мультике"])
+    ["Номер счета", "Марка", "Дата выпуска", "Длина кабеля, км", "Километраж", "Время на мультике"]
+)
 
-second_param_table = PrettyTable(["Длина кабеля, км", "Количество жил", "Диаметр проволоки на волочении, мм",
-                                  "Кол-во стренг", "Кол-во прядей", "Кол-во проволок в пряди", "Кол-во прядей доп",
-                                  "Кол-во проволок доп", "Тип барабана", "Километраж", "Время на мультике"])
+second_param_table = PrettyTable(
+    ["Длина кабеля, км", "Количество жил", "Диаметр проволоки на волочении, мм",
+     "Кол-во стренг", "Кол-во прядей", "Кол-во проволок в пряди", "Кол-во прядей доп",
+     "Кол-во проволок доп", "Тип барабана", "Километраж", "Время на мультике"]
+    )
 
 # Добавить в таблицу тип барабана, количество полных барабанов, вместимость полного барабана, остаток на последнем
 # барабане, и разбить реквизит "Всего проволочек в 1 стренге, шт." на "количество прядей, шт.", "количество проволок в
@@ -107,12 +110,15 @@ class Check_List:
             i = 0
             for order in bobbin.orders:
                 if i == 0:
-                    data.append([order.num_group, bobbin.number, order.account_number,
-                                 bobbin.volume, bobbin.max_volume, bobbin.date_first_order])
+                    data.append(
+                        [order.num_group, bobbin.number, order.account_number,
+                         bobbin.volume, bobbin.max_volume, bobbin.date_first_order]
+                        )
                     i += 1
                 else:
                     data.append(
-                        [order.num_group, bobbin.number, order.account_number, '', '', ''])
+                        [order.num_group, bobbin.number, order.account_number, '', '', '']
+                    )
 
         df = pd.DataFrame(data, columns=header, index=None)
 
@@ -150,9 +156,11 @@ class Order:
 
     """
 
-    def __init__(self, account_number, mark, release_date, order_length, number_of_veins, diameter, number_of_strands,
-                 number_of_sliver, wires_in_sliver, number_of_sliver_extra, wires_in_sliver_extra, type_bobbin,
-                 volume_bobbin, time_on_mult):
+    def __init__(
+        self, account_number, mark, release_date, order_length, number_of_veins, diameter, number_of_strands,
+        number_of_sliver, wires_in_sliver, number_of_sliver_extra, wires_in_sliver_extra, type_bobbin,
+        volume_bobbin, time_on_mult
+        ):
         self.length_strands = 0
         self.full_bobbin = ()
         self.length_piece = 0
@@ -228,30 +236,42 @@ class Order:
         self.calculating_bobbin()
 
     def __str__(self) -> str:
-        return "{} | {} | {} | {} | {} | {}".format(self.account_number, self.mark, self.release_date,
-                                                    self.order_length, self.num_group, self.spin)
+        return "{} | {} | {} | {} | {} | {}".format(
+            self.account_number,  self.mark.mark, self.mark.cable_parameters, self.release_date,
+            self.order_length, self.num_group, self.spin
+            )
 
 
 class Mark:
-
+    """
+    Класс, описывающий марку кабеля, содержит расшифровку
+    """
     def __init__(self, mark):
         self.mark: str = mark
+        self.cable_parameters = {}
         self.type_definition(mark)
-        self.сable_Parameters = {}
 
     def type_definition(self, mark):
+        """
+        Берем каждый гост из справочника и проверяем марку на каждый патерн.
+        После того как найдем подходящий гост вызываем cable_decryption, передаем найденный результат и гост
+        """
         for gosts in GOSTS.keys():
             res = re.search(GOSTS[gosts]['pattern'], mark, flags=0)
 
             if res is not None:
                 self.cable_decryption(res, gosts)
                 break
+        # else:
+            # print(mark, 'не определена')
 
-    def cable_decryption(result, gosts):
+    def cable_decryption(self, result, gosts):
+        """
+        Забираем из справочника гостов все параметры по совпавшему госту (gosts).
+        Затем выводим все параметры по совпавшим группам и записываем в справочник класса
+        """
         name_groups = GOSTS[gosts]['param']
-
-        print(gosts)
 
         for group in name_groups:
             if result.group(group) != '' and result.group(group) is not None:
-                self.сable_Parameters[name_groups[group]] = result.group(group)
+                self.cable_parameters[name_groups[group]] = result.group(group)

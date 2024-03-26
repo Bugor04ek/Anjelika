@@ -1,4 +1,4 @@
-
+import re
 GOSTS = {
     '55025-2012': {
         'pattern': r"(?P<Material>А|)"
@@ -10,9 +10,9 @@ GOSTS = {
                    "(?P<SealingElements>г|2г|ж|$|)"
                    "(\-|)(?P<TropicalDesign>T|)"
                    "\s(?P<NumberVeins>[1|3])[x|х]"
-                   "(?P<NominalSection>16|25|35|50|70|95|120|150|185|240|300|400|500|625|630|800|1000|1200|1400|1600)"
+                   "(?P<NominalSection>\d+[,|.|]\d+|\d+)"
                    "\s(?P<ConstructiveExecutionMetalScreen>ок|ос|мк|мс)(\/|)(?P<SectionMetalScreen>\d+|)"
-                   "-(?P<RatedVoltage>6|10|15|20|30|35)",
+                   "-(?P<RatedVoltage>\d+[,|.|]\d+|\d+)",
         'param': {
             'Material': 'Материал',
             'InsulationMaterial': 'Изоляция',
@@ -38,12 +38,12 @@ GOSTS = {
                    "(?P<MetalScreen>Э|)"
                    "(?P<FireDanger>нг|(нг\((AF\/R|[A,А]|B)\)(-LS|-HF|-FRLS|-FRHF))|)"
                    "(?P<Shape>П|)"
-                   "(?P<TropicalDesign>\-[T,Т]|)"
+                   "(-|)(?P<TropicalDesign>\[T,Т]|)"
                    "\s(?P<NumberVeins>[1-5])[x|х]"
-                   "(?P<NominalSection>1,5|2,5|4|6|10|16|25|35|50|70|95|120|150|185|240|300|400|500|625|630|800|1000)"
+                   "(?P<NominalSection>\d+[,|.|]\d+|\d+)"
                    "(?P<ConstructiveExecutionMetalScreen>ок|ос|мк|мс|)"
                    "((?P<NumberVeinsNPE>\+\d+)[x|х]"
-                   "(?P<NominalSectionNPE>1,5|2,5|4|6|10|16|25|35|50|70|95|120|150|185|240|300|400|500|625|630|800|1000)"
+                   "(?P<NominalSectionNPE>\d+[,|.|]\d+|\d+)"
                    "(?P<ConstructiveExecutionMetalScreenNPE>ок|ос|мк|мс)|)"
                    "(?P<NPE>(\((N\,PE|PE|N)\))|)"
                    "-(?P<RatedVoltage>0,66|1|3)",
@@ -71,9 +71,9 @@ GOSTS = {
         'pattern': r"(?P<Wire>СИП)(-|\s)"
                    "(?P<ConstructiveExecution>[1-4]|г)\s"
                    "(?P<NumberVeins>[1-4])[x|х]"
-                   "(?P<NominalSection>16|25|35|50|70|95|120|150|185|240)"
+                   "(?P<NominalSection>\d+[,|.|]\d+|\d+)"
                    "(\+(?P<NumberVeinsNPE>\d+)[x|х]"
-                   "(?P<NominalSectionNPE>25|35|50|54[,|\.]6|70|95)|)-"
+                   "(?P<NominalSectionNPE>\d+[,|.|]\d+|\d+)|)-"
                    "(?P<RatedVoltage>0,6\/1|[a-zA-Z0-9][10-20]|35)",
         'param': {
             'Wire': 'Провод',
@@ -90,12 +90,12 @@ GOSTS = {
                    "(?P<DegreeFlexibility>Г|)"
                    "(?P<InsulationMaterial>В|П|.)"
                    "(?P<OuterShellMaterial>В|П|[^-]|)"
-                   "(?P<FireDanger>нг\(([A,А]|[В,B]|[C,С]|D)\)(-LS|-LSLTx|-HF|-HFLTx)|)"
+                   "(?P<FireDanger>нг(\(([A,А]|[В,B]|[C,С]|D)\)|)(-LS|-LSLTx|-HF|-HFLTx)|)"
                    "(\-|)(?P<TropicalDesign>[T,Т]|ХЛ|)\s"
                    "(?P<NumberVeins>[1-5])[x|х]"
-                   "(?P<NominalSection>0,5|0,75|1,0|1,5|2,5|4|6|10|16|25|35|50|70|95|120|150|185|240|300|400)"
+                   "(?P<NominalSection>\d+[,|.|]\d+|\d+)"
                    "((?P<NumberVeinsNPE>\+\d+)[x|х]"
-                   "(?P<NominalSectionNPE>0,5|0,75|1,0|1,5|2,5|4|6|10|16|25|35|50|70|95|120|150|185|240|300|400)|)"
+                   "(?P<NominalSectionNPE>\d+[,|.|]\d+|\d+)|)"
                    "(?P<NPE>(\((N\,PE|PE\,N|PE|N)\))|)",
         'param': {
             'ProductType': 'Тип продукта',
@@ -116,19 +116,20 @@ GOSTS = {
                    r"(?P<Cable>К)"
                    r"(?P<DegreesFlexibility>Г|ПГ|ОГ)"
                    r"(?P<InsulationMaterial>Р|ТП|ТПу|В|)"
+                   r"(?P<ConstructiveExecution>С|У|[э,Э]|)"
                    r"(?P<OuterShellMaterial>Р|ТП|ТПу|В|)"
-                   r"(?P<ConstructiveExecution>С|У|э|)"
+                   r"(?P<ConstructiveExecution>С|У|[э,Э]|)"
                    r"(?P<HeatResistance>Тк|Т|)"
-                   r"(?P<FireDanger>нг\(([A,А] F\/R|[A,А]|[В,B]|[C,С]|D)\)(-LS|-HF|-FRLS|-FRHF|-LSLTx|-HFLTx|-FRHFLTx)|)"
-                   r"(?P<TropicalDesign>\-[T,Т]|-ХЛ|)\s"
+                   r"(?P<FireDanger>нг(\(([A,А] F\/R|[A,А]|[В,B]|[C,С]|D)\)|)(-LS|-HF|-FRLS|-FRHF|-LSLTx|-HFLTx|-FRHFLTx)|)"
+                   r"(-|)(?P<TropicalDesign>\[T,Т]|ХЛ|)\s"
                    r"(?P<NumberVeins>\d+)[x|х]"
                    r"(?P<NominalSection>\d+[,|.|]\d+|\d+)"
                    r"(?P<NPE>(\((N\,PE|PE|N)\))|)"
                    r"(\+(?P<NumberVeinsNPE>\d+)[x|х]"
                    r"(?P<NominalSectionNPE>\d+[,|.|]\d+|\d+)"
-                   r"(\((?P<NPE2>N\,PE|PE\,N|PE|N)\)|)|)\s"
-                   r"(?P<RatedVoltage>\d+\/\d+)"
-                   r"-(?P<OperatingMode>\d)",
+                   r"(\((?P<NPE2>N\,PE|PE\,N|PE|N)\)|)|)"
+                   r"(\s|)(?P<RatedVoltage>\d+\/\d+|)"
+                   r"(-|)(?P<OperatingMode>\d|)",
         'param': {
             'Material': 'Материал',
             'Cable': 'Кабель',
@@ -151,12 +152,12 @@ GOSTS = {
     },
     '7399-97': {
         'pattern': r"(?P<Mark>ШОГ|ШОГ-С|ШВП|ШВД|ШВВП|ШВЛ|ПВС|ПВСн|ПВСП|ШРО|ПРС|ПРМ|ПСГ|ШВП|ШОГ|ШВП)"
-                   r"(?P<TropicalDesign>-[T,Т]|-УХЛ|-У|)\s"
+                   r"(-|)(?P<TropicalDesign>[T,Т]|УХЛ|У|)\s"
                    r"(?P<NumberVeins>\d+)[x|х]"
                    r"(?P<NominalSection>\d+[,|.|]\d+|\d+)"
                    r"(\+(?P<NumberVeinsNPE>\d+)[x|х]"
-                   r"(?P<NominalSectionNPE>\d+[,|.|]\d+|\d+)(\)|)|)\s"
-                   r"(?P<RatedVoltage>\d+)",
+                   r"(?P<NominalSectionNPE>\d+[,|.|]\d+|\d+)(\)|)|)"
+                   r"(\s|)(?P<RatedVoltage>\d+|)",
         'param': {
             'Mark': 'Марка',
             'TropicalDesign': 'Тропическое исполнение',
@@ -169,3 +170,22 @@ GOSTS = {
         }
     },
 }
+
+
+def type_definition(self, mark):
+    for gosts in GOSTS.keys():
+        res = re.search(GOSTS[gosts]['pattern'], mark, flags=0)
+
+        if res is not None:
+            self.cable_decryption(res, gosts)
+            break
+
+
+def cable_decryption(self, result, gosts):
+    name_groups = GOSTS[gosts]['param']
+
+    print(gosts)
+
+    for group in name_groups:
+        if result.group(group) != '' and result.group(group) is not None:
+            self.cable_Parameters[name_groups[group]] = result.group(group)
