@@ -116,9 +116,9 @@ GOSTS = {
                    r"(?P<Cable>К)"
                    r"(?P<DegreesFlexibility>Г|ПГ|ОГ)"
                    r"(?P<InsulationMaterial>Р|ТП|ТПу|В|)"
-                   r"(?P<ConstructiveExecution>С|У|[э,Э]|)"
+                   r"(?P<ConstructiveExecution1>С|У|[э,Э]|)"
                    r"(?P<OuterShellMaterial>Р|ТП|ТПу|В|)"
-                   r"(?P<ConstructiveExecution>С|У|[э,Э]|)"
+                   r"(?P<ConstructiveExecution2>С|У|[э,Э]|)"
                    r"(?P<HeatResistance>Тк|Т|)"
                    r"(?P<FireDanger>нг(\(([A,А] F\/R|[A,А]|[В,B]|[C,С]|D)\)|)(-LS|-HF|-FRLS|-FRHF|-LSLTx|-HFLTx|-FRHFLTx)|)"
                    r"(-|)(?P<TropicalDesign>\[T,Т]|ХЛ|)\s"
@@ -135,8 +135,9 @@ GOSTS = {
             'Cable': 'Кабель',
             'DegreesFlexibility': 'Степень гибкости',
             'InsulationMaterial': 'Изоляция',
+            'ConstructiveExecution1': 'Конструктивное исполнение',
             'OuterShellMaterial': 'Оболочка',
-            'ConstructiveExecution': 'Конструктивное исполнение',
+            'ConstructiveExecution2': 'Конструктивное исполнение',
             'HeatResistance': 'Термостойкость',
             'FireDanger': 'Пожарная опасность',
             'TropicalDesign': 'Тропическое исполнение',

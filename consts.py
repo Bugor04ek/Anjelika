@@ -28,7 +28,9 @@ dictionary_spinners = {
     0.2795: 20,
     0.26: 21
 }
-change_basket = 20 # смена корзины на мультике
+REMOVED_SPIN = 1    # время снятия фильер
+INSERT_SPIN = 5     # время вставки фильер (это время надо умножить на количество проволочек в пряди)
+CHANGE_BASKET = 20  # смена корзины на мультике
 dict_key_group = {}
 
 # A - IDZak
@@ -236,9 +238,9 @@ class Order:
         self.calculating_bobbin()
 
     def __str__(self) -> str:
-        return "{} | {} | {} | {} | {} | {}".format(
+        return "{} | {} | {} | {} | {} | {} | {} | {}".format(
             self.account_number,  self.mark.mark, self.mark.cable_parameters, self.release_date,
-            self.order_length, self.num_group, self.spin
+            self.order_length, self.num_group, self.spin, self.group
             )
 
 

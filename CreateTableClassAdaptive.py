@@ -97,6 +97,9 @@ def forming_file_with_groups(arr_orders: list[Order]):
 
     print("Всего катушек", bin)
 
+    # Возвращаем массив с готовыми группами, чтобы рассчитать время
+    return data_res
+
 
 def forming_file_with_groups_excel(arr_orders: list[Order]):
     # Загрузка существующего файла Excel
@@ -177,7 +180,31 @@ def create_orders():
 #
 if __name__ == "__main__":
     orders = create_orders()
-    print(*orders, sep='\n')
-    forming_file_with_groups(orders)
+    result = forming_file_with_groups(orders)
+    time = 0
+    setup_time = 0
+    for x in result:
+        if isinstance(x, Order):
+            time += x.time_on_mult
+        else:
+            now_group = result[result.index(x) - 1]
+            next_group = result[result.index(x) + 1]
+            spin_now = now_group.spin
+            spin_next = next_group.spin
+            if spin_now > spin_next:
+                # снимаем фильеры
+                removed_spin = spin_now - spin_next + 1
+                setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
+                setup_time += INSERT_SPIN * next_group.group[3]  # время на установку фильер
+            else:
+                # снимаем фильеры
+                removed_spin = 1
+                setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
+                setup_time += INSERT_SPIN * (spin_next - spin_now - 1)   # время на установку фильер
+
     forming_file_with_groups_excel(orders)
     check_list.output_in_excel()
+    print(*result, sep='\n')
+    print('Общее время:', time + setup_time)
+    print('Время работы:', time)
+    print('Время настройки:', setup_time)
