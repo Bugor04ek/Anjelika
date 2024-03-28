@@ -120,7 +120,7 @@ GOSTS = {
                    r"(?P<OuterShellMaterial>Р|ТП|ТПу|В|)"
                    r"(?P<ConstructiveExecution2>С|У|[э,Э]|)"
                    r"(?P<HeatResistance>Тк|Т|)"
-                   r"(?P<FireDanger>нг(\(([A,А] F\/R|[A,А]|[В,B]|[C,С]|D)\)|)(-LS|-HF|-FRLS|-FRHF|-LSLTx|-HFLTx|-FRHFLTx)|)"
+                   r"(?P<FireDanger>нг(\(([A,А] F\/R|[A,А]|[В,B]|[C,С]|D)\)|)(-LS|-HF|-FRLS|-FRHF|-LSLTx|-HFLTx|-FRHFLTx|)|)"
                    r"(-|)(?P<TropicalDesign>\[T,Т]|ХЛ|)\s"
                    r"(?P<NumberVeins>\d+)[x|х]"
                    r"(?P<NominalSection>\d+[,|.|]\d+|\d+)"

@@ -31,6 +31,7 @@ dictionary_spinners = {
 REMOVED_SPIN = 1    # время снятия фильер
 INSERT_SPIN = 5     # время вставки фильер (это время надо умножить на количество проволочек в пряди)
 CHANGE_BASKET = 20  # смена корзины на мультике
+
 dict_key_group = {}
 
 # A - IDZak
