@@ -28,8 +28,8 @@ dictionary_spinners = {
     0.2795: 20,
     0.26: 21
 }
-REMOVED_SPIN = 1    # время снятия фильер
-INSERT_SPIN = 5     # время вставки фильер (это время надо умножить на количество проволочек в пряди)
+REMOVED_SPIN = 1  # время снятия фильер
+INSERT_SPIN = 5  # время вставки фильер (это время надо умножить на количество проволочек в пряди)
 CHANGE_BASKET = 20  # смена корзины на мультике
 
 dict_key_group = {}
@@ -60,7 +60,7 @@ second_param_table = PrettyTable(
     ["Длина кабеля, км", "Количество жил", "Диаметр проволоки на волочении, мм",
      "Кол-во стренг", "Кол-во прядей", "Кол-во проволок в пряди", "Кол-во прядей доп",
      "Кол-во проволок доп", "Тип барабана", "Километраж", "Время на мультике"]
-    )
+)
 
 # Добавить в таблицу тип барабана, количество полных барабанов, вместимость полного барабана, остаток на последнем
 # барабане, и разбить реквизит "Всего проволочек в 1 стренге, шт." на "количество прядей, шт.", "количество проволок в
@@ -116,7 +116,7 @@ class Check_List:
                     data.append(
                         [order.num_group, bobbin.number, order.account_number,
                          bobbin.volume, bobbin.max_volume, bobbin.date_first_order]
-                        )
+                    )
                     i += 1
                 else:
                     data.append(
@@ -160,10 +160,14 @@ class Order:
     """
 
     def __init__(
-        self, account_number, mark, release_date, order_length, number_of_veins, diameter, number_of_strands,
-        number_of_sliver, wires_in_sliver, number_of_sliver_extra, wires_in_sliver_extra, type_bobbin,
-        volume_bobbin, time_on_mult
-        ):
+            self, IDZak, account_number, mark, release_date, order_length, number_of_veins, diameter, number_of_strands,
+            number_of_sliver, wires_in_sliver, number_of_sliver_extra, wires_in_sliver_extra, number_of_veins_plus,
+            diameter_plus_plus, number_of_strands_plus, number_of_sliver_plus, wires_in_sliver_plus,
+            number_of_sliver_extra_plus, wires_in_sliver_extra_plus, number_of_veins_support, diameter_support,
+            number_of_strands_support, number_of_sliver_support, wires_in_sliver_support,
+            number_of_sliver_extra_support,
+            wires_in_sliver_extra_support, type_bobbin, volume_bobbin, time_on_mult):
+        self.IDZak = IDZak
         self.length_strands = 0
         self.full_bobbin = ()
         self.length_piece = 0
@@ -182,6 +186,20 @@ class Order:
         self.wires_in_sliver = wires_in_sliver
         self.number_of_sliver_extra = number_of_sliver_extra
         self.wires_in_sliver_extra = wires_in_sliver_extra
+        self.number_of_veins_plus = number_of_veins_plus
+        self.diameter_plus_plus = diameter_plus_plus
+        self.number_of_strands_plus = number_of_strands_plus
+        self.number_of_sliver_plus = number_of_sliver_plus
+        self.wires_in_sliver_plus = wires_in_sliver_plus
+        self.number_of_sliver_extra_plus = number_of_sliver_extra_plus
+        self.wires_in_sliver_extra_plus = wires_in_sliver_extra_plus
+        self.number_of_veins_support = number_of_veins_support
+        self.diameter_support = diameter_support
+        self.number_of_strands_support = number_of_strands_support
+        self.number_of_sliver_support = number_of_sliver_support
+        self.wires_in_sliver_support = wires_in_sliver_support
+        self.number_of_sliver_extra_support = number_of_sliver_extra_support
+        self.wires_in_sliver_extra_support = wires_in_sliver_extra_support
         self.type_bobbin = type_bobbin
         self.volume_bobbin = volume_bobbin
         self.time_on_mult = time_on_mult
@@ -240,15 +258,16 @@ class Order:
 
     def __str__(self) -> str:
         return "{} | {} | {} | {} | {} | {} | {} | {}".format(
-            self.account_number,  self.mark.mark, self.mark.cable_parameters, self.release_date,
+            self.account_number, self.mark.mark, self.mark.cable_parameters, self.release_date,
             self.order_length, self.num_group, self.spin, self.group
-            )
+        )
 
 
 class Mark:
     """
     Класс, описывающий марку кабеля, содержит расшифровку
     """
+
     def __init__(self, mark):
         self.mark: str = mark
         self.cable_parameters = {}
@@ -266,7 +285,7 @@ class Mark:
                 self.cable_decryption(res, gosts)
                 break
         # else:
-            # print(mark, 'не определена')
+        # print(mark, 'не определена')
 
     def cable_decryption(self, result, gosts):
         """
