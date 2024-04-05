@@ -297,3 +297,14 @@ class Mark:
         for group in name_groups:
             if result.group(group) != '' and result.group(group) is not None:
                 self.cable_parameters[name_groups[group]] = result.group(group)
+
+        self.cable_parameters['Тип'] = self.set_type(self.mark)
+
+    @staticmethod
+    def set_type(mark: str):
+        if mark.count('+') == 0:
+            return 'Не плюсовой'
+        elif mark.count('+') == 1:
+            return 'Плюсовой'
+        else:
+            return 'Вспомогательный'
