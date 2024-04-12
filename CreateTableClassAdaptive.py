@@ -56,7 +56,7 @@ def forming_file_with_groups(arr_orders: list[Order]):
     # Загрузка существующего файла Excel
     existing_file = 'excel/output_class.xlsx'
 
-    groups = max(order.num_group for order in arr_orders)  # максимальное число групп, для количества листов
+    groups = max(task.num_group for order in arr_orders for task in order.task)  # максимальное число групп, для количества листов
 
     # Извлекаем заголовки столбцов
     headers = ["Номер счета", "Марка", "Дата выпуска", "Длина кабеля, км", "Километраж", "Время на мультике",
@@ -173,7 +173,7 @@ def create_orders():
         orders.append(Order(IDZak=row[0], account_number=row[1], mark=row[2], release_date=row[3], order_length=row[4],
                             number_of_veins=row[5], diameter=row[7], number_of_strands=row[8], number_of_sliver=row[9],
                             wires_in_sliver=row[10], number_of_sliver_extra=row[11], wires_in_sliver_extra=row[12],
-                            number_of_veins_plus=row[13], diameter_plus_plus=row[14], number_of_strands_plus=row[15], number_of_sliver_plus=row[16],
+                            number_of_veins_plus=row[13], diameter_plus=row[14], number_of_strands_plus=row[15], number_of_sliver_plus=row[16],
                             wires_in_sliver_plus=row[17], number_of_sliver_extra_plus=row[18], wires_in_sliver_extra_plus=row[19],
                             number_of_veins_support=row[20], diameter_support=row[21], number_of_strands_support=row[22], number_of_sliver_support=row[23],
                             wires_in_sliver_support=row[24], number_of_sliver_extra_support=row[25], wires_in_sliver_extra_support=row[26],
@@ -185,6 +185,8 @@ def create_orders():
 #
 if __name__ == "__main__":
     orders = create_orders()
+    a = list(task for order in orders for task in order.task)
+    print(*a, sep='\n')
     result = forming_file_with_groups(orders)
     time = 0
     setup_time = 0
