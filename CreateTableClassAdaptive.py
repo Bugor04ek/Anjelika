@@ -5,6 +5,8 @@ import consts
 
 import pandas as pd
 from pandas.io.excel import ExcelWriter
+
+from Multik import TaskForMultik
 from consts import *
 import numpy as np
 
@@ -30,16 +32,16 @@ def pack_cables(orders: list[Order], container_capacity: float):
     return check_list_temp  # Возвращает массив катушек, на которых сидят заказы
 
 
-def formation_of_orders_in_the_date_range(orders: list[Order], date_range: int, groups_by_dates: dict):
+def formation_of_orders_in_the_date_range(orders: list[TaskForMultik], date_range: int, groups_by_dates: dict):
     """
     Формирование заказов в диапазоне дат
     :return:
     """
 
-    min_date = orders[0].release_date
+    min_date = orders[0].order.release_date
 
     for i in range(1, len(orders)):
-        if (orders[i].release_date - min_date).days > date_range:
+        if (orders[i].order.release_date - min_date).days > date_range:
             groups_by_dates[min_date] = orders[0:i]
             formation_of_orders_in_the_date_range(orders[i:], date_range, groups_by_dates)
             break
@@ -49,14 +51,14 @@ def formation_of_orders_in_the_date_range(orders: list[Order], date_range: int, 
 
 
 def sort_date(order):
-    return order.release_date
+    return order.order.release_date
 
 
-def forming_file_with_groups(arr_orders: list[Order]):
+def forming_file_with_groups(arr_orders: list[TaskForMultik]):
     # Загрузка существующего файла Excel
     existing_file = 'excel/output_class.xlsx'
 
-    groups = max(task.num_group for order in arr_orders for task in order.task)  # максимальное число групп, для количества листов
+    groups = max(order.num_group for order in arr_orders)  # максимальное число групп, для количества листов
 
     # Извлекаем заголовки столбцов
     headers = ["Номер счета", "Марка", "Дата выпуска", "Длина кабеля, км", "Километраж", "Время на мультике",
@@ -70,6 +72,9 @@ def forming_file_with_groups(arr_orders: list[Order]):
           "\n2. Нет")
     k = int(input())
 
+    if k == 1:
+        date_range = int(input('Введите диапазон дат: '))
+
     sort_orders = sorted(arr_orders, key=sort_date)
     for group in range(groups + 1):
         # Инициализируем пустой список для хранения данных
@@ -81,7 +86,6 @@ def forming_file_with_groups(arr_orders: list[Order]):
 
         if k == 1:
             groups_by_dates = {}
-            date_range = int(input('Введите диапазон дат: '))
             formation_of_orders_in_the_date_range(data, date_range, groups_by_dates)
 
             for key in groups_by_dates.keys():
@@ -89,7 +93,7 @@ def forming_file_with_groups(arr_orders: list[Order]):
             else:
                 groups_by_dates.clear()
         else:
-            bin += create_solution(data, container_capacity, release_date=data[0].release_date)
+            bin += create_solution(data, container_capacity, release_date=data[0].order.release_date)
 
         data.append('')
         data_res.extend(data)
@@ -101,7 +105,7 @@ def forming_file_with_groups(arr_orders: list[Order]):
     return data_res
 
 
-def forming_file_with_groups_excel(arr_orders: list[Order]):
+def forming_file_with_groups_excel(arr_orders: list[TaskForMultik]):
     # Загрузка существующего файла Excel
     existing_file = 'excel/output_class.xlsx'
 
@@ -119,7 +123,7 @@ def forming_file_with_groups_excel(arr_orders: list[Order]):
         # Извлекаем данные из PrettyTable и добавляем их в список
         for order in sorted(arr_orders, key=sort_date):
             if order.num_group == group:
-                data.append([order.account_number, order.mark, order.release_date, order.order_length,
+                data.append([order.account_number, order.order.mark.mark, order.order.release_date, order.length_strands,
                              order.volume_bobbin, order.time_on_mult, order.length_strands, order.full_bobbin,
                              order.group, order.num_group, order.spin])
                 container_capacity = order.volume_bobbin
@@ -185,13 +189,12 @@ def create_orders():
 #
 if __name__ == "__main__":
     orders = create_orders()
-    a = list(task for order in orders for task in order.task)
-    print(*a, sep='\n')
-    result = forming_file_with_groups(orders)
+    print(*TaskForMultik.orders, sep='\n')
+    result = forming_file_with_groups(TaskForMultik.orders)
     time = 0
     setup_time = 0
-    for x in result:
-        if isinstance(x, Order):
+    for x in TaskForMultik.orders:
+        if isinstance(x, TaskForMultik):
             time += x.time_on_mult
         else:
             now_group = result[result.index(x) - 1]
@@ -209,9 +212,9 @@ if __name__ == "__main__":
                 setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
                 setup_time += INSERT_SPIN * (spin_next - spin_now - 1)   # время на установку фильер
 
-    forming_file_with_groups_excel(orders)
-    check_list.output_in_excel()
-    print(*result, sep='\n')
-    print('Общее время:', time + setup_time)
-    print('Время работы:', time)
-    print('Время настройки:', setup_time)
+    forming_file_with_groups_excel(TaskForMultik.orders)
+    check_list_multik.output_in_excel()
+    # print(*result, sep='\n')
+    # print('Общее время:', time + setup_time)
+    # print('Время работы:', time)
+    # print('Время настройки:', setup_time)

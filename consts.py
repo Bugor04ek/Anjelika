@@ -44,7 +44,6 @@ second_param_table = PrettyTable(
 class Order:
     """
     Класс содержит все не вычисляемые параметры по кабелю, дальнейшие
-
     """
 
     def __init__(

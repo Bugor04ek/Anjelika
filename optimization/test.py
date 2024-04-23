@@ -1,5 +1,6 @@
 from ortools.linear_solver import pywraplp
 from consts import *
+from Multik import *
 
 
 def create_data_model(orders, container_capacity):
@@ -12,8 +13,7 @@ def create_data_model(orders, container_capacity):
     return data
 
 
-def create_solution(orders: list[Order], container_capacity: float, release_date):
-
+def create_solution(orders: list[TaskForMultik], container_capacity: float, release_date: object) -> object:
     data = create_data_model(orders, container_capacity)
 
     # Create the mip solver with the SCIP backend.
@@ -56,11 +56,9 @@ def create_solution(orders: list[Order], container_capacity: float, release_date
     solver.Minimize(solver.Sum([y[j] for j in data["bins"]]))
 
     status = solver.Solve()
-    result = {"orders": [],
-
-              }
+    result = {"orders": [], }
+    num_bins = 0
     if status == pywraplp.Solver.OPTIMAL:
-        num_bins = 0
         for j in data["bins"]:
             if y[j].solution_value() == 1:
                 bin_orders = []
@@ -68,14 +66,14 @@ def create_solution(orders: list[Order], container_capacity: float, release_date
                 bin_length = 0
                 bin_dates = []
                 bobbin = Bobbin(0, data["bin_capacity"], release_date, None)
-                check_list.append(bobbin)
+                check_list_multik.append(bobbin)
                 for i in data["bins"]:
                     if x[i, j].solution_value() > 0:
                         bin_orders.append(data["orders"][i].account_number)
                         bobbin.add(data["orders"][i].full_bobbin[1], data["orders"][i])
                         orders.append(data["orders"][i].account_number)
                         bin_length += data["orders"][i].full_bobbin[1]  # Используем длину кабеля на неполной катушке
-                        bin_dates.append(data["orders"][i].release_date)
+                        bin_dates.append(data["orders"][i].order.release_date)
                 if bin_orders:
                     num_bins += 1
                     print("Bin number", j)

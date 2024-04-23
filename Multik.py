@@ -1,4 +1,6 @@
 from consts import *
+import inspect
+from pprint import pprint
 
 dictionary_spinners = {
     1.8: 3,
@@ -28,10 +30,17 @@ dict_key_group = {}
 
 
 class TaskForMultik:
+    """
+    Задание на мультик хранит в переменной класса хранит все заказы в массиве, их можно будет найти по IDZak
+
+    """
+    orders = []
 
     def __init__(self, order, diameter, number_of_veins, number_of_strands, number_of_sliver, wires_in_sliver,
                  number_of_sliver_extra, wires_in_sliver_extra, type):
+        TaskForMultik.orders.append(self)
         self.order = order
+        self.volume_bobbin = order.volume_bobbin
         self.IDZak = order.IDZak
         self.account_number = order.account_number + type
         self.diameter = diameter
@@ -48,6 +57,7 @@ class TaskForMultik:
         self.length_piece = 0
         self.length_strands = 0
         self.full_bobbin = ()
+        self.time_on_mult = order.time_on_mult
         self.counting_spinners()
         self.set_group()
         self.calculating_length()
@@ -87,19 +97,22 @@ class TaskForMultik:
         self.calculating_bobbin()
 
     def calculating_bobbin(self):
-
         number_full_bobbin = self.length_strands // self.order.volume_bobbin  # количество полных катушек в расчете на 1 прядь
-        volume_half_bobbin = round(self.length_strands % self.order.volume_bobbin, 2)  # меди на неполной катушки на 1 прядь
+        volume_half_bobbin = round(self.length_strands % self.order.volume_bobbin,
+                                   2)  # меди на неполной катушки на 1 прядь
 
         self.full_bobbin = int(number_full_bobbin), volume_half_bobbin, int(int(number_full_bobbin) > 0)
 
     def __str__(self) -> str:
-        return "{} | {} | {} | {}".format(
-            self.account_number, self.diameter, self.order.release_date, self.length_strands
+        return "{} | {} | {} | {} | {}".format(
+            self.account_number, self.diameter, self.order.release_date, self.length_strands, self.group
         )
 
 
 class Check_List:
+    """
+    Катушки на мультике. Наматываем кабель с мультика на катушки и выводим в эксель
+    """
 
     def __init__(self):
         self.bobbins: [Bobbin] = []
@@ -161,7 +174,7 @@ class Check_List:
             df.to_excel(writer)
 
 
-check_list = Check_List()
+check_list_multik = Check_List()
 
 
 class Bobbin:
