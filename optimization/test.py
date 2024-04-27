@@ -1,4 +1,5 @@
 from ortools.linear_solver import pywraplp
+from scipy.optimize import minimize
 from consts import *
 from Multik import *
 
@@ -88,3 +89,108 @@ def create_solution(orders: list[TaskForMultik], container_capacity: float, rele
         print("The problem does not have an optimal solution.")
 
     return num_bins
+
+
+def objective_function(params):
+    # Параметры оптимизации: диаметр и количество проволок
+    diameter, wire_count = params
+
+    # Вычисление суммарного времени настройки
+    total_setup_time = calculate_total_setup_time(orders)
+
+    # Вычисление суммарного штрафа за просрочку заказов
+    total_penalty = calculate_total_penalty(orders)
+
+    # Целевая функция: минимизация суммарного времени настройки и штрафа
+    return total_setup_time + total_penalty
+
+
+# Функция для вычисления суммарного времени настройки
+def calculate_total_setup_time(orders: list[TaskForMultik]):
+    total_setup_time = 0
+    previous_order = None
+
+    for order in orders:
+        if previous_order is not None:
+            # Вычисляем разницу между предыдущим и текущим заказами
+            if previous_order.diameter != order.diameter:
+                # снимаем фильеры
+                max_spin = max(p)
+                removed_spin = spin_now - spin_next + 1
+                setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
+                setup_time += INSERT_SPIN * next_group.group[3]  # время на установку фильер
+            elif:
+                # снимаем фильеры
+                removed_spin = 1
+                setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
+                setup_time += INSERT_SPIN * (spin_next - spin_now - 1)   # время на установку фильер
+            difference = abs(previous_order[0] - order[0]) + abs(previous_order[1] - order[1])
+            # Учитываем время настройки
+            total_setup_time += difference * setup_time_per_change
+
+        previous_order = order
+
+    for x in TaskForMultik.orders:
+        if isinstance(x, TaskForMultik):
+            time += x.time_on_mult
+        else:
+            now_group = result[result.index(x) - 1]
+            next_group = result[result.index(x) + 1]
+            spin_now = now_group.spin
+            spin_next = next_group.spin
+            if spin_now > spin_next:
+                # снимаем фильеры
+                removed_spin = spin_now - spin_next + 1
+                setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
+                setup_time += INSERT_SPIN * next_group.group[3]  # время на установку фильер
+            else:
+                # снимаем фильеры
+                removed_spin = 1
+                setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
+                setup_time += INSERT_SPIN * (spin_next - spin_now - 1)   # время на установку фильер
+
+
+
+    return total_setup_time
+
+
+# Функция для вычисления суммарного штрафа за просрочку заказов (можно адаптировать под вашу ситуацию)
+def calculate_total_penalty(orders):
+    total_penalty = 0
+
+    for order in orders:
+        # Некоторая логика для вычисления штрафа за просрочку заказа
+        # Ваша логика может отличаться
+        # Здесь просто пример, чтобы код скомпилировался
+        total_penalty += order[0] * order[1]
+
+    return total_penalty
+
+
+# Список заказов
+orders = [
+    (0.254, 8),
+    (0.254, 8),
+    (0.254, 7),
+    (0.44, 8),
+    (0.44, 7),
+    (0.44, 8)
+]
+
+# Время настройки оборудования при изменении параметров кабеля
+setup_time_per_change = 5  # Примерное время настройки, вы можете настроить под свои условия
+
+# Начальное значение параметров (предположим, начинаем с первого заказа)
+initial_guess = orders[0]
+
+# Оптимизация целевой функции
+result = minimize(objective_function, initial_guess, method='Nelder-Mead')
+
+# Получение оптимальных параметров
+optimal_params = result.x
+print("Optimal parameters:", optimal_params)
+
+# Получение минимального значения целевой функции (время настройки + штраф)
+min_objective_value = result.fun
+print("Minimum objective value:", min_objective_value)
+
