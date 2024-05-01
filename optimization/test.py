@@ -113,7 +113,7 @@ def calculate_total_setup_time(orders: list[TaskForMultik]):
     for order in orders:
         if previous_order is not None:
             # Вычисляем разницу между предыдущим и текущим заказами
-            if previous_order.diameter != order.diameter:
+            if previous_order.diameter < order.diameter:
                 # снимаем фильеры
                 max_spin = max(p)
                 removed_spin = spin_now - spin_next + 1
@@ -121,7 +121,7 @@ def calculate_total_setup_time(orders: list[TaskForMultik]):
                 setup_time += INSERT_SPIN * next_group.group[3]  # время на установку фильер
             elif:
                 # снимаем фильеры
-                removed_spin = 1
+                removed_spin = 1  # последняя
                 setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
                 setup_time += INSERT_SPIN * (spin_next - spin_now - 1)   # время на установку фильер
             difference = abs(previous_order[0] - order[0]) + abs(previous_order[1] - order[1])
