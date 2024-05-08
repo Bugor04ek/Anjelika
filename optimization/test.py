@@ -91,18 +91,17 @@ def create_solution(orders: list[TaskForMultik], container_capacity: float, rele
     return num_bins
 
 
-def objective_function(params):
+def objective_function(params, *args):
     # Параметры оптимизации: диаметр и количество проволок
     diameter, wire_count = params
-
     # Вычисление суммарного времени настройки
-    total_setup_time = calculate_total_setup_time(orders)
+    total_setup_time = calculate_total_setup_time(args[0])
 
     # Вычисление суммарного штрафа за просрочку заказов
-    total_penalty = calculate_total_penalty(orders)
+    # total_penalty = calculate_total_penalty(orders)
 
     # Целевая функция: минимизация суммарного времени настройки и штрафа
-    return total_setup_time + total_penalty
+    return total_setup_time  # + total_penalty
 
 
 # Функция для вычисления суммарного времени настройки
@@ -113,43 +112,39 @@ def calculate_total_setup_time(orders: list[TaskForMultik]):
     for order in orders:
         if previous_order is not None:
             # Вычисляем разницу между предыдущим и текущим заказами
-            if previous_order.diameter < order.diameter:
-                # снимаем фильеры
-                max_spin = max(p)
-                removed_spin = spin_now - spin_next + 1
-                setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
-                setup_time += INSERT_SPIN * next_group.group[3]  # время на установку фильер
-            elif:
-                # снимаем фильеры
-                removed_spin = 1  # последняя
-                setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
-                setup_time += INSERT_SPIN * (spin_next - spin_now - 1)   # время на установку фильер
-            difference = abs(previous_order[0] - order[0]) + abs(previous_order[1] - order[1])
-            # Учитываем время настройки
-            total_setup_time += difference * setup_time_per_change
+
+            """
+                1 ПРОВЕРКА -- Разность диаметров (фильер)
+            """
+
+            # меньше диаметр - больше фильер
+            if previous_order.spin > order.spin:
+                removed_spin = previous_order.spin - order.spin + 1  # снимаем фильеры +1, чтобы переставить ее в конец
+                total_setup_time += removed_spin * REMOVED_SPIN  # Время на снятие фильер
+                total_setup_time += INSERT_SPIN * 1  # Время на установку фильер. 1 последняя
+                total_setup_time += CHANGE_BOBBIN  # Время на смену катушки
+            # больше диаметр - меньше фильер
+            elif previous_order.spin < order.spin:
+                removed_spin = 1  # снимаем последнюю
+                total_setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
+                total_setup_time += INSERT_SPIN * (
+                            order.spin - order.spin - 1)  # время на установку фильер -1, потому 1 уже снята
+                total_setup_time += CHANGE_BOBBIN  # Время на смену катушки
+
+            """
+                2 ПРОВЕРКА -- Разность проволочек
+            """
+
+            dif_wire = abs(order.wires_in_sliver - previous_order.wires_in_sliver)
+
+            if previous_order.wires_in_sliver < order.wires_in_sliver:
+                # Надо протянуть новые проволочки через все фильеры на новом заказе
+                total_setup_time += dif_wire * order.spin * CHANGE_WIRE + STRETCHING_WIRE
+            elif previous_order.wires_in_sliver > order.wires_in_sliver:
+                # Надо снять проволочки со всех фильер previous_order
+                total_setup_time += dif_wire * previous_order.spin * CHANGE_WIRE
 
         previous_order = order
-
-    for x in TaskForMultik.orders:
-        if isinstance(x, TaskForMultik):
-            time += x.time_on_mult
-        else:
-            now_group = result[result.index(x) - 1]
-            next_group = result[result.index(x) + 1]
-            spin_now = now_group.spin
-            spin_next = next_group.spin
-            if spin_now > spin_next:
-                # снимаем фильеры
-                removed_spin = spin_now - spin_next + 1
-                setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
-                setup_time += INSERT_SPIN * next_group.group[3]  # время на установку фильер
-            else:
-                # снимаем фильеры
-                removed_spin = 1
-                setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
-                setup_time += INSERT_SPIN * (spin_next - spin_now - 1)   # время на установку фильер
-
-
 
     return total_setup_time
 
@@ -167,30 +162,18 @@ def calculate_total_penalty(orders):
     return total_penalty
 
 
-# Список заказов
-orders = [
-    (0.254, 8),
-    (0.254, 8),
-    (0.254, 7),
-    (0.44, 8),
-    (0.44, 7),
-    (0.44, 8)
-]
+def optimization(orders: list[TaskForMultik]):
 
-# Время настройки оборудования при изменении параметров кабеля
-setup_time_per_change = 5  # Примерное время настройки, вы можете настроить под свои условия
+    # Начальное значение параметров (предположим, начинаем с первого заказа)
+    initial_guess = (orders[0].spin, orders[0].wires_in_sliver)
 
-# Начальное значение параметров (предположим, начинаем с первого заказа)
-initial_guess = orders[0]
+    # Оптимизация целевой функции
+    result = minimize(objective_function, initial_guess, orders, method='Nelder-Mead')
 
-# Оптимизация целевой функции
-result = minimize(objective_function, initial_guess, method='Nelder-Mead')
+    # Получение оптимальных параметров
+    optimal_params = result.x
+    print("Optimal parameters:", optimal_params)
 
-# Получение оптимальных параметров
-optimal_params = result.x
-print("Optimal parameters:", optimal_params)
-
-# Получение минимального значения целевой функции (время настройки + штраф)
-min_objective_value = result.fun
-print("Minimum objective value:", min_objective_value)
-
+    # Получение минимального значения целевой функции (время настройки + штраф)
+    min_objective_value = result.fun
+    print("Minimum objective value:", min_objective_value)

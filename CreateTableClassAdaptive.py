@@ -1,6 +1,8 @@
 import os
 from ast import slice
 from typing import Type
+
+import asd
 import consts
 
 import pandas as pd
@@ -123,9 +125,10 @@ def forming_file_with_groups_excel(arr_orders: list[TaskForMultik]):
         # Извлекаем данные из PrettyTable и добавляем их в список
         for order in sorted(arr_orders, key=sort_date):
             if order.num_group == group:
-                data.append([order.account_number, order.order.mark.mark, order.order.release_date, order.length_strands,
-                             order.volume_bobbin, order.time_on_mult, order.length_strands, order.full_bobbin,
-                             order.group, order.num_group, order.spin])
+                data.append(
+                    [order.account_number, order.order.mark.mark, order.order.release_date, order.length_strands,
+                     order.volume_bobbin, order.time_on_mult, order.length_strands, order.full_bobbin,
+                     order.group, order.num_group, order.spin])
                 container_capacity = order.volume_bobbin
 
         # pack_cables(data, container_capacity)
@@ -177,10 +180,14 @@ def create_orders():
         orders.append(Order(IDZak=row[0], account_number=row[1], mark=row[2], release_date=row[3], order_length=row[4],
                             number_of_veins=row[5], diameter=row[7], number_of_strands=row[8], number_of_sliver=row[9],
                             wires_in_sliver=row[10], number_of_sliver_extra=row[11], wires_in_sliver_extra=row[12],
-                            number_of_veins_plus=row[13], diameter_plus=row[14], number_of_strands_plus=row[15], number_of_sliver_plus=row[16],
-                            wires_in_sliver_plus=row[17], number_of_sliver_extra_plus=row[18], wires_in_sliver_extra_plus=row[19],
-                            number_of_veins_support=row[20], diameter_support=row[21], number_of_strands_support=row[22], number_of_sliver_support=row[23],
-                            wires_in_sliver_support=row[24], number_of_sliver_extra_support=row[25], wires_in_sliver_extra_support=row[26],
+                            number_of_veins_plus=row[13], diameter_plus=row[14], number_of_strands_plus=row[15],
+                            number_of_sliver_plus=row[16],
+                            wires_in_sliver_plus=row[17], number_of_sliver_extra_plus=row[18],
+                            wires_in_sliver_extra_plus=row[19],
+                            number_of_veins_support=row[20], diameter_support=row[21],
+                            number_of_strands_support=row[22], number_of_sliver_support=row[23],
+                            wires_in_sliver_support=row[24], number_of_sliver_extra_support=row[25],
+                            wires_in_sliver_extra_support=row[26],
                             type_bobbin=row[27], volume_bobbin=row[28], time_on_mult=row[29]))
 
     return orders
@@ -191,29 +198,52 @@ if __name__ == "__main__":
     orders = create_orders()
     print(*TaskForMultik.orders, sep='\n')
     result = forming_file_with_groups(TaskForMultik.orders)
-    time = 0
-    setup_time = 0
-    for x in TaskForMultik.orders:
-        if isinstance(x, TaskForMultik):
-            time += x.time_on_mult
-        else:
-            now_group = result[result.index(x) - 1]
-            next_group = result[result.index(x) + 1]
-            spin_now = now_group.spin
-            spin_next = next_group.spin
-            if spin_now > spin_next:
-                # снимаем фильеры
-                removed_spin = spin_now - spin_next + 1
-                setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
-                setup_time += INSERT_SPIN * next_group.group[3]  # время на установку фильер
-            else:
-                # снимаем фильеры
-                removed_spin = 1
-                setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
-                setup_time += INSERT_SPIN * (spin_next - spin_now - 1)   # время на установку фильер
+    asd.main(TaskForMultik.orders)
 
-    forming_file_with_groups_excel(TaskForMultik.orders)
-    check_list_multik.output_in_excel()
+
+    total_setup_time = 0
+    previous_order = None
+    for order in TaskForMultik.orders:
+        if previous_order is not None:
+            # Вычисляем разницу между предыдущим и текущим заказами
+
+            """
+                1 ПРОВЕРКА -- Разность диаметров (фильер)
+            """
+
+            # меньше диаметр - больше фильер
+            if previous_order.spin > order.spin:
+                removed_spin = previous_order.spin - order.spin + 1  # снимаем фильеры +1, чтобы переставить ее в конец
+                total_setup_time += removed_spin * REMOVED_SPIN  # Время на снятие фильер
+                total_setup_time += INSERT_SPIN * 1  # Время на установку фильер. 1 последняя
+                total_setup_time += CHANGE_BOBBIN  # Время на смену катушки
+            # больше диаметр - меньше фильер
+            elif previous_order.spin < order.spin:
+                removed_spin = 1  # снимаем последнюю
+                total_setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
+                total_setup_time += INSERT_SPIN * (
+                        order.spin - order.spin - 1)  # время на установку фильер -1, потому 1 уже снята
+                total_setup_time += CHANGE_BOBBIN  # Время на смену катушки
+
+            """
+                2 ПРОВЕРКА -- Разность проволочек
+            """
+
+            dif_wire = abs(order.wires_in_sliver - previous_order.wires_in_sliver)
+
+            if previous_order.wires_in_sliver < order.wires_in_sliver:
+                # Надо протянуть новые проволочки через все фильеры на новом заказе
+                total_setup_time += dif_wire * order.spin * CHANGE_WIRE + STRETCHING_WIRE
+            elif previous_order.wires_in_sliver > order.wires_in_sliver:
+                # Надо снять проволочки со всех фильер previous_order
+                total_setup_time += dif_wire * previous_order.spin * CHANGE_WIRE
+
+        previous_order = order
+
+
+    # print("суммарное время: ", total_setup_time)
+    # forming_file_with_groups_excel(TaskForMultik.orders)
+    # check_list_multik.output_in_excel()
     # print(*result, sep='\n')
     # print('Общее время:', time + setup_time)
     # print('Время работы:', time)

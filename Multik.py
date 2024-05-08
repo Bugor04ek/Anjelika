@@ -105,7 +105,7 @@ class TaskForMultik:
 
     def __str__(self) -> str:
         return "{} | {} | {} | {} | {}".format(
-            self.account_number, self.diameter, self.order.release_date, self.length_strands, self.group
+            self.account_number, self.spin, self.order.release_date, self.length_strands, self.group
         )
 
 
