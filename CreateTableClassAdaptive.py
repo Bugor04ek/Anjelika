@@ -8,6 +8,7 @@ import consts
 import pandas as pd
 from pandas.io.excel import ExcelWriter
 
+import vrp
 from Multik import TaskForMultik
 from consts import *
 import numpy as np
@@ -198,7 +199,7 @@ if __name__ == "__main__":
     orders = create_orders()
     print(*TaskForMultik.orders, sep='\n')
     result = forming_file_with_groups(TaskForMultik.orders)
-    asd.main(TaskForMultik.orders)
+    vrp.main(TaskForMultik.orders)
 
 
     total_setup_time = 0

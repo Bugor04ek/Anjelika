@@ -45,20 +45,21 @@ def create_data_model(orders: list[TaskForMultik]):
         data["order"].append(order)
     data["order"].append(0)
     data["distance_matrix"] = form_matrix(orders)
-    data["demands"] = [order.length_piece for order in orders]
+    # data["demands"] = [order.length_piece for order in orders]
     # data["vehicle_capacities"] = [15, 15, 15, 15]
     data["depot"] = 0
 
-    groups = max(order.num_group for order in orders)  # максимальное число групп, для количества листов
-    container_capacity = []
-    for group in range(groups + 1):
-        data1 = [order for order in orders if order.num_group == group]
-        container_capacity.append(data1[0].volume_bobbin)
-
-    data["num_vehicles"] = len(container_capacity)
-    data["vehicle_capacities"] = container_capacity
+    # groups = max(order.num_group for order in orders)  # максимальное число групп, для количества листов
+    # container_capacity = []
+    # for group in range(groups + 1):
+    #     data1 = [order for order in orders if order.num_group == group]
+    #     container_capacity.append(data1[0].volume_bobbin)
+    #
+    # data["num_vehicles"] = len(container_capacity)
+    # data["vehicle_capacities"] = container_capacity
 
     return data
+
 
 def form_matrix(orders):
 
@@ -69,40 +70,40 @@ def form_matrix(orders):
 
         temp_matrix2 = [0]
         for order2 in orders:
-            temp_matrix2.append(calculate_setup_time(order1, order2))
+            temp_matrix2.append(calculate_setup_time(order1, order2) + order2.time_on_mult)
 
         temp_matrix1.append(temp_matrix2)
 
     return temp_matrix1
 
 
-def print_solution(data, manager, routing, solution):
-    """Prints solution on console."""
-    print(f"Objective: {solution.ObjectiveValue()}")
-    total_distance = 0
-    total_load = 0
-    for vehicle_id in range(data["num_vehicles"]):
-        index = routing.Start(vehicle_id)
-        plan_output = f"Route for vehicle {vehicle_id}:\n"
-        route_distance = 0
-        route_load = 0
-        while not routing.IsEnd(index):
-            node_index = manager.IndexToNode(index)
-            route_load += data["demands"][node_index]
-            plan_output += f" {node_index} Load({route_load}) -> "
-            previous_index = index
-            index = solution.Value(routing.NextVar(index))
-            route_distance += routing.GetArcCostForVehicle(
-                previous_index, index, vehicle_id
-            )
-        plan_output += f" {manager.IndexToNode(index)} Load({route_load})\n"
-        plan_output += f"Distance of the route: {route_distance}m\n"
-        plan_output += f"Load of the route: {route_load}\n"
-        print(plan_output)
-        total_distance += route_distance
-        total_load += route_load
-    print(f"Total distance of all routes: {total_distance}m")
-    print(f"Total load of all routes: {total_load}")
+# def print_solution(data, manager, routing, solution):
+#     """Prints solution on console."""
+#     print(f"Objective: {solution.ObjectiveValue()}")
+#     total_distance = 0
+#     total_load = 0
+#     for vehicle_id in range(data["num_vehicles"]):
+#         index = routing.Start(vehicle_id)
+#         plan_output = f"Route for vehicle {vehicle_id}:\n"
+#         route_distance = 0
+#         route_load = 0
+#         while not routing.IsEnd(index):
+#             node_index = manager.IndexToNode(index)
+#             route_load += data["demands"][node_index]
+#             plan_output += f" {node_index} Load({route_load}) -> "
+#             previous_index = index
+#             index = solution.Value(routing.NextVar(index))
+#             route_distance += routing.GetArcCostForVehicle(
+#                 previous_index, index, vehicle_id
+#             )
+#         plan_output += f" {manager.IndexToNode(index)} Load({route_load})\n"
+#         plan_output += f"Distance of the route: {route_distance}m\n"
+#         plan_output += f"Load of the route: {route_load}\n"
+#         print(plan_output)
+#         total_distance += route_distance
+#         total_load += route_load
+#     print(f"Total distance of all routes: {total_distance}m")
+#     print(f"Total load of all routes: {total_load}")
 
 # def print_solution(data, manager, routing, solution):
 #     """Prints solution on console."""
@@ -135,32 +136,32 @@ def print_solution(data, manager, routing, solution):
 #         max_route_distance = max(route_distance, max_route_distance)
 #     print(f"Maximum of the route distances: {max_route_distance}m")
 
-# def print_solution(data, manager, routing, solution):
-#     """Prints solution on console."""
-#     print(f"Objective: {solution.ObjectiveValue()} miles")
-#     index = routing.Start(0)
-#     plan_output = "Route for vehicle 0:\n"
-#     plan_output_number = ''
-#     plan_output_diameter = ''
-#     route_distance = 0
-#     plan_order = []
-#     while not routing.IsEnd(index):
-#         plan_output += f" {manager.IndexToNode(index)} ->"
-#
-#         if isinstance(data['order'][manager.IndexToNode(index)], TaskForMultik):
-#             plan_output_number += f" {data['order'][manager.IndexToNode(index)].account_number} ->"
-#             plan_output_diameter += f" {data['order'][manager.IndexToNode(index)].diameter} ->"
-#             plan_order.append(data['order'][manager.IndexToNode(index)])
-#
-#         previous_index = index
-#         index = solution.Value(routing.NextVar(index))
-#         route_distance += routing.GetArcCostForVehicle(previous_index, index, 0)
-#     plan_output += f" {manager.IndexToNode(index)}\n"
-#     print(plan_output)
-#     print(plan_output_number)
-#     print(plan_output_diameter)
-#     plan_output += f"Route distance: {route_distance}минут\n"
-#     # print(*plan_order, sep='\n')
+def print_solution(data, manager, routing, solution):
+    """Prints solution on console."""
+    print(f"Objective: {solution.ObjectiveValue()} miles")
+    index = routing.Start(0)
+    plan_output = "Route for vehicle 0:\n"
+    plan_output_number = ''
+    plan_output_diameter = ''
+    route_distance = 0
+    plan_order = []
+    while not routing.IsEnd(index):
+        plan_output += f" {manager.IndexToNode(index)} ->"
+
+        if isinstance(data['order'][manager.IndexToNode(index)], TaskForMultik):
+            plan_output_number += f" {data['order'][manager.IndexToNode(index)].account_number} ->"
+            plan_output_diameter += f" {data['order'][manager.IndexToNode(index)].diameter} ->"
+            plan_order.append(data['order'][manager.IndexToNode(index)])
+
+        previous_index = index
+        index = solution.Value(routing.NextVar(index))
+        route_distance += routing.GetArcCostForVehicle(previous_index, index, 0)
+    plan_output += f" {manager.IndexToNode(index)}\n"
+    print(plan_output)
+    print(plan_output_number)
+    print(plan_output_diameter)
+    plan_output += f"Route distance: {route_distance}минут\n"
+    # print(*plan_order, sep='\n')
 
 
 def main(orders):

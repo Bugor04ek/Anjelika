@@ -66,7 +66,7 @@ class TaskForMultik:
         """
         Устанавливаем группу и номер группы для заказа
         """
-        key = (self.diameter, self.number_of_sliver, self.wires_in_sliver, self.order.type_bobbin)
+        key = (self.spin, self.number_of_sliver, self.wires_in_sliver, self.order.type_bobbin)
 
         if dict_key_group.get(key) is None:
             dict_key_group[key] = len(dict_key_group)
