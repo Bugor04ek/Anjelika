@@ -109,8 +109,8 @@ def print_solution(data, manager, routing, solution):
     plan_output += f" {manager.IndexToNode(index)}\n"
     print(plan_output)
     print(plan_output_number)
-    print(plan_output_diameter)
-    print(plan_output_group)
+    # print(plan_output_diameter)
+    # print(plan_output_group)
     plan_output += f"Route distance: {route_distance}минут\n"
 
 
@@ -174,15 +174,24 @@ def main(orders):
 
 
 def time_change_bobbin(route, data):
-    prev_order = None
+    prev_order = 0
+    bin = 0
     list_orders = []
+    data_res = []
     for order in route[0]:
-        if prev_order is not None:
+        # 0 в массиве это депо, которое не должно учитываться
+        if order != 0 and prev_order != 0:
             if data['order'][prev_order].num_group != data['order'][order].num_group:
-                create_solution(list_orders, order.container_capacity, release_date=list_orders[0].release_date)
+                bin += create_solution(list_orders, data['order'][order].volume_bobbin, release_date=list_orders[0].order.release_date)
                 list_orders.clear()
 
-        list_orders.append(order)
+                data.append('')
+                data_res.extend(data)
+                data.clear()
 
+        if isinstance(data['order'][order], TaskForMultik):
+            list_orders.append(data['order'][order])
 
         prev_order = order
+
+    print("Всего катушек", bin)
