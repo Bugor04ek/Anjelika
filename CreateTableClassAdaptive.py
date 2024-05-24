@@ -199,53 +199,61 @@ if __name__ == "__main__":
     orders = create_orders()
     print(*TaskForMultik.orders, sep='\n')
     result = forming_file_with_groups(TaskForMultik.orders)
-    vrp.main(TaskForMultik.orders)
+    check_list_multik.output_in_excel()
 
 
     total_setup_time = 0
-    previous_order = None
+
+    previous_order = result[0]
     for order in TaskForMultik.orders:
-        if previous_order is not None:
-            # Вычисляем разницу между предыдущим и текущим заказами
 
-            """
-                1 ПРОВЕРКА -- Разность диаметров (фильер)
-            """
+        change = False
 
-            # меньше диаметр - больше фильер
-            if previous_order.spin > order.spin:
-                removed_spin = previous_order.spin - order.spin + 1  # снимаем фильеры +1, чтобы переставить ее в конец
-                total_setup_time += removed_spin * REMOVED_SPIN  # Время на снятие фильер
-                total_setup_time += INSERT_SPIN * 1  # Время на установку фильер. 1 последняя
-                total_setup_time += CHANGE_BOBBIN  # Время на смену катушки
-            # больше диаметр - меньше фильер
-            elif previous_order.spin < order.spin:
-                removed_spin = 1  # снимаем последнюю
-                total_setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
-                total_setup_time += INSERT_SPIN * (
-                        order.spin - order.spin - 1)  # время на установку фильер -1, потому 1 уже снята
-                total_setup_time += CHANGE_BOBBIN  # Время на смену катушки
+        # меньше диаметр - больше фильер
+        if previous_order.spin > order.spin:
+            removed_spin = previous_order.spin - order.spin + 1  # снимаем фильеры +1, чтобы переставить ее в конец
+            total_setup_time += removed_spin * REMOVED_SPIN  # Время на снятие фильер
+            total_setup_time += INSERT_SPIN * order.wires_in_sliver  # Время на установку фильер
+            change = True
+        # больше диаметр - меньше фильер
+        elif previous_order.spin < order.spin:
+            removed_spin = 1  # снимаем последнюю
+            total_setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
+            total_setup_time += INSERT_SPIN * (
+                    order.spin - (
+                    previous_order.spin - 1)) * order.wires_in_sliver  # время на установку фильер +1, потому 1 уже снята tt
+            change = True
 
-            """
-                2 ПРОВЕРКА -- Разность проволочек
-            """
+        """
+            2 ПРОВЕРКА -- Разность проволочек
+        """
 
-            dif_wire = abs(order.wires_in_sliver - previous_order.wires_in_sliver)
+        dif_wire = abs(order.wires_in_sliver - previous_order.wires_in_sliver)
 
-            if previous_order.wires_in_sliver < order.wires_in_sliver:
-                # Надо протянуть новые проволочки через все фильеры на новом заказе
-                total_setup_time += dif_wire * order.spin * CHANGE_WIRE + STRETCHING_WIRE
-            elif previous_order.wires_in_sliver > order.wires_in_sliver:
-                # Надо снять проволочки со всех фильер previous_order
-                total_setup_time += dif_wire * previous_order.spin * CHANGE_WIRE
+        if previous_order.wires_in_sliver < order.wires_in_sliver:
+            # Надо протянуть новые проволочки через все фильеры на новом заказе
+            total_setup_time += dif_wire * order.spin * CHANGE_WIRE + STRETCHING_WIRE
+            change = True
+        elif previous_order.wires_in_sliver > order.wires_in_sliver:
+            # Надо снять проволочки со всех фильер previous_order
+            total_setup_time += dif_wire * previous_order.spin * CHANGE_WIRE
+            change = True
+
+        if change:
+            # Если было любое изменение, то надо сменить катушку
+            total_setup_time += CHANGE_BOBBIN  # Время на смену катушки
 
         previous_order = order
+
+    print('Время настройки:', total_setup_time)
+
+    vrp.main(TaskForMultik.orders)
 
 
     # print("суммарное время: ", total_setup_time)
     # forming_file_with_groups_excel(TaskForMultik.orders)
-    # check_list_multik.output_in_excel()
+
     # print(*result, sep='\n')
     # print('Общее время:', time + setup_time)
     # print('Время работы:', time)
-    # print('Время настройки:', setup_time)
+

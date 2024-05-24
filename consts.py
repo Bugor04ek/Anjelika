@@ -1,10 +1,8 @@
-import os
-from pandas import ExcelWriter
+
 from prettytable import PrettyTable
-import pandas as pd
 import re
 from gosts import GOSTS
-from Multik import *
+from Multik import TaskForMultik
 
 
 REMOVED_SPIN = 1     # время снятия фильер

@@ -112,6 +112,7 @@ def print_solution(data, manager, routing, solution):
     # print(plan_output_diameter)
     # print(plan_output_group)
     plan_output += f"Route distance: {route_distance}минут\n"
+    return route_distance
 
 
 def get_routes(solution, routing, manager):
@@ -165,15 +166,15 @@ def main(orders):
 
     # Print solution on console.
     if solution:
-        print_solution(data, manager, routing, solution)
+        time_setup = print_solution(data, manager, routing, solution)
         route = get_routes(solution, routing, manager)
-        time_change_bobbin(route, data)
+        time_change_bobbin(route, data, time_setup)
         print(*route)
 
     print(routing.status())
 
 
-def time_change_bobbin(route, data):
+def time_change_bobbin(route, data, time_setup):
     prev_order = 0
     bin = 0
     list_orders = []
@@ -182,12 +183,11 @@ def time_change_bobbin(route, data):
         # 0 в массиве это депо, которое не должно учитываться
         if order != 0 and prev_order != 0:
             if data['order'][prev_order].num_group != data['order'][order].num_group:
-                bin += create_solution(list_orders, data['order'][order].volume_bobbin, release_date=list_orders[0].order.release_date)
+                bin += create_solution(list_orders, data['order'][prev_order].volume_bobbin, release_date=list_orders[0].order.release_date)
+                list_orders.append('')
+                time_setup += 5
+                data_res.extend(list_orders)
                 list_orders.clear()
-
-                data.append('')
-                data_res.extend(data)
-                data.clear()
 
         if isinstance(data['order'][order], TaskForMultik):
             list_orders.append(data['order'][order])
@@ -195,3 +195,6 @@ def time_change_bobbin(route, data):
         prev_order = order
 
     print("Всего катушек", bin)
+    print('Время настройки:', time_setup)
+    # print(*data_res, sep='\n')
+    check_list_multik.output_in_excel()

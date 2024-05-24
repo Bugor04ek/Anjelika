@@ -1,6 +1,6 @@
-from consts import *
-import inspect
-from pprint import pprint
+import os
+from pandas import ExcelWriter
+import pandas as pd
 
 dictionary_spinners = {
     1.8: 3,
@@ -26,6 +26,8 @@ dictionary_spinners = {
 
 d_mult = 2.08
 
+pi = 3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095
+
 dict_key_group = {}
 
 
@@ -40,7 +42,10 @@ class TaskForMultik:
                  number_of_sliver_extra, wires_in_sliver_extra, type):
         TaskForMultik.orders.append(self)
         self.order = order
-        self.volume_bobbin = order.volume_bobbin
+        # self.volume_bobbin = order.volume_bobbin
+        # 350 - Ограничение по массе барабана для гибкой жилы на 630 барабан
+        # 8.89 - Плотность меди
+        self.volume_bobbin = 350 / (pi * 0.25 * 8.89 * order.diameter ** 2 * max(order.wires_in_sliver, order.wires_in_sliver_extra))
         self.IDZak = order.IDZak
         self.account_number = order.account_number + type
         self.diameter = diameter
@@ -66,10 +71,10 @@ class TaskForMultik:
         """
         Устанавливаем группу и номер группы для заказа
         """
-        # key = (self.spin, self.number_of_sliver, self.wires_in_sliver, self.order.type_bobbin)
+        key = (self.spin, self.number_of_sliver, self.wires_in_sliver, self.order.type_bobbin)
 
         # группы без количества жил хз как там катушки меняются
-        key = (self.spin, self.wires_in_sliver, self.order.type_bobbin)
+        #key = (self.spin, self.wires_in_sliver, self.order.type_bobbin)
 
         if dict_key_group.get(key) is None:
             dict_key_group[key] = len(dict_key_group)
@@ -100,15 +105,14 @@ class TaskForMultik:
         self.calculating_bobbin()
 
     def calculating_bobbin(self):
-        number_full_bobbin = self.length_strands // self.order.volume_bobbin  # количество полных катушек в расчете на 1 прядь
-        volume_half_bobbin = round(self.length_strands % self.order.volume_bobbin,
-                                   2)  # меди на неполной катушки на 1 прядь
+        number_full_bobbin = self.length_strands // self.volume_bobbin  # количество полных катушек в расчете на 1 прядь
+        volume_half_bobbin = round(self.length_strands % self.volume_bobbin, 2)  # меди на неполной катушки на 1 прядь
 
         self.full_bobbin = int(number_full_bobbin), volume_half_bobbin, int(int(number_full_bobbin) > 0)
 
     def __str__(self) -> str:
-        return "{} | {} | {} | {} | {}".format(
-            self.account_number, self.spin, self.order.release_date, self.length_strands, self.group
+        return "{} | {} | {} | {} | {} | {}".format(
+            self.account_number, self.num_group, self.order.release_date, self.length_strands, self.group, self.full_bobbin
         )
 
 
@@ -189,7 +193,7 @@ class Bobbin:
         self.max_volume = max_volume
         self.date_first_order = date
         self.volume: float = 0
-        self.orders: [Order] = []
+        self.orders: [TaskForMultik] = []
         self.time_on_mult: float = 0
         self.add(volume, order)
 
