@@ -2,6 +2,13 @@ import os
 from pandas import ExcelWriter
 import pandas as pd
 
+REMOVED_SPIN = 1  # время снятия фильер
+INSERT_SPIN = 5  # время вставки фильер (это время надо умножить на количество проволочек в пряди)
+CHANGE_BASKET = 20  # смена корзины на мультике
+CHANGE_BOBBIN = 5  # смена корзины на мультике
+CHANGE_WIRE = 1.5  # снятие/натягивание проволочки на 1 фильере
+STRETCHING_WIRE = 5  # протягивание пучка проволочек после всех фильер
+
 dictionary_spinners = {
     1.8: 3,
     1.6: 4,
@@ -45,7 +52,8 @@ class TaskForMultik:
         # self.volume_bobbin = order.volume_bobbin
         # 350 - Ограничение по массе барабана для гибкой жилы на 630 барабан
         # 8.89 - Плотность меди
-        self.volume_bobbin = 350 / (pi * 0.25 * 8.89 * order.diameter ** 2 * max(order.wires_in_sliver, order.wires_in_sliver_extra))
+        self.volume_bobbin = 350 / (
+                pi * 0.25 * 8.89 * order.diameter ** 2 * max(order.wires_in_sliver, order.wires_in_sliver_extra))
         self.IDZak = order.IDZak
         self.account_number = order.account_number + type
         self.diameter = diameter
@@ -74,7 +82,7 @@ class TaskForMultik:
         key = (self.spin, self.number_of_sliver, self.wires_in_sliver, self.order.type_bobbin)
 
         # группы без количества жил хз как там катушки меняются
-        #key = (self.spin, self.wires_in_sliver, self.order.type_bobbin)
+        # key = (self.spin, self.wires_in_sliver, self.order.type_bobbin)
 
         if dict_key_group.get(key) is None:
             dict_key_group[key] = len(dict_key_group)
@@ -112,7 +120,8 @@ class TaskForMultik:
 
     def __str__(self) -> str:
         return "{} | {} | {} | {} | {} | {}".format(
-            self.account_number, self.num_group, self.order.release_date, self.length_strands, self.group, self.full_bobbin
+            self.account_number, self.num_group, self.order.release_date, self.length_strands, self.group,
+            self.full_bobbin
         )
 
 
@@ -128,6 +137,9 @@ class Check_List:
     def append(self, bobbin):
         self.bobbins.append(bobbin)
 
+    def clear(self):
+        self.bobbins.clear()
+
     def __add__(self, other):
         self.bobbins.extend(other.bobbins)
 
@@ -138,12 +150,66 @@ class Check_List:
     def sort_date(bobbin):
         return bobbin.date_first_order
 
+    @staticmethod
+    def sort_num(bobbin):
+        return bobbin.number
+
+    def calculate_time_setup(self):
+
+        previous_order = None
+        total_setup_time = 0
+
+        for bobbin in self.bobbins:
+
+            for order in bobbin.orders:
+
+                if previous_order is not None:
+
+                    """
+                        1 ПРОВЕРКА -- Разность фильер
+                    """
+
+                    # меньше диаметр - больше фильер
+                    if previous_order.spin > order.spin:
+                        removed_spin = previous_order.spin - order.spin + 1  # снимаем фильеры +1, чтобы переставить ее в конец
+                        total_setup_time += removed_spin * REMOVED_SPIN  # Время на снятие фильер
+                        total_setup_time += INSERT_SPIN * order.wires_in_sliver  # Время на установку фильер
+
+                    # больше диаметр - меньше фильер
+                    elif previous_order.spin < order.spin:
+                        removed_spin = 1  # снимаем последнюю
+                        total_setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
+                        total_setup_time += INSERT_SPIN * (order.spin - (
+                                previous_order.spin - 1)) * order.wires_in_sliver  # время на установку фильер +1, потому 1 уже снята tt
+
+                    """
+                        2 ПРОВЕРКА -- Разность проволочек
+                    """
+
+                    dif_wire = abs(order.wires_in_sliver - previous_order.wires_in_sliver)
+
+                    if previous_order.wires_in_sliver < order.wires_in_sliver:
+                        # Надо протянуть новые проволочки через все фильеры на новом заказе
+                        total_setup_time += dif_wire * order.spin * CHANGE_WIRE + STRETCHING_WIRE
+                    elif previous_order.wires_in_sliver > order.wires_in_sliver:
+                        # Надо снять проволочки со всех фильер previous_order
+                        total_setup_time += dif_wire * previous_order.spin * CHANGE_WIRE
+
+                previous_order = order
+            else:
+                # После окончания цикла переход на следующую катушку
+                total_setup_time += CHANGE_BOBBIN  # Время на смену катушки
+
+        return total_setup_time
+
     def output_in_excel(self):
         """
-        0 - как есть
-        1 - по дате
-        :return:
-        """
+            0 - как есть
+            1 - по дате
+            :return:
+            """
+
+        # self.bobbins.sort(key=self.sort_num)
 
         print('Выберите сортировку:')
         print('0 - как есть')
@@ -154,7 +220,7 @@ class Check_List:
 
         existing_file = 'excel/group_with_date.xlsx' if k else 'excel/group_without_date.xlsx'
 
-        header = ['Номер группы', 'Номер катушки', 'Номер счета', 'Намотка', 'Max намотка', 'Дата']
+        header = ['Номер группы', 'Номер катушки', 'Номер счета', 'Группа', 'Намотка', 'Max намотка', 'Дата']
 
         data = []
         for bobbin in self.bobbins:
@@ -164,13 +230,13 @@ class Check_List:
             for order in bobbin.orders:
                 if i == 0:
                     data.append(
-                        [order.num_group, bobbin.number, order.account_number,
+                        [order.num_group, bobbin.number, order.account_number, order.group,
                          bobbin.volume, bobbin.max_volume, bobbin.date_first_order]
                     )
                     i += 1
                 else:
                     data.append(
-                        [order.num_group, bobbin.number, order.account_number, '', '', '']
+                        [order.num_group, bobbin.number, order.account_number, order.group, '', '', '']
                     )
 
         df = pd.DataFrame(data, columns=header, index=None)

@@ -7,6 +7,11 @@ from consts import *
 
 
 def calculate_setup_time(previous_order, order):
+    # Создается матрица "расстояний".
+    # Считается время перенастройки и смены катушки между заказами
+    # Не учитывается добавление катушки, если она заполнена
+    # После определения оптимального варианта будет пересчет через чеклист мультика
+
     total_setup_time = 0
 
     if previous_order is not None:
@@ -176,9 +181,12 @@ def main(orders):
 
 def time_change_bobbin(route, data, time_setup):
     prev_order = 0
+    time_work = time_setup
     bin = 0
     list_orders = []
     data_res = []
+    check_list_multik.clear()
+    Bobbin.count = 0
     for order in route[0]:
         # 0 в массиве это депо, которое не должно учитываться
         if order != 0 and prev_order != 0:
@@ -196,5 +204,10 @@ def time_change_bobbin(route, data, time_setup):
 
     print("Всего катушек", bin)
     print('Время настройки:', time_setup)
+    print('Время работы:', time_work)
     # print(*data_res, sep='\n')
+
+    total_setup_time = check_list_multik.calculate_time_setup()
+    print('Время настройки2:', total_setup_time)
+
     check_list_multik.output_in_excel()
