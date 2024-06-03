@@ -1,33 +1,17 @@
-import os
-import tkinter as tk
-from tkinter import ttk
-from pandas import ExcelWriter
-from prettytable import PrettyTable
-import pandas as pd
 
-dictionary_spinners = {
-    1.8: 3,
-    1.6: 4,
-    1.422: 5,
-    1.2638: 6,
-    1.1232: 7,
-    0.9983: 8,
-    0.8872: 9,
-    0.7875: 10,
-    0.6993: 11,
-    0.621: 12,
-    0.5514: 13,
-    0.4896: 14,
-    0.446: 15,
-    0.4063: 16,
-    0.3701: 17,
-    0.3371: 18,
-    0.3075: 19,
-    0.2795: 20,
-    0.26: 21
-}
-dict_key_group = {
-}
+from prettytable import PrettyTable
+import re
+from gosts import GOSTS
+from Multik import TaskForMultik
+
+
+REMOVED_SPIN = 1     # время снятия фильер
+INSERT_SPIN = 5      # время вставки фильер (это время надо умножить на количество проволочек в пряди)
+CHANGE_BASKET = 20   # смена корзины на мультике
+CHANGE_BOBBIN = 5    # смена корзины на мультике
+CHANGE_WIRE = 1.5    # снятие/натягивание проволочки на 1 фильере
+STRETCHING_WIRE = 5  # протягивание пучка проволочек после всех фильер
+
 
 # A - IDZak
 # B - Номер счета
@@ -48,118 +32,39 @@ dict_key_group = {
 # Q - Время на мультике
 
 main_table = PrettyTable(
-    ["Номер счета", "Марка", "Дата выпуска", "Длина кабеля, км", "Километраж", "Время на мультике"])
+    ["Номер счета", "Марка", "Дата выпуска", "Длина кабеля, км", "Километраж", "Время на мультике"]
+)
 
-second_param_table = PrettyTable(["Длина кабеля, км", "Количество жил", "Диаметр проволоки на волочении, мм",
-                                  "Кол-во стренг", "Кол-во прядей", "Кол-во проволок в пряди", "Кол-во прядей доп",
-                                  "Кол-во проволок доп", "Тип барабана", "Километраж", "Время на мультике"])
-
-# Добавить в таблицу тип барабана, количество полных барабанов, вместимость полного барабана, остаток на последнем
-# барабане, и разбить реквизит "Всего проволочек в 1 стренге, шт." на "количество прядей, шт.", "количество проволок в
-# одной пряди, шт."
-
-d_mult = 2.08
-
-
-class Check_List:
-
-    def __init__(self):
-        self.bobbins: [Bobbin] = []
-        # self.sum_time: float = 0
-
-    def append(self, bobbin):
-        self.bobbins.append(bobbin)
-
-    def __add__(self, other):
-        self.bobbins.extend(other.bobbins)
-
-    def get_sum_time(self):
-        return sum(bobbin.time_on_mult for bobbin in self.bobbins)
-
-    @staticmethod
-    def sort_date(bobbin):
-        return bobbin.date_first_order
-
-    def output_in_excel(self):
-        """
-        0 - как есть
-        1 - по дате
-        :return:
-        """
-
-        print('Выберите сортировку:')
-        print('0 - как есть')
-        print('1 - по дате')
-        k = int(input())
-        if k == 1:
-            self.bobbins = sorted(self.bobbins, key=self.sort_date)
-
-        existing_file = 'excel/group_with_date.xlsx' if k else 'excel/group_without_date.xlsx'
-
-        header = ['Номер группы', 'Номер катушки', 'Номер счета', 'Намотка', 'Max намотка', 'Дата']
-
-        data = []
-        for bobbin in self.bobbins:
-            # Инициализируем пустой список для хранения данных
-            # Извлекаем данные из PrettyTable и добавляем их в список
-            i = 0
-            for order in bobbin.orders:
-                if i == 0:
-                    data.append([order.num_group, bobbin.number, order.account_number,
-                                 bobbin.volume, bobbin.max_volume, bobbin.date_first_order])
-                    i += 1
-                else:
-                    data.append(
-                        [order.num_group, bobbin.number, order.account_number, '', '', ''])
-
-        df = pd.DataFrame(data, columns=header, index=None)
-
-        mode = "w" if os.path.exists(existing_file) else "a"
-
-        with ExcelWriter(existing_file, mode=mode, engine="openpyxl") as writer:
-            df.to_excel(writer)
-
-
-check_list = Check_List()
-
-
-class Bobbin:
-    count = 0
-
-    def __init__(self, volume, max_volume, date, order):
-        Bobbin.count += 1
-        self.number = Bobbin.count
-        self.max_volume = max_volume
-        self.date_first_order = date
-        self.volume: float = 0
-        self.orders: [Order] = []
-        self.time_on_mult: float = 0
-        self.add(volume, order)
-
-    def add(self, volume, order):
-        if volume != 0 and order is not None:
-            self.volume += volume
-            self.orders.append(order)
-            self.time_on_mult += order.time_on_mult
+second_param_table = PrettyTable(
+    ["Длина кабеля, км", "Количество жил", "Диаметр проволоки на волочении, мм",
+     "Кол-во стренг", "Кол-во прядей", "Кол-во проволок в пряди", "Кол-во прядей доп",
+     "Кол-во проволок доп", "Тип барабана", "Километраж", "Время на мультике"]
+)
 
 
 class Order:
     """
-
+    Класс содержит все не вычисляемые параметры по кабелю, дальнейшие
     """
 
-    def __init__(self, account_number, mark, release_date, order_length, number_of_veins, diameter, number_of_strands,
-                 number_of_sliver, wires_in_sliver, number_of_sliver_extra, wires_in_sliver_extra, type_bobbin,
-                 volume_bobbin, time_on_mult):
-        self.length_strands = 0
-        self.full_bobbin = ()
-        self.length_piece = 0
-        self.spin = 0
-        self.num_group = None
-        self.group = ()
-        self.total_length_delays = 0
+    def __init__(
+            self, IDZak, account_number, mark, release_date, order_length, number_of_veins, diameter, number_of_strands,
+            number_of_sliver, wires_in_sliver, number_of_sliver_extra, wires_in_sliver_extra, number_of_veins_plus,
+            diameter_plus, number_of_strands_plus, number_of_sliver_plus, wires_in_sliver_plus,
+            number_of_sliver_extra_plus, wires_in_sliver_extra_plus, number_of_veins_support, diameter_support,
+            number_of_strands_support, number_of_sliver_support, wires_in_sliver_support,
+            number_of_sliver_extra_support,
+            wires_in_sliver_extra_support, type_bobbin, volume_bobbin, time_on_mult):
+        self.IDZak = IDZak
+        # self.length_strands = 0
+        # self.full_bobbin = ()
+        # self.length_piece = 0
+        # self.spin = 0
+        # self.num_group = None
+        # self.group = ()
+        # self.total_length_delays = 0
         self.account_number = account_number
-        self.mark = mark
+        self.mark = Mark(mark)
         self.release_date = release_date
         self.order_length = order_length
         self.number_of_veins = number_of_veins
@@ -169,74 +74,95 @@ class Order:
         self.wires_in_sliver = wires_in_sliver
         self.number_of_sliver_extra = number_of_sliver_extra
         self.wires_in_sliver_extra = wires_in_sliver_extra
+        self.number_of_veins_plus = number_of_veins_plus
+        self.diameter_plus = diameter_plus
+        self.number_of_strands_plus = number_of_strands_plus
+        self.number_of_sliver_plus = number_of_sliver_plus
+        self.wires_in_sliver_plus = wires_in_sliver_plus
+        self.number_of_sliver_extra_plus = number_of_sliver_extra_plus
+        self.wires_in_sliver_extra_plus = wires_in_sliver_extra_plus
+        self.number_of_veins_support = number_of_veins_support
+        self.diameter_support = diameter_support
+        self.number_of_strands_support = number_of_strands_support
+        self.number_of_sliver_support = number_of_sliver_support
+        self.wires_in_sliver_support = wires_in_sliver_support
+        self.number_of_sliver_extra_support = number_of_sliver_extra_support
+        self.wires_in_sliver_extra_support = wires_in_sliver_extra_support
         self.type_bobbin = type_bobbin
         self.volume_bobbin = volume_bobbin
         self.time_on_mult = time_on_mult
-        self.counting_spinners()
-        self.set_group()
-        self.calculating_length()
+        self.task = self.set_task()
 
-    def set_group(self) -> None:
+    def set_task(self):
         """
-        Устанавливаем группу и номер группы для заказа
+        Создаем задание на мультик, разбивая кабель на несколько составляющих, если это плюсовой или вспомогательный
+        :return:
         """
-        key = (self.diameter, self.number_of_sliver, self.wires_in_sliver, self.number_of_sliver_extra,
-               self.wires_in_sliver_extra, self.type_bobbin)
+        task = [TaskForMultik(self, self.diameter, self.number_of_veins, self.number_of_strands,
+                              self.number_of_sliver, self.wires_in_sliver, self.number_of_sliver_extra,
+                              self.wires_in_sliver_extra, '')]
 
-        if dict_key_group.get(key) is None:
-            dict_key_group[key] = len(dict_key_group)
+        if self.mark.cable_parameters.get('Тип') == 'Плюсовой':
+            task.append(TaskForMultik(self, self.diameter_plus, self.number_of_veins_plus, self.number_of_strands_plus,
+                                      self.number_of_sliver_plus,
+                                      self.wires_in_sliver_plus, self.number_of_sliver_extra_plus,
+                                      self.wires_in_sliver_extra_plus, '+'))
+        if self.mark.cable_parameters.get('Тип') == 'Вспомогательный':
+            task.append(TaskForMultik(self, self.diameter, self.number_of_veins_support, self.number_of_strands_support,
+                                      self.number_of_sliver_support,
+                                      self.wires_in_sliver_support, self.number_of_sliver_extra_support,
+                                      self.wires_in_sliver_extra_support, 's'))
 
-        self.group = key
-        self.num_group = dict_key_group[key]
-
-    def counting_spinners(self) -> None:
-        """
-        Находим в словаре фильер ближайшие значения к диаметру.
-        """
-
-        self.spin = dictionary_spinners[min(dictionary_spinners, key=lambda x: abs(self.diameter - x))]
-
-    def calculating_bobbin(self):
-        sliver = self.number_of_sliver + self.number_of_sliver_extra
-
-        number_full_bobbin = self.length_strands // self.volume_bobbin  # количество полных катушек в расчете на 1 прядь
-        volume_half_bobbin = round(self.length_strands % self.volume_bobbin, 2)  # меди на неполной катушки на 1 прядь
-
-        all_full_bobbin = number_full_bobbin * sliver
-        all_half_bobbin = sliver  # = количеству прядей, т.к. последняя заправка
-
-        # res = [[volume_bobbin for _ in range(sliver)] for _ in range(int(number_full_bobbin))]
-        # res.append([volume_half_bobbin for _ in range(sliver)])
-
-        self.full_bobbin = int(number_full_bobbin), volume_half_bobbin, int(int(number_full_bobbin) > 0)
-
-    def calculating_length(self):
-        # суммарная длина проволочек
-
-        self.total_length_delays = ((self.number_of_sliver * self.wires_in_sliver + self.number_of_sliver_extra *
-                                     self.wires_in_sliver_extra) * self.number_of_strands * self.number_of_veins * self.order_length)
-
-        self.length_piece = round(self.total_length_delays * (self.diameter ** 2 / d_mult ** 2), 3)
-
-        # длина заказа в расчете на одну прядь (весь заказ это length_strands *
-        # (number_of_sliver + number_of_sliver_extra))
-        self.length_strands = round((self.order_length * self.number_of_veins * self.number_of_strands), 2)
-
-        # подсчет барабанов
-        self.calculating_bobbin()
+        return task
 
     def __str__(self) -> str:
-        return "{} | {} | {} | {} | {} | {}".format(self.account_number, self.mark, self.release_date,
-                                                    self.order_length, self.num_group, self.spin)
+        return "{} | {} | {} | {} | {}".format(
+            self.account_number, self.mark.mark, self.mark.cable_parameters, self.release_date, self.order_length
+        )
 
 
 class Mark:
+    """
+    Класс, описывающий марку кабеля, содержит расшифровку
+    """
 
     def __init__(self, mark):
         self.mark: str = mark
-        self.checking_GOST()
-        self.сable_Parameters = {}
+        self.cable_parameters = {}
+        self.type_definition(mark)
 
-    def checking_GOST(self):
+    def type_definition(self, mark):
+        """
+        Берем каждый гост из справочника и проверяем марку на каждый патерн.
+        После того как найдем подходящий гост вызываем cable_decryption, передаем найденный результат и гост
+        """
+        for gosts in GOSTS.keys():
+            res = re.search(GOSTS[gosts]['pattern'], mark, flags=0)
 
-        pass
+            if res is not None:
+                self.cable_decryption(res, gosts)
+                break
+        # else:
+        # print(mark, 'не определена')
+
+    def cable_decryption(self, result, gosts):
+        """
+        Забираем из справочника гостов все параметры по совпавшему госту (gosts).
+        Затем выводим все параметры по совпавшим группам и записываем в справочник класса
+        """
+        name_groups = GOSTS[gosts]['param']
+
+        for group in name_groups:
+            if result.group(group) != '' and result.group(group) is not None:
+                self.cable_parameters[name_groups[group]] = result.group(group)
+
+        self.cable_parameters['Тип'] = self.set_type(self.mark)
+
+    @staticmethod
+    def set_type(mark: str):
+        if mark.count('+') == 0:
+            return 'Не плюсовой'
+        elif mark.count('+') == 1:
+            return 'Плюсовой'
+        else:
+            return 'Вспомогательный'
