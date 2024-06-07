@@ -1,17 +1,14 @@
-
 from prettytable import PrettyTable
 import re
 from gosts import GOSTS
-from Multik import TaskForMultik
+from Оборудование.Multivare import TaskForMultik
 
-
-REMOVED_SPIN = 1     # время снятия фильер
-INSERT_SPIN = 5      # время вставки фильер (это время надо умножить на количество проволочек в пряди)
-CHANGE_BASKET = 20   # смена корзины на мультике
-CHANGE_BOBBIN = 5    # смена корзины на мультике
-CHANGE_WIRE = 1.5    # снятие/натягивание проволочки на 1 фильере
+REMOVED_SPIN = 1  # время снятия фильер
+INSERT_SPIN = 5  # время вставки фильер (это время надо умножить на количество проволочек в пряди)
+CHANGE_BASKET = 20  # смена корзины на мультике
+CHANGE_BOBBIN = 5  # смена корзины на мультике
+CHANGE_WIRE = 1.5  # снятие/натягивание проволочки на 1 фильере
 STRETCHING_WIRE = 5  # протягивание пучка проволочек после всех фильер
-
 
 # A - IDZak
 # B - Номер счета
@@ -54,7 +51,7 @@ class Order:
             number_of_sliver_extra_plus, wires_in_sliver_extra_plus, number_of_veins_support, diameter_support,
             number_of_strands_support, number_of_sliver_support, wires_in_sliver_support,
             number_of_sliver_extra_support,
-            wires_in_sliver_extra_support, type_bobbin, volume_bobbin, time_on_mult):
+            wires_in_sliver_extra_support, type_bobbin, volume_bobbin, time_on_mult, time_on_streng):
         self.IDZak = IDZak
         # self.length_strands = 0
         # self.full_bobbin = ()
@@ -91,6 +88,7 @@ class Order:
         self.type_bobbin = type_bobbin
         self.volume_bobbin = volume_bobbin
         self.time_on_mult = time_on_mult
+        self.time_on_streng = time_on_streng
         self.task = self.set_task()
 
     def set_task(self):
@@ -99,19 +97,32 @@ class Order:
         :return:
         """
         task = [TaskForMultik(self, self.diameter, self.number_of_veins, self.number_of_strands,
-                              self.number_of_sliver, self.wires_in_sliver, self.number_of_sliver_extra,
-                              self.wires_in_sliver_extra, '')]
+                              self.number_of_sliver, self.wires_in_sliver, '')]
+        if self.number_of_sliver_extra:
+            task.append([TaskForMultik(self, self.diameter, self.number_of_veins, self.wires_in_sliver_extra,
+                                       self.number_of_sliver_extra,
+                                       self.wires_in_sliver_extra, '')])
 
         if self.mark.cable_parameters.get('Тип') == 'Плюсовой':
             task.append(TaskForMultik(self, self.diameter_plus, self.number_of_veins_plus, self.number_of_strands_plus,
                                       self.number_of_sliver_plus,
-                                      self.wires_in_sliver_plus, self.number_of_sliver_extra_plus,
-                                      self.wires_in_sliver_extra_plus, '+'))
+                                      self.wires_in_sliver_plus, '+'))
+
+            if self.number_of_sliver_extra_plus:
+                task.append(
+                    [TaskForMultik(self, self.diameter_plus, self.number_of_veins_plus, self.number_of_strands_plus,
+                                   self.number_of_sliver_extra_plus,
+                                   self.wires_in_sliver_extra_plus, '+')])
+
         if self.mark.cable_parameters.get('Тип') == 'Вспомогательный':
             task.append(TaskForMultik(self, self.diameter, self.number_of_veins_support, self.number_of_strands_support,
                                       self.number_of_sliver_support,
-                                      self.wires_in_sliver_support, self.number_of_sliver_extra_support,
-                                      self.wires_in_sliver_extra_support, 's'))
+                                      self.wires_in_sliver_support, 's'))
+            if self.number_of_sliver_extra_support:
+                task.append(
+                    TaskForMultik(self, self.diameter, self.number_of_veins_support, self.number_of_strands_support,
+                                  self.number_of_sliver_extra_support,
+                                  self.wires_in_sliver_extra_support, 's'))
 
         return task
 

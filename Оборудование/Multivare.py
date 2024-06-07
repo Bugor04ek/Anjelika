@@ -45,10 +45,12 @@ class TaskForMultik:
     """
     orders = []
 
-    def __init__(self, order, diameter, number_of_veins, number_of_strands, number_of_sliver, wires_in_sliver,
-                 number_of_sliver_extra, wires_in_sliver_extra, type):
+    def __init__(self, order, diameter, number_of_veins, number_of_strands, number_of_sliver, wires_in_sliver, type):
         TaskForMultik.orders.append(self)
         self.order = order
+
+        self.id = len(TaskForMultik.orders)
+
         # self.volume_bobbin = order.volume_bobbin
         # 350 - Ограничение по массе барабана для гибкой жилы на 630 барабан
         # 8.89 - Плотность меди
@@ -61,8 +63,6 @@ class TaskForMultik:
         self.wires_in_sliver = wires_in_sliver
         self.number_of_veins = number_of_veins
         self.number_of_strands = number_of_strands
-        self.number_of_sliver_extra = number_of_sliver_extra
-        self.wires_in_sliver_extra = wires_in_sliver_extra
         self.group = ()
         self.num_group = 0
         self.spin = 0
@@ -100,10 +100,10 @@ class TaskForMultik:
     def calculating_length(self):
         # суммарная длина проволочек
 
-        self.total_length_delays = ((self.number_of_sliver * self.wires_in_sliver + self.number_of_sliver_extra *
-                                     self.wires_in_sliver_extra) * self.number_of_strands * self.number_of_veins * self.order.order_length)
+        # self.total_length_delays = ((self.number_of_sliver * self.wires_in_sliver + self.number_of_sliver_extra *
+        #                              self.wires_in_sliver_extra) * self.number_of_strands * self.number_of_veins * self.order.order_length)
 
-        self.length_piece = round(self.total_length_delays * (self.diameter ** 2 / d_mult ** 2), 3)
+        # self.length_piece = round(self.total_length_delays * (self.diameter ** 2 / d_mult ** 2), 3)
 
         # длина заказа в расчете на одну прядь (весь заказ это length_strands *
         # (number_of_sliver + number_of_sliver_extra))
@@ -119,9 +119,9 @@ class TaskForMultik:
         self.full_bobbin = int(number_full_bobbin), volume_half_bobbin, int(int(number_full_bobbin) > 0)
 
     def __str__(self) -> str:
-        return "{} | {} | {} | {} | {} | {}".format(
-            self.account_number, self.num_group, self.order.release_date, self.length_strands, self.group,
-            self.full_bobbin
+        return "{} | {} | {} | {} | {} | {} | {} | {} | {}".format(
+            self.id, self.account_number, self.num_group, self.order.release_date, self.length_strands, self.group,
+            self.full_bobbin, self.time_on_mult, self.order.time_on_streng
         )
 
 

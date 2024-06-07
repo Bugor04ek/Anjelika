@@ -1,7 +1,5 @@
 from ortools.linear_solver import pywraplp
-from scipy.optimize import minimize
-from consts import *
-from Multik import *
+from Оборудование.Multivare import *
 
 
 def create_data_model(orders, container_capacity):

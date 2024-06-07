@@ -1,38 +1,10 @@
-import os
-from ast import slice
-from typing import Type
-
-import asd
-import consts
-
-import pandas as pd
-from pandas.io.excel import ExcelWriter
-
+import gen_alg
 import vrp
-from Multik import TaskForMultik
 from consts import *
-import numpy as np
 
-from optimization.test import *
+from optimization.calculate_bobbin import *
 
 file_name = 'excel/Заказы.xlsx'
-
-
-def pack_cables(orders: list[Order], container_capacity: float):
-    check_list_temp = Check_List()
-
-    for order in orders:
-        placed = False
-        for container in check_list_temp.bobbins:
-            if container.volume + order.full_bobbin[1] <= container.max_volume:
-                container.add(order.full_bobbin[1], order)
-                placed = True
-                break
-        if not placed:  # Ветка в которой начинается новая намотка на катушку
-            bobbin = Bobbin(order.full_bobbin[1], order.volume_bobbin, order.release_date, order)
-            check_list_temp.append(bobbin)
-
-    return check_list_temp  # Возвращает массив катушек, на которых сидят заказы
 
 
 def formation_of_orders_in_the_date_range(orders: list[TaskForMultik], date_range: int, groups_by_dates: dict):
@@ -171,7 +143,7 @@ def create_orders():
     # P - Километраж масса VS Длина
     # Q - Время на мультике
 
-    excel_data = pd.read_excel(file_name, sheet_name="Лист2")
+    excel_data = pd.read_excel(file_name, sheet_name="Лист4")
     excel_data['Дата выпуска по заказу'] = pd.to_datetime(excel_data['Дата выпуска по заказу'],
                                                           format='%d.%m.%Y').dt.date
     data = pd.DataFrame(excel_data).fillna(0)
@@ -189,7 +161,7 @@ def create_orders():
                             number_of_strands_support=row[22], number_of_sliver_support=row[23],
                             wires_in_sliver_support=row[24], number_of_sliver_extra_support=row[25],
                             wires_in_sliver_extra_support=row[26],
-                            type_bobbin=row[27], volume_bobbin=row[28], time_on_mult=row[29]))
+                            type_bobbin=row[27], volume_bobbin=row[28], time_on_mult=row[29], time_on_streng=row[30]))
 
     return orders
 
@@ -201,57 +173,49 @@ if __name__ == "__main__":
     result = forming_file_with_groups(TaskForMultik.orders)
     check_list_multik.output_in_excel()
 
-    total_setup_time = 0
-
-    previous_order = None
-
-    for bobbin in check_list_multik.bobbins:
-
-        for order in bobbin.orders:
-
-            if previous_order is not None:
-
-                """
-                    1 ПРОВЕРКА -- Разность фильер
-                """
-
-                # меньше диаметр - больше фильер
-                if previous_order.spin > order.spin:
-                    removed_spin = previous_order.spin - order.spin + 1  # снимаем фильеры +1, чтобы переставить ее в конец
-                    total_setup_time += removed_spin * REMOVED_SPIN  # Время на снятие фильер
-                    total_setup_time += INSERT_SPIN * order.wires_in_sliver  # Время на установку фильер
-
-                # больше диаметр - меньше фильер
-                elif previous_order.spin < order.spin:
-                    removed_spin = 1  # снимаем последнюю
-                    total_setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
-                    total_setup_time += INSERT_SPIN * (order.spin - (previous_order.spin - 1)) * order.wires_in_sliver  # время на установку фильер +1, потому 1 уже снята tt
-
-                """
-                    2 ПРОВЕРКА -- Разность проволочек
-                """
-
-                dif_wire = abs(order.wires_in_sliver - previous_order.wires_in_sliver)
-
-                if previous_order.wires_in_sliver < order.wires_in_sliver:
-                    # Надо протянуть новые проволочки через все фильеры на новом заказе
-                    total_setup_time += dif_wire * order.spin * CHANGE_WIRE + STRETCHING_WIRE
-                elif previous_order.wires_in_sliver > order.wires_in_sliver:
-                    # Надо снять проволочки со всех фильер previous_order
-                    total_setup_time += dif_wire * previous_order.spin * CHANGE_WIRE
-
-            previous_order = order
-        else:
-            # После окончания цикла переход на следующую катушку
-            total_setup_time += CHANGE_BOBBIN  # Время на смену катушки
-
-    print('Время настройки:', total_setup_time)
+    # total_setup_time = 0
+    # previous_order = None
+    # for bobbin in check_list_multik.bobbins:
+    #
+    #     for order in bobbin.orders:
+    #
+    #         if previous_order is not None:
+    #
+    #             """
+    #                 1 ПРОВЕРКА -- Разность фильер
+    #             """
+    #
+    #             # меньше диаметр - больше фильер
+    #             if previous_order.spin > order.spin:
+    #                 removed_spin = previous_order.spin - order.spin + 1  # снимаем фильеры +1, чтобы переставить ее в конец
+    #                 total_setup_time += removed_spin * REMOVED_SPIN  # Время на снятие фильер
+    #                 total_setup_time += INSERT_SPIN * order.wires_in_sliver  # Время на установку фильер
+    #
+    #             # больше диаметр - меньше фильер
+    #             elif previous_order.spin < order.spin:
+    #                 removed_spin = 1  # снимаем последнюю
+    #                 total_setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
+    #                 total_setup_time += INSERT_SPIN * (order.spin - (previous_order.spin - 1)) * order.wires_in_sliver  # время на установку фильер +1, потому 1 уже снята tt
+    #
+    #             """
+    #                 2 ПРОВЕРКА -- Разность проволочек
+    #             """
+    #
+    #             dif_wire = abs(order.wires_in_sliver - previous_order.wires_in_sliver)
+    #
+    #             if previous_order.wires_in_sliver < order.wires_in_sliver:
+    #                 # Надо протянуть новые проволочки через все фильеры на новом заказе
+    #                 total_setup_time += dif_wire * order.spin * CHANGE_WIRE + STRETCHING_WIRE
+    #             elif previous_order.wires_in_sliver > order.wires_in_sliver:
+    #                 # Надо снять проволочки со всех фильер previous_order
+    #                 total_setup_time += dif_wire * previous_order.spin * CHANGE_WIRE
+    #
+    #         previous_order = order
+    #     else:
+    #         # После окончания цикла переход на следующую катушку
+    #         total_setup_time += CHANGE_BOBBIN  # Время на смену катушки
+    # print('Время настройки:', total_setup_time)
 
     vrp.main(TaskForMultik.orders)
+    gen_alg.main(TaskForMultik.orders)
 
-    # print("суммарное время: ", total_setup_time)
-    # forming_file_with_groups_excel(TaskForMultik.orders)
-
-    # print(*result, sep='\n')
-    # print('Общее время:', time + setup_time)
-    # print('Время работы:', time)
