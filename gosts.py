@@ -1,4 +1,5 @@
 import re
+
 GOSTS = {
     '55025-2012': {
         'pattern': r"(?P<Material>А|)"

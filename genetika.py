@@ -1,0 +1,117 @@
+from deap import base
+from deap import creator
+from deap import tools
+from deap import algorithms
+import random
+import matplotlib.pyplot as plt
+import numpy
+
+from consts import *
+
+# константы задачи
+ONE_MAX_LENGTH = 100  # длина подлежащей оптимизации битовой строки
+HALL_OF_FAME_SIZE = 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
+
+# константы генетического алгоритма
+POPULATION_SIZE = 200  # количество индивидуумов в популяции
+P_CROSSOVER = 0.9  # вероятность скрещивания
+P_MUTATION = 0.1  # вероятность мутации индивидуума
+MAX_GENERATIONS = 50  # максимальное количество поколений
+
+
+# Функция для расчета времени перенастройки между заказами мультика
+def calculate_setup_time_multivare(previous_order, order):
+    total_setup_time = 0
+    if previous_order is not None:
+        change = False
+        if previous_order.spin > order.spin:
+            removed_spin = previous_order.spin - order.spin + 1
+            total_setup_time += removed_spin * REMOVED_SPIN
+            total_setup_time += INSERT_SPIN * order.wires_in_sliver
+            change = True
+        elif previous_order.spin < order.spin:
+            removed_spin = 1
+            total_setup_time += removed_spin * REMOVED_SPIN
+            total_setup_time += INSERT_SPIN * (order.spin - (previous_order.spin - 1)) * order.wires_in_sliver
+            change = True
+        dif_wire = abs(order.wires_in_sliver - previous_order.wires_in_sliver)
+        if previous_order.wires_in_sliver < order.wires_in_sliver:
+            total_setup_time += dif_wire * order.spin * CHANGE_WIRE + STRETCHING_WIRE
+            change = True
+        elif previous_order.wires_in_sliver > order.wires_in_sliver:
+            total_setup_time += dif_wire * previous_order.spin * CHANGE_WIRE
+            change = True
+        if change:
+            total_setup_time += CHANGE_BOBBIN
+    return total_setup_time
+
+
+# Функция для создания матрицы времени перенастроек мультика
+def form_matrix_multivare(orders):
+    temp_matrix1 = []
+    for order1 in orders:
+        temp_matrix2 = []
+        for order2 in orders:
+            temp_matrix2.append(calculate_setup_time_multivare(order1, order2))
+        temp_matrix1.append(temp_matrix2)
+    return temp_matrix1
+
+
+def getTotalDistance(time_on_multivare, indices):
+    """Calculates the total distance of the path described by the given indices of the cities
+
+    :param indices: A list of ordered city indices describing the given path.
+    :return: total distance of the path described by the given indices
+    """
+    # distance between th elast and first city:
+    time = time_on_multivare[indices[-1]][indices[0]]
+
+    # add the distance between each pair of consequtive cities:
+    for i in range(len(indices) - 1):
+        time += time_on_multivare[indices[i]][indices[i + 1]]
+
+    return time
+
+
+def main(orders: list[TaskForMultik]):
+    len_orders = len(orders)
+    time_on_multivare = form_matrix_multivare(orders)
+    toolbox = base.Toolbox()
+
+    creator.create("FitnessMin", base.Fitness, weights=(-1.0,))  # стратегия приспособления - минимальное время
+    creator.create("Individual", list, typecode='i', fitness=creator.FitnessMin)  # представление индивидуумов
+    toolbox.register("randomOrder", random.sample, range(len_orders), len_orders)
+    toolbox.register("individualCreator", tools.initIterate, creator.Individual, toolbox.randomOrder)
+    toolbox.register("populationCreator", tools.initRepeat,list, toolbox.individualCreator)
+    toolbox.register("evaluate", getTotalDistance, time_on_multivare)
+    toolbox.register("select", tools.selTournament, tournsize=3)
+    toolbox.register("mate", tools.cxOrdered)
+    toolbox.register("mutate", tools.mutShuffleIndexes, indpb=1.0 / len_orders)
+
+    population = toolbox.populationCreator(n=POPULATION_SIZE)  # Создаем начальную популяцию
+    hof = tools.HallOfFame(HALL_OF_FAME_SIZE)
+
+    stats = tools.Statistics(lambda ind: ind.fitness.values)
+
+    stats.register("max", numpy.max)
+    stats.register("avg", numpy.mean)
+
+    population, logbook = algorithms.eaSimple(population, toolbox,
+                                              cxpb=P_CROSSOVER,
+                                              mutpb=P_MUTATION,
+                                              ngen=MAX_GENERATIONS,
+                                              stats=stats,
+                                              halloffame=hof,
+                                              verbose=True)
+
+    print("Индивидуумы в зале славы = ", *hof.items, sep="\n")
+    print("Лучший индивидуум = ", hof.items[0])
+
+    maxFitnessValues, meanFitnessValues = logbook.select("max", "avg")
+
+    plt.plot(maxFitnessValues, color='red')
+    plt.plot(meanFitnessValues, color='green')
+    plt.xlabel('Поколение')
+    plt.ylabel('Макс/средняя приспособленность')
+    plt.title('Зависимость максимальной и средней приспособленности от поколения')
+    plt.show()

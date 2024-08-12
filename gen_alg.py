@@ -5,6 +5,16 @@ import random
 from consts import *
 from Оборудование.Strenga import *
 
+from genetika import base
+from genetika import creator
+from genetika import tools
+from genetika import algorithms
+import random
+import matplotlib.pyplot as plt
+import numpy
+
+
+
 
 # Функция для расчета времени перенастройки между заказами мультика
 def calculate_setup_time_multivare(previous_order, order):

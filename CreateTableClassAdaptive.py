@@ -1,4 +1,5 @@
 import gen_alg
+import genetika
 import vrp
 from consts import *
 
@@ -166,56 +167,12 @@ def create_orders():
     return orders
 
 
-#
 if __name__ == "__main__":
     orders = create_orders()
     print(*TaskForMultik.orders, sep='\n')
     result = forming_file_with_groups(TaskForMultik.orders)
     check_list_multik.output_in_excel()
 
-    # total_setup_time = 0
-    # previous_order = None
-    # for bobbin in check_list_multik.bobbins:
-    #
-    #     for order in bobbin.orders:
-    #
-    #         if previous_order is not None:
-    #
-    #             """
-    #                 1 ПРОВЕРКА -- Разность фильер
-    #             """
-    #
-    #             # меньше диаметр - больше фильер
-    #             if previous_order.spin > order.spin:
-    #                 removed_spin = previous_order.spin - order.spin + 1  # снимаем фильеры +1, чтобы переставить ее в конец
-    #                 total_setup_time += removed_spin * REMOVED_SPIN  # Время на снятие фильер
-    #                 total_setup_time += INSERT_SPIN * order.wires_in_sliver  # Время на установку фильер
-    #
-    #             # больше диаметр - меньше фильер
-    #             elif previous_order.spin < order.spin:
-    #                 removed_spin = 1  # снимаем последнюю
-    #                 total_setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
-    #                 total_setup_time += INSERT_SPIN * (order.spin - (previous_order.spin - 1)) * order.wires_in_sliver  # время на установку фильер +1, потому 1 уже снята tt
-    #
-    #             """
-    #                 2 ПРОВЕРКА -- Разность проволочек
-    #             """
-    #
-    #             dif_wire = abs(order.wires_in_sliver - previous_order.wires_in_sliver)
-    #
-    #             if previous_order.wires_in_sliver < order.wires_in_sliver:
-    #                 # Надо протянуть новые проволочки через все фильеры на новом заказе
-    #                 total_setup_time += dif_wire * order.spin * CHANGE_WIRE + STRETCHING_WIRE
-    #             elif previous_order.wires_in_sliver > order.wires_in_sliver:
-    #                 # Надо снять проволочки со всех фильер previous_order
-    #                 total_setup_time += dif_wire * previous_order.spin * CHANGE_WIRE
-    #
-    #         previous_order = order
-    #     else:
-    #         # После окончания цикла переход на следующую катушку
-    #         total_setup_time += CHANGE_BOBBIN  # Время на смену катушки
-    # print('Время настройки:', total_setup_time)
-
     vrp.main(TaskForMultik.orders)
-    gen_alg.main(TaskForMultik.orders)
-
+    # gen_alg.main(TaskForMultik.orders)
+    genetika.main(TaskForMultik.orders)
