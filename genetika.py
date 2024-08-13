@@ -5,44 +5,68 @@ from deap import algorithms
 import random
 import matplotlib.pyplot as plt
 import numpy
-
+import os
+from pandas import ExcelWriter
+import pandas as pd
 from consts import *
 
 # константы задачи
-ONE_MAX_LENGTH = 100  # длина подлежащей оптимизации битовой строки
-HALL_OF_FAME_SIZE = 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
+HALL_OF_FAME_SIZE = 20  # количеству индивидуумов, которых мы хотим хранить в зале славы
 
 # константы генетического алгоритма
-POPULATION_SIZE = 200  # количество индивидуумов в популяции
-P_CROSSOVER = 0.9  # вероятность скрещивания
+POPULATION_SIZE = 4000  # количество индивидуумов в популяции
+P_CROSSOVER = 0.99  # вероятность скрещивания
 P_MUTATION = 0.1  # вероятность мутации индивидуума
-MAX_GENERATIONS = 50  # максимальное количество поколений
+MAX_GENERATIONS = 20  # максимальное количество поколений
 
 
 # Функция для расчета времени перенастройки между заказами мультика
 def calculate_setup_time_multivare(previous_order, order):
+    # Создается матрица "расстояний".
+    # Считается время перенастройки и смены катушки между заказами
+    # Не учитывается добавление катушки, если она заполнена
+    # После определения оптимального варианта будет пересчет через чеклист мультика
+
     total_setup_time = 0
+
     if previous_order is not None:
+
         change = False
+
+        # меньше диаметр - больше фильер
         if previous_order.spin > order.spin:
-            removed_spin = previous_order.spin - order.spin + 1
-            total_setup_time += removed_spin * REMOVED_SPIN
-            total_setup_time += INSERT_SPIN * order.wires_in_sliver
+            removed_spin = previous_order.spin - order.spin + 1  # снимаем фильеры +1, чтобы переставить ее в конец
+            total_setup_time += removed_spin * REMOVED_SPIN  # Время на снятие фильер
+            total_setup_time += INSERT_SPIN * order.wires_in_sliver  # Время на установку фильер
             change = True
+        # больше диаметр - меньше фильер
         elif previous_order.spin < order.spin:
-            removed_spin = 1
-            total_setup_time += removed_spin * REMOVED_SPIN
-            total_setup_time += INSERT_SPIN * (order.spin - (previous_order.spin - 1)) * order.wires_in_sliver
+            removed_spin = 1  # снимаем последнюю
+            total_setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
+            total_setup_time += INSERT_SPIN * (
+                    order.spin - (
+                    previous_order.spin - 1)) * order.wires_in_sliver  # время на установку фильер +1, потому 1 уже снята tt
             change = True
+
+        """
+            2 ПРОВЕРКА -- Разность проволочек
+        """
+
         dif_wire = abs(order.wires_in_sliver - previous_order.wires_in_sliver)
+
         if previous_order.wires_in_sliver < order.wires_in_sliver:
+            # Надо протянуть новые проволочки через все фильеры на новом заказе
             total_setup_time += dif_wire * order.spin * CHANGE_WIRE + STRETCHING_WIRE
             change = True
         elif previous_order.wires_in_sliver > order.wires_in_sliver:
+            # Надо снять проволочки со всех фильер previous_order
             total_setup_time += dif_wire * previous_order.spin * CHANGE_WIRE
             change = True
+
         if change:
-            total_setup_time += CHANGE_BOBBIN
+            # Если было любое изменение, то надо сменить катушку
+            total_setup_time += CHANGE_BOBBIN  # Время на смену катушки
+
     return total_setup_time
 
 
@@ -64,13 +88,13 @@ def getTotalDistance(time_on_multivare, indices):
     :return: total distance of the path described by the given indices
     """
     # distance between th elast and first city:
-    time = time_on_multivare[indices[-1]][indices[0]]
+    time = 0
 
     # add the distance between each pair of consequtive cities:
     for i in range(len(indices) - 1):
         time += time_on_multivare[indices[i]][indices[i + 1]]
 
-    return time
+    return time,
 
 
 def main(orders: list[TaskForMultik]):
@@ -78,15 +102,22 @@ def main(orders: list[TaskForMultik]):
     time_on_multivare = form_matrix_multivare(orders)
     toolbox = base.Toolbox()
 
+    df = pd.DataFrame(time_on_multivare)
+
+    mode = "w" if os.path.exists("excel/matrix_time.xlsx") else "a"
+
+    with ExcelWriter("excel/matrix_time.xlsx", mode=mode, engine="openpyxl") as writer:
+        df.to_excel(writer)
+
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))  # стратегия приспособления - минимальное время
     creator.create("Individual", list, typecode='i', fitness=creator.FitnessMin)  # представление индивидуумов
     toolbox.register("randomOrder", random.sample, range(len_orders), len_orders)
     toolbox.register("individualCreator", tools.initIterate, creator.Individual, toolbox.randomOrder)
     toolbox.register("populationCreator", tools.initRepeat,list, toolbox.individualCreator)
     toolbox.register("evaluate", getTotalDistance, time_on_multivare)
-    toolbox.register("select", tools.selTournament, tournsize=3)
+    toolbox.register("select", tools.selTournament, tournsize=200)
     toolbox.register("mate", tools.cxOrdered)
-    toolbox.register("mutate", tools.mutShuffleIndexes, indpb=1.0 / len_orders)
+    toolbox.register("mutate", tools.mutShuffleIndexes, indpb=0.5 / len_orders)
 
     population = toolbox.populationCreator(n=POPULATION_SIZE)  # Создаем начальную популяцию
     hof = tools.HallOfFame(HALL_OF_FAME_SIZE)
@@ -115,3 +146,5 @@ def main(orders: list[TaskForMultik]):
     plt.ylabel('Макс/средняя приспособленность')
     plt.title('Зависимость максимальной и средней приспособленности от поколения')
     plt.show()
+
+    print("Время лучшего:", getTotalDistance(time_on_multivare, hof.items[0]))
