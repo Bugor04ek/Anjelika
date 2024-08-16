@@ -131,9 +131,17 @@ class Check_List:
     """
 
     def __init__(self):
-        self.queue: [TaskForMultik] = []
+        self.__queue: [TaskForMultik] = []
         self.bobbins: [Bobbin] = []
         # self.sum_time: float = 0
+
+    @property
+    def queue(self):
+        return self.__queue
+
+    @queue.setter
+    def queue(self, orders):
+        self.__queue = orders
 
     def append(self, bobbin):
         self.bobbins.append(bobbin)

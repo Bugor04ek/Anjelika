@@ -8,16 +8,17 @@ import numpy
 import os
 from pandas import ExcelWriter
 import pandas as pd
-from consts import *
+from consts import converting_indexes_to_numbers
+from Оборудование.Multivare import *
 
 # константы задачи
-HALL_OF_FAME_SIZE = 20  # количеству индивидуумов, которых мы хотим хранить в зале славы
+HALL_OF_FAME_SIZE = 100  # количеству индивидуумов, которых мы хотим хранить в зале славы
 
 # константы генетического алгоритма
-POPULATION_SIZE = 4000  # количество индивидуумов в популяции
-P_CROSSOVER = 0.99  # вероятность скрещивания
-P_MUTATION = 0.1  # вероятность мутации индивидуума
-MAX_GENERATIONS = 20  # максимальное количество поколений
+POPULATION_SIZE = 6000  # количество индивидуумов в популяции
+P_CROSSOVER = 1  # вероятность скрещивания
+P_MUTATION = 0  # вероятность мутации индивидуума
+MAX_GENERATIONS = 100  # максимальное количество поколений
 
 
 # Функция для расчета времени перенастройки между заказами мультика
@@ -170,9 +171,9 @@ def main(orders: list[TaskForMultik]):
     toolbox.register("individualCreator", tools.initIterate, creator.Individual, toolbox.randomOrder)
     toolbox.register("populationCreator", tools.initRepeat,list, toolbox.individualCreator)
     toolbox.register("evaluate", getTotalDistance, time_on_multivare)
-    toolbox.register("select", tools.selTournament, tournsize=200)
+    toolbox.register("select", tools.selTournament, tournsize=30)
     toolbox.register("mate", tools.cxOrdered)
-    toolbox.register("mutate", tools.mutShuffleIndexes, indpb=1 / len_orders)
+    toolbox.register("mutate", tools.mutShuffleIndexes, indpb=0.5 / len_orders)
 
     population = toolbox.populationCreator(n=POPULATION_SIZE)  # Создаем начальную популяцию
     hof = tools.HallOfFame(HALL_OF_FAME_SIZE)
@@ -190,8 +191,11 @@ def main(orders: list[TaskForMultik]):
                                               halloffame=hof,
                                               verbose=True)
 
-    print("Индивидуумы в зале славы = ", *hof.items, sep="\n")
-    print("Лучший индивидуум = ", hof.items[0])
+    # print("Индивидуумы в зале славы = ", *hof.items, sep="\n")
+    print("Лучший индивидуум =", hof.items[0])
+
+    check_list_multik.queue = converting_indexes_to_numbers(hof.items[0], orders)
+    print("Лучший индивидуум =", check_list_multik.queue)
 
     maxFitnessValues, meanFitnessValues = logbook.select("max", "avg")
 
@@ -205,3 +209,4 @@ def main(orders: list[TaskForMultik]):
     print("Время лучшего:", getTotalDistance(time_on_multivare, hof.items[0]))
     total_setup_time = check_list_multik.calculate_time_setup()
     print('Время настройки2:', total_setup_time)
+

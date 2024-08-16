@@ -3,13 +3,6 @@ import re
 from gosts import GOSTS
 from Оборудование.Multivare import TaskForMultik
 
-REMOVED_SPIN = 1  # время снятия фильер
-INSERT_SPIN = 5  # время вставки фильер (это время надо умножить на количество проволочек в пряди)
-CHANGE_BASKET = 20  # смена корзины на мультике
-CHANGE_BOBBIN = 5  # смена корзины на мультике
-CHANGE_WIRE = 1.5  # снятие/натягивание проволочки на 1 фильере
-STRETCHING_WIRE = 5  # протягивание пучка проволочек после всех фильер
-
 # A - IDZak
 # B - Номер счета
 # C - Марка
@@ -37,6 +30,11 @@ second_param_table = PrettyTable(
      "Кол-во стренг", "Кол-во прядей", "Кол-во проволок в пряди", "Кол-во прядей доп",
      "Кол-во проволок доп", "Тип барабана", "Километраж", "Время на мультике"]
 )
+
+
+def converting_indexes_to_numbers(indexes: [int], orders: [TaskForMultik]):
+    return list(map(lambda i: orders[i].account_number, indexes))
+
 
 
 class Order:
@@ -101,7 +99,7 @@ class Order:
         if self.number_of_sliver_extra:
             task.append([TaskForMultik(self, self.diameter, self.number_of_veins, self.wires_in_sliver_extra,
                                        self.number_of_sliver_extra,
-                                       self.wires_in_sliver_extra, '')])
+                                       self.wires_in_sliver_extra, 'e')])
 
         if self.mark.cable_parameters.get('Тип') == 'Плюсовой':
             task.append(TaskForMultik(self, self.diameter_plus, self.number_of_veins_plus, self.number_of_strands_plus,
@@ -112,7 +110,7 @@ class Order:
                 task.append(
                     [TaskForMultik(self, self.diameter_plus, self.number_of_veins_plus, self.number_of_strands_plus,
                                    self.number_of_sliver_extra_plus,
-                                   self.wires_in_sliver_extra_plus, '+')])
+                                   self.wires_in_sliver_extra_plus, 'e+')])
 
         if self.mark.cable_parameters.get('Тип') == 'Вспомогательный':
             task.append(TaskForMultik(self, self.diameter, self.number_of_veins_support, self.number_of_strands_support,
@@ -122,7 +120,7 @@ class Order:
                 task.append(
                     TaskForMultik(self, self.diameter, self.number_of_veins_support, self.number_of_strands_support,
                                   self.number_of_sliver_extra_support,
-                                  self.wires_in_sliver_extra_support, 's'))
+                                  self.wires_in_sliver_extra_support, 'es'))
 
         return task
 

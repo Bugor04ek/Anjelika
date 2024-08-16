@@ -170,10 +170,10 @@ def create_orders():
 if __name__ == "__main__":
     orders = create_orders()
     print(*TaskForMultik.orders, sep='\n')
-    result = forming_file_with_groups(TaskForMultik.orders)
-    check_list_multik.output_in_excel()
-
-    vrp.main(TaskForMultik.orders)
+    # result = forming_file_with_groups(TaskForMultik.orders)
+    # check_list_multik.output_in_excel()
+    #
+    # vrp.main(TaskForMultik.orders)
     # gen_alg.main(TaskForMultik.orders)
     genetika.main(TaskForMultik.orders)
     print()
