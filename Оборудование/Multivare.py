@@ -1,7 +1,7 @@
 import os
 from pandas import ExcelWriter
 import pandas as pd
-
+import Dragger
 REMOVED_SPIN = 1  # время снятия фильер
 INSERT_SPIN = 5  # время вставки фильер (это время надо умножить на количество проволочек в пряди)
 CHANGE_BASKET = 20  # смена корзины на мультике
@@ -41,7 +41,6 @@ dict_key_group = {}
 class TaskForMultik:
     """
     Задание на мультик хранит в переменной класса хранит все заказы в массиве, их можно будет найти по IDZak
-
     """
     orders = []
 
@@ -133,7 +132,7 @@ class TaskForMultik:
 
 class QueueMultivare:
     """
-    Катушки на мультике. Наматываем кабель с мультика на катушки и выводим в эксель
+    Оптимальная очередь на мультике. С методами поиска любого заказа по заданным параметрам
     """
 
     def __init__(self):
@@ -159,6 +158,25 @@ class QueueMultivare:
     def __iter_order(self, **kwargs):
         return (order for order in self.__queue if order.match(**kwargs))
 
+    def calculating_basket(self):
+        sum_len: int = 0
+        temp_basket: [TaskForMultik] = []
+        for order in self.__queue:
+            sum_len += order.length_strands
+            if sum_len < 40_000:
+                temp_basket.append(order)
+            else:
+                Dragger.Basket(temp_basket)
+                temp_basket.clear()
+                sum_len = 0
+
+        else:
+            pass
+
+
+
+
+
 
 class CheckListMultivare:
     """
@@ -168,7 +186,6 @@ class CheckListMultivare:
     def __init__(self):
         self.bobbins: [Bobbin] = []
         # self.sum_time: float = 0
-
 
     def append(self, bobbin):
         self.bobbins.append(bobbin)
