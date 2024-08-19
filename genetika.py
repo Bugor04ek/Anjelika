@@ -15,10 +15,10 @@ from Оборудование.Multivare import *
 HALL_OF_FAME_SIZE = 100  # количеству индивидуумов, которых мы хотим хранить в зале славы
 
 # константы генетического алгоритма
-POPULATION_SIZE = 6000  # количество индивидуумов в популяции
+POPULATION_SIZE = 5000  # количество индивидуумов в популяции
 P_CROSSOVER = 1  # вероятность скрещивания
 P_MUTATION = 0  # вероятность мутации индивидуума
-MAX_GENERATIONS = 100  # максимальное количество поколений
+MAX_GENERATIONS = 70  # максимальное количество поколений
 
 
 # Функция для расчета времени перенастройки между заказами мультика
@@ -171,7 +171,7 @@ def main(orders: list[TaskForMultik]):
     toolbox.register("individualCreator", tools.initIterate, creator.Individual, toolbox.randomOrder)
     toolbox.register("populationCreator", tools.initRepeat,list, toolbox.individualCreator)
     toolbox.register("evaluate", getTotalDistance, time_on_multivare)
-    toolbox.register("select", tools.selTournament, tournsize=30)
+    toolbox.register("select", tools.selTournament, tournsize=15)
     toolbox.register("mate", tools.cxOrdered)
     toolbox.register("mutate", tools.mutShuffleIndexes, indpb=0.5 / len_orders)
 
