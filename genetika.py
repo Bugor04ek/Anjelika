@@ -12,13 +12,13 @@ from consts import converting_indexes_to_numbers
 from Оборудование.Multivare import *
 
 # константы задачи
-HALL_OF_FAME_SIZE = 100  # количеству индивидуумов, которых мы хотим хранить в зале славы
+HALL_OF_FAME_SIZE = 30  # количеству индивидуумов, которых мы хотим хранить в зале славы
 
 # константы генетического алгоритма
-POPULATION_SIZE = 5000  # количество индивидуумов в популяции
+POPULATION_SIZE = 10200  # количество индивидуумов в популяции
 P_CROSSOVER = 1  # вероятность скрещивания
 P_MUTATION = 0  # вероятность мутации индивидуума
-MAX_GENERATIONS = 70  # максимальное количество поколений
+MAX_GENERATIONS = 30  # максимальное количество поколений
 
 
 # Функция для расчета времени перенастройки между заказами мультика
@@ -153,6 +153,65 @@ def getTotalDistance(time_on_multivare, indices):
     return time,
 
 
+def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, halloffame=None, verbose=__debug__):
+    """This algorithm is similar to DEAP eaSimple() algorithm, with the modification that
+    halloffame is used to implement an elitism mechanism. The individuals contained in the
+    halloffame are directly injected into the next generation and are not subject to the
+    genetic operators of selection, crossover and mutation.
+    """
+    logbook = tools.Logbook()
+    logbook.header = ['gen', 'nevals'] + (stats.fields if stats else [])
+
+    # Evaluate the individuals with an invalid fitness
+    invalid_ind = [ind for ind in population if not ind.fitness.valid]
+    fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+    for ind, fit in zip(invalid_ind, fitnesses):
+        ind.fitness.values = fit
+
+    if halloffame is None:
+        raise ValueError("halloffame parameter must not be empty!")
+
+    halloffame.update(population)
+    hof_size = len(halloffame.items) if halloffame.items else 0
+
+    record = stats.compile(population) if stats else {}
+    logbook.record(gen=0, nevals=len(invalid_ind), **record)
+    if verbose:
+        print(logbook.stream)
+
+    # Begin the generational process
+    for gen in range(1, ngen + 1):
+
+        # Select the next generation individuals
+        offspring = toolbox.select(population, len(population) - hof_size)
+
+        # Vary the pool of individuals
+        offspring = algorithms.varAnd(offspring, toolbox, cxpb, mutpb)
+
+        # Evaluate the individuals with an invalid fitness
+        invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
+        fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+        for ind, fit in zip(invalid_ind, fitnesses):
+            ind.fitness.values = fit
+
+        # add the best back to population:
+        offspring.extend(halloffame.items)
+
+        # Update the hall of fame with the generated individuals
+        halloffame.update(offspring)
+
+        # Replace the current population by the offspring
+        population[:] = offspring
+
+        # Append the current generation statistics to the logbook
+        record = stats.compile(population) if stats else {}
+        logbook.record(gen=gen, nevals=len(invalid_ind), **record)
+        if verbose:
+            print(logbook.stream)
+
+    return population, logbook
+
+
 def main(orders: list[TaskForMultik]):
     len_orders = len(orders)
     time_on_multivare = form_matrix_multivare(orders)
@@ -169,9 +228,9 @@ def main(orders: list[TaskForMultik]):
     creator.create("Individual", list, typecode='i', fitness=creator.FitnessMin)  # представление индивидуумов
     toolbox.register("randomOrder", random.sample, range(len_orders), len_orders)
     toolbox.register("individualCreator", tools.initIterate, creator.Individual, toolbox.randomOrder)
-    toolbox.register("populationCreator", tools.initRepeat,list, toolbox.individualCreator)
+    toolbox.register("populationCreator", tools.initRepeat, list, toolbox.individualCreator)
     toolbox.register("evaluate", getTotalDistance, time_on_multivare)
-    toolbox.register("select", tools.selTournament, tournsize=15)
+    toolbox.register("select", tools.selTournament, tournsize=20)
     toolbox.register("mate", tools.cxOrdered)
     toolbox.register("mutate", tools.mutShuffleIndexes, indpb=0.5 / len_orders)
 
@@ -183,7 +242,7 @@ def main(orders: list[TaskForMultik]):
     stats.register("max", numpy.max)
     stats.register("avg", numpy.mean)
 
-    population, logbook = algorithms.eaSimple(population, toolbox,
+    population, logbook = eaSimpleWithElitism(population, toolbox,
                                               cxpb=P_CROSSOVER,
                                               mutpb=P_MUTATION,
                                               ngen=MAX_GENERATIONS,
@@ -191,11 +250,13 @@ def main(orders: list[TaskForMultik]):
                                               halloffame=hof,
                                               verbose=True)
 
-    # print("Индивидуумы в зале славы = ", *hof.items, sep="\n")
+    print("Индивидуумы в зале славы = ", *hof.items, sep="\n")
     print("Лучший индивидуум =", hof.items[0])
 
-    check_list_multik.queue = converting_indexes_to_numbers(hof.items[0], orders)
-    print("Лучший индивидуум =", check_list_multik.queue)
+    queue_multivare.queue = converting_indexes_to_numbers(hof.items[0], orders)
+    queue_multivare.all_orders()
+
+    print("Лучший индивидуум =", queue_multivare.queue)
 
     maxFitnessValues, meanFitnessValues = logbook.select("max", "avg")
 
@@ -207,6 +268,7 @@ def main(orders: list[TaskForMultik]):
     plt.show()
 
     print("Время лучшего:", getTotalDistance(time_on_multivare, hof.items[0]))
-    total_setup_time = check_list_multik.calculate_time_setup()
-    print('Время настройки2:', total_setup_time)
+
+    # total_setup_time = check_list_multik.calculate_time_setup()
+    # print('Время настройки2:', total_setup_time)
 

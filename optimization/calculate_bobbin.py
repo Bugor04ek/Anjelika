@@ -70,7 +70,7 @@ def create_solution(orders: list[TaskForMultik], container_capacity: float, rele
                         if data["orders"][i].full_bobbin[2]:
                             # Добавляем в задание на мультике полные катушки с одни кабелем
                             for _ in range(data["orders"][i].full_bobbin[0]):
-                                check_list_multik.append(Bobbin(data["bin_capacity"], data["bin_capacity"], data["orders"][i].order.release_date, data["orders"][i]))
+                                check_list_multik.append_bobbin(Bobbin(data["bin_capacity"], data["bin_capacity"], data["orders"][i].order.release_date, data["orders"][i]))
 
                             # Добавляем общему числу катушек заранее просчитанные полные катушки с одним кабелем
                             num_bins += data["orders"][i].full_bobbin[0]
@@ -81,7 +81,7 @@ def create_solution(orders: list[TaskForMultik], container_capacity: float, rele
                         num_order += 1
                         bin_dates.append(data["orders"][i].order.release_date)
 
-                check_list_multik.append(bobbin)
+                check_list_multik.append_bobbin(bobbin)
 
                 if bin_orders:
                     num_bins += 1

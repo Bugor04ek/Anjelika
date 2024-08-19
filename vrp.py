@@ -185,7 +185,7 @@ def time_change_bobbin(route, data, time_setup):
     bin = 0
     list_orders = []
     data_res = []
-    check_list_multik.clear()
+    check_list_multik.clear_bobbin()
     Bobbin.count = 0
     for order in route[0]:
         # 0 в массиве это депо, которое не должно учитываться

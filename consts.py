@@ -33,7 +33,13 @@ second_param_table = PrettyTable(
 
 
 def converting_indexes_to_numbers(indexes: [int], orders: [TaskForMultik]):
-    return list(map(lambda i: orders[i].account_number, indexes))
+    """
+    Преобразует список индексов заказов в список номеров и ссылок
+    :param indexes: список индексов заказов
+    :param orders: список заказов элементов класса
+    :return: (список номеров заказа, список ссылок на заказы)
+    """
+    return list(map(lambda i: orders[i], indexes))
 
 
 

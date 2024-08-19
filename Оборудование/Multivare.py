@@ -124,16 +124,20 @@ class TaskForMultik:
             self.full_bobbin, self.time_on_mult, self.order.time_on_streng
         )
 
+    def __repr__(self):
+        return "'%s'" % self.account_number
 
-class Check_List:
+    def match(self, **kwargs):
+        return all(getattr(self, key) == val for (key, val) in kwargs.items())
+
+
+class QueueMultivare:
     """
     Катушки на мультике. Наматываем кабель с мультика на катушки и выводим в эксель
     """
 
     def __init__(self):
         self.__queue: [TaskForMultik] = []
-        self.bobbins: [Bobbin] = []
-        # self.sum_time: float = 0
 
     @property
     def queue(self):
@@ -142,6 +146,29 @@ class Check_List:
     @queue.setter
     def queue(self, orders):
         self.__queue = orders
+
+    def __add__(self, other):
+        self.__queue.append(other)
+
+    def find_order(self, **kwargs):
+        return next(self.__iter_order(**kwargs))
+
+    def all_orders(self, **kwargs):
+        return list(self.__iter_order(**kwargs))
+
+    def __iter_order(self, **kwargs):
+        return (order for order in self.__queue if order.match(**kwargs))
+
+
+class CheckListMultivare:
+    """
+    Катушки на мультике. Наматываем кабель с мультика на катушки и выводим в эксель
+    """
+
+    def __init__(self):
+        self.bobbins: [Bobbin] = []
+        # self.sum_time: float = 0
+
 
     def append(self, bobbin):
         self.bobbins.append(bobbin)
@@ -256,7 +283,8 @@ class Check_List:
             df.to_excel(writer)
 
 
-check_list_multik = Check_List()
+queue_multivare = QueueMultivare()
+check_list_multik = CheckListMultivare()
 
 
 class Bobbin:
