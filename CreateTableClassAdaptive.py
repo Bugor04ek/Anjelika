@@ -1,9 +1,10 @@
-import gen_alg
+import datetime
 import genetika
 import vrp
 from consts import *
 
 from optimization.calculate_bobbin import *
+import Оборудование.Dragger as Dragger
 
 file_name = 'excel/Заказы.xlsx'
 
@@ -175,5 +176,9 @@ if __name__ == "__main__":
     #
     # vrp.main(TaskForMultik.orders)
     # gen_alg.main(TaskForMultik.orders)
+    start = datetime.datetime.now()
     genetika.main(TaskForMultik.orders)
-    print()
+    end = datetime.datetime.now()
+    print(end - start)
+
+    print(*Dragger.queue_dragger.orders)

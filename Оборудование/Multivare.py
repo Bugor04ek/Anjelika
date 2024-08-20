@@ -1,7 +1,8 @@
 import os
 from pandas import ExcelWriter
 import pandas as pd
-import Dragger
+import Оборудование.Dragger as Dragger
+
 REMOVED_SPIN = 1  # время снятия фильер
 INSERT_SPIN = 5  # время вставки фильер (это время надо умножить на количество проволочек в пряди)
 CHANGE_BASKET = 20  # смена корзины на мультике
@@ -163,19 +164,15 @@ class QueueMultivare:
         temp_basket: [TaskForMultik] = []
         for order in self.__queue:
             sum_len += order.length_strands
-            if sum_len < 40_000:
+            if sum_len < 35:
                 temp_basket.append(order)
             else:
-                Dragger.Basket(temp_basket)
+                Dragger.queue_dragger.orders.append(Dragger.Basket(temp_basket))
                 temp_basket.clear()
                 sum_len = 0
 
         else:
-            pass
-
-
-
-
+            Dragger.queue_dragger.orders.append(Dragger.Basket(temp_basket))
 
 
 class CheckListMultivare:

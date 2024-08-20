@@ -15,9 +15,9 @@ from Оборудование.Multivare import *
 HALL_OF_FAME_SIZE = 30  # количеству индивидуумов, которых мы хотим хранить в зале славы
 
 # константы генетического алгоритма
-POPULATION_SIZE = 10200  # количество индивидуумов в популяции
+POPULATION_SIZE = 10000  # количество индивидуумов в популяции
 P_CROSSOVER = 1  # вероятность скрещивания
-P_MUTATION = 0  # вероятность мутации индивидуума
+P_MUTATION = 0.1  # вероятность мутации индивидуума
 MAX_GENERATIONS = 30  # максимальное количество поколений
 
 
@@ -232,7 +232,7 @@ def main(orders: list[TaskForMultik]):
     toolbox.register("evaluate", getTotalDistance, time_on_multivare)
     toolbox.register("select", tools.selTournament, tournsize=20)
     toolbox.register("mate", tools.cxOrdered)
-    toolbox.register("mutate", tools.mutShuffleIndexes, indpb=0.5 / len_orders)
+    toolbox.register("mutate", tools.mutShuffleIndexes, indpb=0.1 / len_orders)
 
     population = toolbox.populationCreator(n=POPULATION_SIZE)  # Создаем начальную популяцию
     hof = tools.HallOfFame(HALL_OF_FAME_SIZE)
@@ -254,7 +254,7 @@ def main(orders: list[TaskForMultik]):
     print("Лучший индивидуум =", hof.items[0])
 
     queue_multivare.queue = converting_indexes_to_numbers(hof.items[0], orders)
-    queue_multivare.all_orders()
+    queue_multivare.calculating_basket()
 
     print("Лучший индивидуум =", queue_multivare.queue)
 
