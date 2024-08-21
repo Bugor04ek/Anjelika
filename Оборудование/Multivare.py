@@ -9,6 +9,8 @@ CHANGE_BASKET = 20  # смена корзины на мультике
 CHANGE_BOBBIN = 5  # смена корзины на мультике
 CHANGE_WIRE = 1.5  # снятие/натягивание проволочки на 1 фильере
 STRETCHING_WIRE = 5  # протягивание пучка проволочек после всех фильер
+KM_IN_8_BASKET = 35  # КМ в 8 корзинах
+KM_IN_1_BASKET = 35 / 8  # КМ в 8 корзинах
 
 dictionary_spinners = {
     1.8: 3,
@@ -46,6 +48,7 @@ class TaskForMultik:
     orders = []
 
     def __init__(self, order, diameter, number_of_veins, number_of_strands, number_of_sliver, wires_in_sliver, type):
+
         TaskForMultik.orders.append(self)
         self.order = order
 
@@ -100,9 +103,10 @@ class TaskForMultik:
     def calculating_length(self):
         # суммарная длина проволочек
 
-        # self.total_length_delays = ((self.number_of_sliver * self.wires_in_sliver + self.number_of_sliver_extra *
-        #                              self.wires_in_sliver_extra) * self.number_of_strands * self.number_of_veins * self.order.order_length)
+        self.total_length_delays = ((self.number_of_sliver * self.wires_in_sliver) * self.number_of_strands * self.number_of_veins * self.order.order_length)
 
+        # сколько корзин по 8 штук нужно / сколько корзин еще заполнится (набирается число до 8)
+        self.full_basket = self.total_length_delays / self.wires_in_sliver // KM_IN_1_BASKET // 8, self.total_length_delays / self.wires_in_sliver / KM_IN_1_BASKET % 8
         # self.length_piece = round(self.total_length_delays * (self.diameter ** 2 / d_mult ** 2), 3)
 
         # длина заказа в расчете на одну прядь (весь заказ это length_strands *
@@ -163,8 +167,8 @@ class QueueMultivare:
         sum_len: int = 0
         temp_basket: [TaskForMultik] = []
         for order in self.__queue:
-            sum_len += order.length_strands
-            if sum_len < 35:
+            sum_len += order.total_length_delays
+            if sum_len < 35_00:
                 temp_basket.append(order)
             else:
                 Dragger.queue_dragger.orders.append(Dragger.Basket(temp_basket))
