@@ -1,7 +1,7 @@
 from prettytable import PrettyTable
 import re
 from gosts import GOSTS
-from Оборудование.Multivare import TaskForMultik
+import Оборудование.Multivare as Multivare
 
 # A - IDZak
 # B - Номер счета
@@ -32,7 +32,7 @@ second_param_table = PrettyTable(
 )
 
 
-def converting_indexes_to_numbers(indexes: [int], orders: [TaskForMultik]):
+def converting_indexes_to_numbers(indexes: [int], orders: [Multivare.TaskForMultik]):
     """
     Преобразует список индексов заказов в список номеров и ссылок
     :param indexes: список индексов заказов
@@ -40,7 +40,6 @@ def converting_indexes_to_numbers(indexes: [int], orders: [TaskForMultik]):
     :return: (список номеров заказа, список ссылок на заказы)
     """
     return list(map(lambda i: orders[i], indexes))
-
 
 
 class Order:
@@ -100,33 +99,37 @@ class Order:
         Создаем задание на мультик, разбивая кабель на несколько составляющих, если это плюсовой или вспомогательный
         :return:
         """
-        task = [TaskForMultik(self, self.diameter, self.number_of_veins, self.number_of_strands,
-                              self.number_of_sliver, self.wires_in_sliver, '')]
+        task = [Multivare.TaskForMultik(self, self.diameter, self.number_of_veins, self.number_of_strands,
+                                        self.number_of_sliver, self.wires_in_sliver, '')]
         if self.number_of_sliver_extra:
-            task.append([TaskForMultik(self, self.diameter, self.number_of_veins, self.wires_in_sliver_extra,
-                                       self.number_of_sliver_extra,
-                                       self.wires_in_sliver_extra, 'e')])
+            task.append([Multivare.TaskForMultik(self, self.diameter, self.number_of_veins, self.wires_in_sliver_extra,
+                                                 self.number_of_sliver_extra,
+                                                 self.wires_in_sliver_extra, 'e')])
 
         if self.mark.cable_parameters.get('Тип') == 'Плюсовой':
-            task.append(TaskForMultik(self, self.diameter_plus, self.number_of_veins_plus, self.number_of_strands_plus,
-                                      self.number_of_sliver_plus,
-                                      self.wires_in_sliver_plus, '+'))
+            task.append(Multivare.TaskForMultik(self, self.diameter_plus, self.number_of_veins_plus,
+                                                self.number_of_strands_plus,
+                                                self.number_of_sliver_plus,
+                                                self.wires_in_sliver_plus, '+'))
 
             if self.number_of_sliver_extra_plus:
                 task.append(
-                    [TaskForMultik(self, self.diameter_plus, self.number_of_veins_plus, self.number_of_strands_plus,
-                                   self.number_of_sliver_extra_plus,
-                                   self.wires_in_sliver_extra_plus, 'e+')])
+                    [Multivare.TaskForMultik(self, self.diameter_plus, self.number_of_veins_plus,
+                                             self.number_of_strands_plus,
+                                             self.number_of_sliver_extra_plus,
+                                             self.wires_in_sliver_extra_plus, 'e+')])
 
         if self.mark.cable_parameters.get('Тип') == 'Вспомогательный':
-            task.append(TaskForMultik(self, self.diameter, self.number_of_veins_support, self.number_of_strands_support,
-                                      self.number_of_sliver_support,
-                                      self.wires_in_sliver_support, 's'))
+            task.append(Multivare.TaskForMultik(self, self.diameter, self.number_of_veins_support,
+                                                self.number_of_strands_support,
+                                                self.number_of_sliver_support,
+                                                self.wires_in_sliver_support, 's'))
             if self.number_of_sliver_extra_support:
                 task.append(
-                    TaskForMultik(self, self.diameter, self.number_of_veins_support, self.number_of_strands_support,
-                                  self.number_of_sliver_extra_support,
-                                  self.wires_in_sliver_extra_support, 'es'))
+                    Multivare.TaskForMultik(self, self.diameter, self.number_of_veins_support,
+                                            self.number_of_strands_support,
+                                            self.number_of_sliver_extra_support,
+                                            self.wires_in_sliver_extra_support, 'es'))
 
         return task
 

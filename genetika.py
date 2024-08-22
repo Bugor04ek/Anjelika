@@ -12,12 +12,12 @@ from consts import converting_indexes_to_numbers
 from Оборудование.Multivare import *
 
 # константы задачи
-HALL_OF_FAME_SIZE = 30  # количеству индивидуумов, которых мы хотим хранить в зале славы
+HALL_OF_FAME_SIZE = 50  # количеству индивидуумов, которых мы хотим хранить в зале славы
 
 # константы генетического алгоритма
 POPULATION_SIZE = 10000  # количество индивидуумов в популяции
 P_CROSSOVER = 1  # вероятность скрещивания
-P_MUTATION = 0.1  # вероятность мутации индивидуума
+P_MUTATION = 0  # вероятность мутации индивидуума
 MAX_GENERATIONS = 30  # максимальное количество поколений
 
 
@@ -232,14 +232,14 @@ def main(orders: list[TaskForMultik]):
     toolbox.register("evaluate", getTotalDistance, time_on_multivare)
     toolbox.register("select", tools.selTournament, tournsize=20)
     toolbox.register("mate", tools.cxOrdered)
-    toolbox.register("mutate", tools.mutShuffleIndexes, indpb=0.1 / len_orders)
+    toolbox.register("mutate", tools.mutShuffleIndexes, indpb=1.0 / len_orders)
 
     population = toolbox.populationCreator(n=POPULATION_SIZE)  # Создаем начальную популяцию
     hof = tools.HallOfFame(HALL_OF_FAME_SIZE)
 
     stats = tools.Statistics(lambda ind: ind.fitness.values)
 
-    stats.register("max", numpy.max)
+    stats.register("min", numpy.min)
     stats.register("avg", numpy.mean)
 
     population, logbook = eaSimpleWithElitism(population, toolbox,
@@ -250,20 +250,23 @@ def main(orders: list[TaskForMultik]):
                                               halloffame=hof,
                                               verbose=True)
 
-    print("Индивидуумы в зале славы = ", *hof.items, sep="\n")
-    print("Лучший индивидуум =", hof.items[0])
+    print("- Лучшие решения:")
+    for i in range(HALL_OF_FAME_SIZE):
+        print(i, ": ", hof.items[i].fitness.values[0], " -> ", hof.items[i])
+    # print("Индивидуумы в зале славы = ", *hof.items, sep="\n")
+    # print("Лучший индивидуум =", hof.items[0])
 
     queue_multivare.queue = converting_indexes_to_numbers(hof.items[0], orders)
     queue_multivare.calculating_basket()
 
     print("Лучший индивидуум =", queue_multivare.queue)
 
-    maxFitnessValues, meanFitnessValues = logbook.select("max", "avg")
+    minFitnessValues, meanFitnessValues = logbook.select("min", "avg")
 
-    plt.plot(maxFitnessValues, color='red')
+    plt.plot(minFitnessValues, color='red')
     plt.plot(meanFitnessValues, color='green')
     plt.xlabel('Поколение')
-    plt.ylabel('Макс/средняя приспособленность')
+    plt.ylabel('Мин/средняя приспособленность')
     plt.title('Зависимость максимальной и средней приспособленности от поколения')
     plt.show()
 

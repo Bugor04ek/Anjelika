@@ -9,8 +9,8 @@ CHANGE_BASKET = 20  # смена корзины на мультике
 CHANGE_BOBBIN = 5  # смена корзины на мультике
 CHANGE_WIRE = 1.5  # снятие/натягивание проволочки на 1 фильере
 STRETCHING_WIRE = 5  # протягивание пучка проволочек после всех фильер
-KM_IN_8_BASKET = 35  # КМ в 8 корзинах
-KM_IN_1_BASKET = 35 / 8  # КМ в 8 корзинах
+KM_IN_1_BASKET = 35   # КМ в 1 корзине
+KM_IN_8_BASKET = KM_IN_1_BASKET * 8  # КМ в 8 корзинах
 
 dictionary_spinners = {
     1.8: 3,
@@ -69,11 +69,12 @@ class TaskForMultik:
         self.group = ()
         self.num_group = 0
         self.spin = 0
-        self.total_length_delays = 0
+        self.total_weight_delays = 0
         self.length_piece = 0
         self.length_strands = 0
         self.full_bobbin = ()
         self.time_on_mult = order.time_on_mult
+        self.num_basket = 0
         self.counting_spinners()
         self.set_group()
         self.calculating_length()
@@ -103,11 +104,11 @@ class TaskForMultik:
     def calculating_length(self):
         # суммарная длина проволочек
 
-        self.total_length_delays = ((self.number_of_sliver * self.wires_in_sliver) * self.number_of_strands * self.number_of_veins * self.order.order_length)
+        self.total_weight_delays = ((self.number_of_sliver * self.wires_in_sliver) * self.number_of_strands * self.number_of_veins * self.order.order_length) * pi * 8.89 * (self.diameter ** 2) * 0.25
+        self.length_piece = round(self.total_weight_delays * (self.diameter ** 2 / d_mult ** 2), 3)
 
         # сколько корзин по 8 штук нужно / сколько корзин еще заполнится (набирается число до 8)
-        self.full_basket = self.total_length_delays / self.wires_in_sliver // KM_IN_1_BASKET // 8, self.total_length_delays / self.wires_in_sliver / KM_IN_1_BASKET % 8
-        # self.length_piece = round(self.total_length_delays * (self.diameter ** 2 / d_mult ** 2), 3)
+        self.num_basket = self.total_weight_delays / self.wires_in_sliver / KM_IN_1_BASKET #, self.total_length_delays / self.wires_in_sliver / KM_IN_1_BASKET
 
         # длина заказа в расчете на одну прядь (весь заказ это length_strands *
         # (number_of_sliver + number_of_sliver_extra))
@@ -135,10 +136,26 @@ class TaskForMultik:
         return all(getattr(self, key) == val for (key, val) in kwargs.items())
 
 
+class Basket:
+
+    def __init__(self):
+        self.orders: [TaskForMultik] = []
+        self.diameter_on_exit = 1.8
+        self.len_order = KM_IN_1_BASKET * 8
+        self.time_work = 0
+
+    def append(self, order: TaskForMultik):
+        self.orders.append(order)
+        self.time_work += order.time_on_mult
+        QueueMultivare.find_order(account_number=order.account_number)
+
+
 class QueueMultivare:
     """
     Оптимальная очередь на мультике. С методами поиска любого заказа по заданным параметрам
     """
+
+    rest_baskt: float = 0.0
 
     def __init__(self):
         self.__queue: [TaskForMultik] = []
@@ -164,19 +181,18 @@ class QueueMultivare:
         return (order for order in self.__queue if order.match(**kwargs))
 
     def calculating_basket(self):
-        sum_len: int = 0
-        temp_basket: [TaskForMultik] = []
+        sum_basket: int = 0
+        temp_basket: Basket = Basket()
         for order in self.__queue:
-            sum_len += order.total_length_delays
-            if sum_len < 35_00:
-                temp_basket.append(order)
-            else:
-                Dragger.queue_dragger.orders.append(Dragger.Basket(temp_basket))
-                temp_basket.clear()
-                sum_len = 0
-
+            sum_basket += order.num_basket
+            temp_basket.append(order)
+            if sum_basket > 8:
+                Dragger.queue_dragger.orders.append(temp_basket)
+                temp_basket: Basket = Basket()
+                sum_basket = 0
         else:
-            Dragger.queue_dragger.orders.append(Dragger.Basket(temp_basket))
+            Dragger.queue_dragger.orders.append(temp_basket)
+            QueueMultivare.rest_baskt += sum_basket
 
 
 class CheckListMultivare:
