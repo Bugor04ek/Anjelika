@@ -124,9 +124,14 @@ class TaskForMultik:
         self.full_bobbin = int(number_full_bobbin), volume_half_bobbin, int(int(number_full_bobbin) > 0)
 
     def __str__(self) -> str:
-        return "{} | {} | {} | {} | {} | {} | {} | {} | {}".format(
-            self.id, self.account_number, self.num_group, self.order.release_date, self.length_strands, self.group,
-            self.full_bobbin, self.time_on_mult, self.order.time_on_streng
+        # return "{} | {} | {} | {} | {} | {} | {} | {} | {}".format(
+        #     self.id, self.account_number, self.num_group, self.order.release_date, self.length_strands, self.group,
+        #     self.full_bobbin, self.time_on_mult, self.order.time_on_streng
+        # )
+
+        return "{} | {} | {} | {} | {}".format(
+            self.id, self.account_number, self.order.release_date, self.group,
+            self.full_bobbin, self.time_on_mult
         )
 
     def __repr__(self):
@@ -137,17 +142,26 @@ class TaskForMultik:
 
 
 class Basket:
-
+    """
+    Корзина для подачи на мультик. Класс создается когда заказы с мультика израсходуют суммарно 8 корзин.
+    Класс передается в очередь на волочилку.
+    """
     def __init__(self):
         self.orders: [TaskForMultik] = []
         self.diameter_on_exit = 1.8
-        self.len_order = KM_IN_1_BASKET * 8
+        self.len_basket = KM_IN_1_BASKET * 8
+        self.sum_basket = 0
         self.time_work = 0
 
     def append(self, order: TaskForMultik):
         self.orders.append(order)
         self.time_work += order.time_on_mult
-        QueueMultivare.find_order(account_number=order.account_number)
+        self.sum_basket += order.num_basket
+        # queue_multivare.find_order(account_number=order.account_number)
+
+    def __str__(self):
+
+        return '{} \n'.format(self.orders)
 
 
 class QueueMultivare:
@@ -191,8 +205,9 @@ class QueueMultivare:
                 temp_basket: Basket = Basket()
                 sum_basket = 0
         else:
-            Dragger.queue_dragger.orders.append(temp_basket)
-            QueueMultivare.rest_baskt += sum_basket
+            if len(temp_basket.orders) > 0:
+                Dragger.queue_dragger.orders.append(temp_basket)
+                QueueMultivare.rest_baskt += sum_basket
 
 
 class CheckListMultivare:

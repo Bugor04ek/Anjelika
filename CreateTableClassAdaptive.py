@@ -181,4 +181,4 @@ if __name__ == "__main__":
     end = datetime.datetime.now()
     print(end - start)
 
-    print(*Dragger.queue_dragger.orders)
+    print(Dragger.queue_dragger, sep='\n')
