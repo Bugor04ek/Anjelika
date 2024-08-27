@@ -54,7 +54,8 @@ class Order:
             number_of_sliver_extra_plus, wires_in_sliver_extra_plus, number_of_veins_support, diameter_support,
             number_of_strands_support, number_of_sliver_support, wires_in_sliver_support,
             number_of_sliver_extra_support,
-            wires_in_sliver_extra_support, type_bobbin, volume_bobbin, time_on_mult, time_on_streng):
+            wires_in_sliver_extra_support, type_bobbin, volume_bobbin, time_on_dragger, time_on_multivare,
+            time_on_streng):
         self.IDZak = IDZak
         # self.length_strands = 0
         # self.full_bobbin = ()
@@ -90,7 +91,8 @@ class Order:
         self.wires_in_sliver_extra_support = wires_in_sliver_extra_support
         self.type_bobbin = type_bobbin
         self.volume_bobbin = volume_bobbin
-        self.time_on_mult = time_on_mult
+        self.time_on_dragger = time_on_dragger
+        self.time_on_multivare = time_on_multivare
         self.time_on_streng = time_on_streng
         self.task = self.set_task()
 
@@ -99,6 +101,19 @@ class Order:
         Создаем задание на мультик, разбивая кабель на несколько составляющих, если это плюсовой или вспомогательный
         :return:
         """
+        task = []
+
+        # if self.time_on_dragger:
+            # task.append(self.time_on_dragger())
+        if self.time_on_multivare:
+            task.append(self.set_task_for_multivare())
+
+        return task
+
+    def set_task_for_multivare(self):
+        pass
+
+    def set_task_for_multivare(self):
         task = [Multivare.TaskForMultik(self, self.diameter, self.number_of_veins, self.number_of_strands,
                                         self.number_of_sliver, self.wires_in_sliver, '')]
         if self.number_of_sliver_extra:
@@ -131,7 +146,7 @@ class Order:
                                             self.number_of_sliver_extra_support,
                                             self.wires_in_sliver_extra_support, 'es'))
 
-        return task
+            return task
 
     def __str__(self) -> str:
         return "{} | {} | {} | {} | {}".format(

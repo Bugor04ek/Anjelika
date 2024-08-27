@@ -1,4 +1,4 @@
-import datetime
+
 import genetika
 import vrp
 from consts import *
@@ -145,7 +145,7 @@ def create_orders():
     # P - Километраж масса VS Длина
     # Q - Время на мультике
 
-    excel_data = pd.read_excel(file_name, sheet_name="Лист4")
+    excel_data = pd.read_excel(file_name, sheet_name="Лист5")
     excel_data['Дата выпуска по заказу'] = pd.to_datetime(excel_data['Дата выпуска по заказу'],
                                                           format='%d.%m.%Y').dt.date
     data = pd.DataFrame(excel_data).fillna(0)
@@ -163,7 +163,7 @@ def create_orders():
                             number_of_strands_support=row[22], number_of_sliver_support=row[23],
                             wires_in_sliver_support=row[24], number_of_sliver_extra_support=row[25],
                             wires_in_sliver_extra_support=row[26],
-                            type_bobbin=row[27], volume_bobbin=row[28], time_on_mult=row[29], time_on_streng=row[30]))
+                            type_bobbin=row[27], volume_bobbin=row[28], time_on_dragger=row[29], time_on_multivare=row[30], time_on_streng=row[31]))
 
     return orders
 
@@ -176,9 +176,6 @@ if __name__ == "__main__":
     #
     # vrp.main(TaskForMultik.orders)
     # gen_alg.main(TaskForMultik.orders)
-    start = datetime.datetime.now()
     genetika.main(TaskForMultik.orders)
-    end = datetime.datetime.now()
-    print(end - start)
 
     print(Dragger.queue_dragger, sep='\n')

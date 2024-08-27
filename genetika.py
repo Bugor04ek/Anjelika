@@ -1,3 +1,4 @@
+import datetime
 from deap import base
 from deap import creator
 from deap import tools
@@ -12,13 +13,13 @@ from consts import converting_indexes_to_numbers
 from Оборудование.Multivare import *
 
 # константы задачи
-HALL_OF_FAME_SIZE = 50  # количеству индивидуумов, которых мы хотим хранить в зале славы
+HALL_OF_FAME_SIZE = 500  # количеству индивидуумов, которых мы хотим хранить в зале славы
 
 # константы генетического алгоритма
-POPULATION_SIZE = 10000  # количество индивидуумов в популяции
+POPULATION_SIZE = 30000  # количество индивидуумов в популяции
 P_CROSSOVER = 1  # вероятность скрещивания
 P_MUTATION = 0  # вероятность мутации индивидуума
-MAX_GENERATIONS = 30  # максимальное количество поколений
+MAX_GENERATIONS = 70  # максимальное количество поколений
 
 
 # Функция для расчета времени перенастройки между заказами мультика
@@ -213,7 +214,20 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, hall
 
 
 def main(orders: list[TaskForMultik]):
+    start = datetime.datetime.now()
+
+
     len_orders = len(orders)
+
+    # константы задачи
+    HALL_OF_FAME_SIZE = len_orders * 15  # количеству индивидуумов, которых мы хотим хранить в зале славы
+
+    # константы генетического алгоритма
+    POPULATION_SIZE = len_orders * 150  # количество индивидуумов в популяции
+    P_CROSSOVER = 1  # вероятность скрещивания
+    P_MUTATION = 0  # вероятность мутации индивидуума
+    MAX_GENERATIONS = int(len_orders * 0.35)  # максимальное количество поколений
+
     time_on_multivare = form_matrix_multivare(orders)
     toolbox = base.Toolbox()
 
@@ -230,7 +244,7 @@ def main(orders: list[TaskForMultik]):
     toolbox.register("individualCreator", tools.initIterate, creator.Individual, toolbox.randomOrder)
     toolbox.register("populationCreator", tools.initRepeat, list, toolbox.individualCreator)
     toolbox.register("evaluate", getTotalDistance, time_on_multivare)
-    toolbox.register("select", tools.selTournament, tournsize=20)
+    toolbox.register("select", tools.selTournament, tournsize=50)
     toolbox.register("mate", tools.cxOrdered)
     toolbox.register("mutate", tools.mutShuffleIndexes, indpb=1.0 / len_orders)
 
@@ -260,6 +274,10 @@ def main(orders: list[TaskForMultik]):
     queue_multivare.calculating_basket()
 
     print("Лучший индивидуум =", queue_multivare.queue)
+
+
+    end = datetime.datetime.now()
+    print(end - start)
 
     minFitnessValues, meanFitnessValues = logbook.select("min", "avg")
 

@@ -73,7 +73,7 @@ class TaskForMultik:
         self.length_piece = 0
         self.length_strands = 0
         self.full_bobbin = ()
-        self.time_on_mult = order.time_on_mult
+        self.time_on_mult = order.time_on_multivare
         self.num_basket = 0
         self.counting_spinners()
         self.set_group()
