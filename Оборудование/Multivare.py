@@ -6,13 +6,15 @@ import Оборудование.Dragger as Dragger
 REMOVED_SPIN = 1  # время снятия фильер
 INSERT_SPIN = 5  # время вставки фильер (это время надо умножить на количество проволочек в пряди)
 CHANGE_BASKET = 20  # смена корзины на мультике
-CHANGE_BOBBIN = 5  # смена корзины на мультике
+CHANGE_BOBBIN = 5  # смена катушки на мультике
 CHANGE_WIRE = 1.5  # снятие/натягивание проволочки на 1 фильере
 STRETCHING_WIRE = 5  # протягивание пучка проволочек после всех фильер
-KM_IN_1_BASKET = 35   # КМ в 1 корзине
+KM_IN_1_BASKET = 35  # КМ в 1 корзине
 KM_IN_8_BASKET = KM_IN_1_BASKET * 8  # КМ в 8 корзинах
 
 dictionary_spinners = {
+    2.28: 1,
+    2.0264: 2,
     1.8: 3,
     1.6: 4,
     1.422: 5,
@@ -48,7 +50,6 @@ class TaskForMultik:
     orders = []
 
     def __init__(self, order, diameter, number_of_veins, number_of_strands, number_of_sliver, wires_in_sliver, type):
-
         TaskForMultik.orders.append(self)
         self.order = order
 
@@ -104,11 +105,15 @@ class TaskForMultik:
     def calculating_length(self):
         # суммарная длина проволочек
 
-        self.total_weight_delays = ((self.number_of_sliver * self.wires_in_sliver) * self.number_of_strands * self.number_of_veins * self.order.order_length) * pi * 8.89 * (self.diameter ** 2) * 0.25
+        self.total_weight_delays = ((
+                                                self.number_of_sliver * self.wires_in_sliver) * self.number_of_strands * self.number_of_veins * self.order.order_length) * pi * 8.89 * (
+                                               self.diameter ** 2) * 0.25
         self.length_piece = round(self.total_weight_delays * (self.diameter ** 2 / d_mult ** 2), 3)
 
-        # сколько корзин по 8 штук нужно / сколько корзин еще заполнится (набирается число до 8)
-        self.num_basket = self.total_weight_delays / self.wires_in_sliver / KM_IN_1_BASKET #, self.total_length_delays / self.wires_in_sliver / KM_IN_1_BASKET
+        # 0 - сколько корзин по 8 штук нужно, если заказ очень большой и требуется много корзин
+        # 1 - сколько корзин еще заполнится (набирается число до 8)
+        self.num_basket = (int(self.total_weight_delays / self.wires_in_sliver / KM_IN_1_BASKET // 8),
+                           self.total_weight_delays / self.wires_in_sliver / KM_IN_1_BASKET % 8)
 
         # длина заказа в расчете на одну прядь (весь заказ это length_strands *
         # (number_of_sliver + number_of_sliver_extra))
@@ -146,21 +151,21 @@ class Basket:
     Корзина для подачи на мультик. Класс создается когда заказы с мультика израсходуют суммарно 8 корзин.
     Класс передается в очередь на волочилку.
     """
-    def __init__(self):
+
+    def __init__(self, orders=[], sum=0):
         self.orders: [TaskForMultik] = []
-        self.diameter_on_exit = 1.8
+        self.diameter_on_exit = d_mult
         self.len_basket = KM_IN_1_BASKET * 8
-        self.sum_basket = 0
+        self.sum_basket = sum
         self.time_work = 0
 
     def append(self, order: TaskForMultik):
         self.orders.append(order)
         self.time_work += order.time_on_mult
-        self.sum_basket += order.num_basket
+        self.sum_basket += order.num_basket[1]
         # queue_multivare.find_order(account_number=order.account_number)
 
     def __str__(self):
-
         return '{} \n'.format(self.orders)
 
 
@@ -195,13 +200,23 @@ class QueueMultivare:
         return (order for order in self.__queue if order.match(**kwargs))
 
     def calculating_basket(self):
+        """
+        Для оптимально расставленных заказов на мультике считаются корзины. Корзина набивается заказами, которые сами по себе не формируют полноценные 8,
+        если такие заказы есть, то заказ должен занимать нужное количество корзин в одиночку, а остаток делить с остальными заказами
+        :return:
+        """
+
         sum_basket: int = 0
         temp_basket: Basket = Basket()
         for order in self.__queue:
-            sum_basket += order.num_basket
+
+            sum_basket += order.num_basket[1]
             temp_basket.append(order)
             if sum_basket > 8:
                 Dragger.queue_dragger.orders.append(temp_basket)
+                for _ in range(order.num_basket[0]):
+                    temp_basket = Basket(order, 8)
+                    Dragger.queue_dragger.orders.append(temp_basket)
                 temp_basket: Basket = Basket()
                 sum_basket = 0
         else:

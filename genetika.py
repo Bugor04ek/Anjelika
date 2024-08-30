@@ -16,7 +16,7 @@ from Оборудование.Multivare import *
 HALL_OF_FAME_SIZE = 500  # количеству индивидуумов, которых мы хотим хранить в зале славы
 
 # константы генетического алгоритма
-POPULATION_SIZE = 30000  # количество индивидуумов в популяции
+POPULATION_SIZE = 15000  # количество индивидуумов в популяции
 P_CROSSOVER = 1  # вероятность скрещивания
 P_MUTATION = 0  # вероятность мутации индивидуума
 MAX_GENERATIONS = 70  # максимальное количество поколений
@@ -24,57 +24,6 @@ MAX_GENERATIONS = 70  # максимальное количество покол
 
 # Функция для расчета времени перенастройки между заказами мультика
 def calculate_setup_time_multivare(previous_order, order):
-    # Создается матрица "расстояний".
-    # Считается время перенастройки и смены катушки между заказами
-    # Не учитывается добавление катушки, если она заполнена
-    # После определения оптимального варианта будет пересчет через чеклист мультика
-
-    total_setup_time = 0
-
-    if previous_order is not None:
-
-        change = False
-
-        """
-            1 ПРОВЕРКА -- Разность диаметров
-        """
-
-        # меньше диаметр - больше фильер
-        if previous_order.spin > order.spin:
-            removed_spin = previous_order.spin - order.spin + 1  # снимаем фильеры +1, чтобы переставить ее в конец
-            total_setup_time += removed_spin * REMOVED_SPIN  # Время на снятие фильер
-            total_setup_time += INSERT_SPIN * order.wires_in_sliver  # Время на установку фильер
-            change = True
-        # больше диаметр - меньше фильер
-        elif previous_order.spin < order.spin:
-            removed_spin = 1  # снимаем последнюю
-            total_setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
-            total_setup_time += INSERT_SPIN * (
-                    order.spin - (
-                    previous_order.spin - 1)) * order.wires_in_sliver  # время на установку фильер +1, потому 1 уже снята tt
-            change = True
-
-        """
-            2 ПРОВЕРКА -- Разность проволочек
-        """
-
-        dif_wire = abs(order.wires_in_sliver - previous_order.wires_in_sliver)
-
-        if previous_order.wires_in_sliver < order.wires_in_sliver:
-            # Надо протянуть новые проволочки через все фильеры на новом заказе
-            total_setup_time += dif_wire * order.spin * CHANGE_WIRE + STRETCHING_WIRE
-            change = True
-        elif previous_order.wires_in_sliver > order.wires_in_sliver:
-            # Надо снять проволочки со всех фильер previous_order
-            total_setup_time += dif_wire * previous_order.spin * CHANGE_WIRE
-            change = True
-
-        if change:
-            # Если было любое изменение, то надо сменить катушку
-            total_setup_time += CHANGE_BOBBIN  # Время на смену катушки
-
-    return total_setup_time
-def calculate_setup_time_dragger(previous_order, order):
     # Создается матрица "расстояний".
     # Считается время перенастройки и смены катушки между заказами
     # Не учитывается добавление катушки, если она заполнена
@@ -216,17 +165,16 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, hall
 def main(orders: list[TaskForMultik]):
     start = datetime.datetime.now()
 
-
     len_orders = len(orders)
 
-    # константы задачи
-    HALL_OF_FAME_SIZE = len_orders * 15  # количеству индивидуумов, которых мы хотим хранить в зале славы
-
-    # константы генетического алгоритма
+    # # константы задачи
+    HALL_OF_FAME_SIZE = len_orders * 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
+    #
+    # # константы генетического алгоритма
     POPULATION_SIZE = len_orders * 150  # количество индивидуумов в популяции
-    P_CROSSOVER = 1  # вероятность скрещивания
-    P_MUTATION = 0  # вероятность мутации индивидуума
-    MAX_GENERATIONS = int(len_orders * 0.35)  # максимальное количество поколений
+    # P_CROSSOVER = 1  # вероятность скрещивания
+    # P_MUTATION = 0  # вероятность мутации индивидуума
+    MAX_GENERATIONS = int(len_orders * 0.9)  # максимальное количество поколений
 
     time_on_multivare = form_matrix_multivare(orders)
     toolbox = base.Toolbox()
@@ -244,7 +192,7 @@ def main(orders: list[TaskForMultik]):
     toolbox.register("individualCreator", tools.initIterate, creator.Individual, toolbox.randomOrder)
     toolbox.register("populationCreator", tools.initRepeat, list, toolbox.individualCreator)
     toolbox.register("evaluate", getTotalDistance, time_on_multivare)
-    toolbox.register("select", tools.selTournament, tournsize=50)
+    toolbox.register("select", tools.selTournament, tournsize=15)
     toolbox.register("mate", tools.cxOrdered)
     toolbox.register("mutate", tools.mutShuffleIndexes, indpb=1.0 / len_orders)
 
@@ -275,7 +223,6 @@ def main(orders: list[TaskForMultik]):
 
     print("Лучший индивидуум =", queue_multivare.queue)
 
-
     end = datetime.datetime.now()
     print(end - start)
 
@@ -291,5 +238,4 @@ def main(orders: list[TaskForMultik]):
     print("Время лучшего:", getTotalDistance(time_on_multivare, hof.items[0]))
 
     # total_setup_time = check_list_multik.calculate_time_setup()
-    # print('Время настройки2:', total_setup_time)
-
+    #     # print('Время настройки2:', total_setup_time)

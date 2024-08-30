@@ -2,6 +2,7 @@ from prettytable import PrettyTable
 import re
 from gosts import GOSTS
 import Оборудование.Multivare as Multivare
+import Оборудование.Dragger as Dragger
 
 # A - IDZak
 # B - Номер счета
@@ -103,15 +104,17 @@ class Order:
         """
         task = []
 
-        # if self.time_on_dragger:
-            # task.append(self.time_on_dragger())
+        if self.time_on_dragger and not self.time_on_multivare:
+            task.append(self.set_task_for_dragger())
         if self.time_on_multivare:
-            task.append(self.set_task_for_multivare())
+            task.extend(self.set_task_for_multivare())
 
         return task
 
-    def set_task_for_multivare(self):
-        pass
+    def set_task_for_dragger(self):
+        temp = Dragger.TaskForDragger(self, self.diameter)
+        Dragger.queue_dragger.orders.append(temp)
+        return temp
 
     def set_task_for_multivare(self):
         task = [Multivare.TaskForMultik(self, self.diameter, self.number_of_veins, self.number_of_strands,
@@ -146,7 +149,7 @@ class Order:
                                             self.number_of_sliver_extra_support,
                                             self.wires_in_sliver_extra_support, 'es'))
 
-            return task
+        return task
 
     def __str__(self) -> str:
         return "{} | {} | {} | {} | {}".format(
