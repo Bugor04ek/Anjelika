@@ -220,7 +220,7 @@ def main(orders: list[TaskForMultik]):
 
     queue_multivare.queue = converting_indexes_to_numbers(hof.items[0], orders)
     queue_multivare.calculating_basket()
-
+    queue_dragger(Dragger.queue_dragger.orders)
     print("Лучший индивидуум =", queue_multivare.queue)
 
     end = datetime.datetime.now()
@@ -239,3 +239,12 @@ def main(orders: list[TaskForMultik]):
 
     # total_setup_time = check_list_multik.calculate_time_setup()
     #     # print('Время настройки2:', total_setup_time)
+
+
+def queue_dragger(orders: [TaskForMultik]):
+    indexes_baskets = []
+    for order in orders:
+        if issubclass(Basket, type(order)):
+            indexes_baskets.append(orders.index(order))
+
+

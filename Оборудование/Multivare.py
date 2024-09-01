@@ -152,11 +152,13 @@ class Basket:
     Класс передается в очередь на волочилку.
     """
 
-    def __init__(self, orders=[], sum=0):
-        self.orders: [TaskForMultik] = []
+    def __init__(self, orders=None, sum_basket=0):
+        if orders is None:
+            orders = []
+        self.orders: [TaskForMultik] = orders
         self.diameter_on_exit = d_mult
         self.len_basket = KM_IN_1_BASKET * 8
-        self.sum_basket = sum
+        self.sum_basket = sum_basket
         self.time_work = 0
 
     def append(self, order: TaskForMultik):
@@ -212,11 +214,12 @@ class QueueMultivare:
 
             sum_basket += order.num_basket[1]
             temp_basket.append(order)
+
+            for _ in range(order.num_basket[0]):
+                Dragger.queue_dragger.orders.append(Basket([order], 8))
+
             if sum_basket > 8:
                 Dragger.queue_dragger.orders.append(temp_basket)
-                for _ in range(order.num_basket[0]):
-                    temp_basket = Basket(order, 8)
-                    Dragger.queue_dragger.orders.append(temp_basket)
                 temp_basket: Basket = Basket()
                 sum_basket = 0
         else:
