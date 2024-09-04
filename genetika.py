@@ -6,11 +6,10 @@ from deap import algorithms
 import random
 import matplotlib.pyplot as plt
 import numpy
-import os
-from pandas import ExcelWriter
-import pandas as pd
+
 from consts import converting_indexes_to_numbers
 from Оборудование.Multivare import *
+from Оборудование.Dragger import *
 
 # константы задачи
 HALL_OF_FAME_SIZE = 500  # количеству индивидуумов, которых мы хотим хранить в зале славы
@@ -20,87 +19,6 @@ POPULATION_SIZE = 15000  # количество индивидуумов в по
 P_CROSSOVER = 1  # вероятность скрещивания
 P_MUTATION = 0  # вероятность мутации индивидуума
 MAX_GENERATIONS = 70  # максимальное количество поколений
-
-
-# Функция для расчета времени перенастройки между заказами мультика
-def calculate_setup_time_multivare(previous_order, order):
-    # Создается матрица "расстояний".
-    # Считается время перенастройки и смены катушки между заказами
-    # Не учитывается добавление катушки, если она заполнена
-    # После определения оптимального варианта будет пересчет через чеклист мультика
-
-    total_setup_time = 0
-
-    if previous_order is not None:
-
-        change = False
-
-        """
-            1 ПРОВЕРКА -- Разность диаметров
-        """
-
-        # меньше диаметр - больше фильер
-        if previous_order.spin > order.spin:
-            removed_spin = previous_order.spin - order.spin + 1  # снимаем фильеры +1, чтобы переставить ее в конец
-            total_setup_time += removed_spin * REMOVED_SPIN  # Время на снятие фильер
-            total_setup_time += INSERT_SPIN * order.wires_in_sliver  # Время на установку фильер
-            change = True
-        # больше диаметр - меньше фильер
-        elif previous_order.spin < order.spin:
-            removed_spin = 1  # снимаем последнюю
-            total_setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
-            total_setup_time += INSERT_SPIN * (
-                    order.spin - (
-                    previous_order.spin - 1)) * order.wires_in_sliver  # время на установку фильер +1, потому 1 уже снята tt
-            change = True
-
-        """
-            2 ПРОВЕРКА -- Разность проволочек
-        """
-
-        dif_wire = abs(order.wires_in_sliver - previous_order.wires_in_sliver)
-
-        if previous_order.wires_in_sliver < order.wires_in_sliver:
-            # Надо протянуть новые проволочки через все фильеры на новом заказе
-            total_setup_time += dif_wire * order.spin * CHANGE_WIRE + STRETCHING_WIRE
-            change = True
-        elif previous_order.wires_in_sliver > order.wires_in_sliver:
-            # Надо снять проволочки со всех фильер previous_order
-            total_setup_time += dif_wire * previous_order.spin * CHANGE_WIRE
-            change = True
-
-        if change:
-            # Если было любое изменение, то надо сменить катушку
-            total_setup_time += CHANGE_BOBBIN  # Время на смену катушки
-
-    return total_setup_time
-
-
-# Функция для создания матрицы времени перенастроек мультика
-def form_matrix_multivare(orders):
-    temp_matrix1 = []
-    for order1 in orders:
-        temp_matrix2 = []
-        for order2 in orders:
-            temp_matrix2.append(calculate_setup_time_multivare(order1, order2))
-        temp_matrix1.append(temp_matrix2)
-    return temp_matrix1
-
-
-def getTotalDistance(time_on_multivare, indices):
-    """Calculates the total distance of the path described by the given indices of the cities
-
-    :param indices: A list of ordered city indices describing the given path.
-    :return: total distance of the path described by the given indices
-    """
-    # distance between th elast and first city:
-    time = 0
-
-    # add the distance between each pair of consequtive cities:
-    for i in range(len(indices) - 1):
-        time += time_on_multivare[indices[i]][indices[i + 1]]
-
-    return time,
 
 
 def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, halloffame=None, verbose=__debug__):
@@ -162,21 +80,20 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, hall
     return population, logbook
 
 
-def main(orders: list[TaskForMultik]):
+def main_multivare(orders: list[TaskForMultik]):
     start = datetime.datetime.now()
 
     len_orders = len(orders)
 
-    # # константы задачи
+    # константы задачи
     HALL_OF_FAME_SIZE = len_orders * 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
-    #
-    # # константы генетического алгоритма
+    # константы генетического алгоритма
     POPULATION_SIZE = len_orders * 150  # количество индивидуумов в популяции
     # P_CROSSOVER = 1  # вероятность скрещивания
     # P_MUTATION = 0  # вероятность мутации индивидуума
     MAX_GENERATIONS = int(len_orders * 0.9)  # максимальное количество поколений
 
-    time_on_multivare = form_matrix_multivare(orders)
+    time_on_multivare = QueueMultivare.form_matrix_multivare(orders)
     toolbox = base.Toolbox()
 
     df = pd.DataFrame(time_on_multivare)
@@ -191,7 +108,7 @@ def main(orders: list[TaskForMultik]):
     toolbox.register("randomOrder", random.sample, range(len_orders), len_orders)
     toolbox.register("individualCreator", tools.initIterate, creator.Individual, toolbox.randomOrder)
     toolbox.register("populationCreator", tools.initRepeat, list, toolbox.individualCreator)
-    toolbox.register("evaluate", getTotalDistance, time_on_multivare)
+    toolbox.register("evaluate", QueueMultivare.get_total_time, time_on_multivare)
     toolbox.register("select", tools.selTournament, tournsize=15)
     toolbox.register("mate", tools.cxOrdered)
     toolbox.register("mutate", tools.mutShuffleIndexes, indpb=1.0 / len_orders)
@@ -215,13 +132,15 @@ def main(orders: list[TaskForMultik]):
     print("- Лучшие решения:")
     for i in range(HALL_OF_FAME_SIZE):
         print(i, ": ", hof.items[i].fitness.values[0], " -> ", hof.items[i])
-    # print("Индивидуумы в зале славы = ", *hof.items, sep="\n")
-    # print("Лучший индивидуум =", hof.items[0])
 
-    queue_multivare.queue = converting_indexes_to_numbers(hof.items[0], orders)
+    best_order = hof.items[0]  # массив заказов в виде индексов
+    queue_multivare.queue = converting_indexes_to_numbers(best_order, orders)
+    queue_multivare.setting_time_setup()
+
     queue_multivare.calculating_basket()
     queue_dragger(Dragger.queue_dragger.orders)
     print("Лучший индивидуум =", queue_multivare.queue)
+    print("Лучший индивидуум =", best_order)
 
     end = datetime.datetime.now()
     print(end - start)
@@ -235,10 +154,95 @@ def main(orders: list[TaskForMultik]):
     plt.title('Зависимость максимальной и средней приспособленности от поколения')
     plt.show()
 
-    print("Время лучшего:", getTotalDistance(time_on_multivare, hof.items[0]))
+    print("Время лучшего:", hof.items[0].fitness.values[0])
 
     # total_setup_time = check_list_multik.calculate_time_setup()
     #     # print('Время настройки2:', total_setup_time)
+
+
+def main_dragger(orders: list[TaskForMultik]):
+    start = datetime.datetime.now()
+
+    len_orders = len(orders)
+
+    # # константы задачи
+    HALL_OF_FAME_SIZE = len_orders * 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
+    POPULATION_SIZE = len_orders * 150  # количество индивидуумов в популяции
+    MAX_GENERATIONS = int(len_orders * 0.9)  # максимальное количество поколений
+
+    time_on_multivare = queue_multivare.form_matrix_multivare(orders)
+    toolbox = base.Toolbox()
+
+    df = pd.DataFrame(time_on_multivare)
+
+    mode = "w" if os.path.exists("excel/matrix_time.xlsx") else "a"
+
+    with ExcelWriter("excel/matrix_time.xlsx", mode=mode, engine="openpyxl") as writer:
+        df.to_excel(writer)
+
+    creator.create("FitnessMin", base.Fitness, weights=(-1.0,))  # стратегия приспособления - минимальное время
+    creator.create("Individual", list, typecode='i', fitness=creator.FitnessMin)  # представление индивидуумов
+    toolbox.register("randomOrder", random.sample, range(len_orders), len_orders)
+    toolbox.register("individualCreator", tools.initIterate, creator.Individual, toolbox.randomOrder)
+    toolbox.register("populationCreator", tools.initRepeat, list, toolbox.individualCreator)
+    toolbox.register("evaluate", QueueDragger.get_cost, time_on_multivare)
+    toolbox.register("select", tools.selTournament, tournsize=15)
+    toolbox.register("mate", tools.cxOrdered)
+    toolbox.register("mutate", tools.mutShuffleIndexes, indpb=1.0 / len_orders)
+
+    population = toolbox.populationCreator(n=POPULATION_SIZE)  # Создаем начальную популяцию
+    hof = tools.HallOfFame(HALL_OF_FAME_SIZE)
+
+    stats = tools.Statistics(lambda ind: ind.fitness.values)
+
+    stats.register("min", numpy.min)
+    stats.register("avg", numpy.mean)
+
+    population, logbook = eaSimpleWithElitism(population, toolbox,
+                                              cxpb=P_CROSSOVER,
+                                              mutpb=P_MUTATION,
+                                              ngen=MAX_GENERATIONS,
+                                              stats=stats,
+                                              halloffame=hof,
+                                              verbose=True)
+
+    print("- Лучшие решения:")
+    for i in range(HALL_OF_FAME_SIZE):
+        print(i, ": ", hof.items[i].fitness.values[0], " -> ", hof.items[i])
+
+    best_order = hof.items[0]  # массив заказов в виде индексов
+    queue_multivare.queue = converting_indexes_to_numbers(best_order, orders)
+
+    for num, i in enumerate(best_order):
+
+        # пропускаем первый индекс, т.к у него нет время на перенастройку
+        if num == 0:
+            continue
+
+        orders[i].time_setup = time_on_multivare[i][best_order[num-1]]
+
+    queue_multivare.calculating_basket()
+    queue_dragger(Dragger.queue_dragger.orders)
+    print("Лучший индивидуум =", queue_multivare.queue)
+    print("Лучший индивидуум =", best_order)
+
+    end = datetime.datetime.now()
+    print(end - start)
+
+    minFitnessValues, meanFitnessValues = logbook.select("min", "avg")
+
+    plt.plot(minFitnessValues, color='red')
+    plt.plot(meanFitnessValues, color='green')
+    plt.xlabel('Поколение')
+    plt.ylabel('Мин/средняя приспособленность')
+    plt.title('Зависимость максимальной и средней приспособленности от поколения')
+    plt.show()
+
+    print("Время лучшего:", QueueDragger.getTotalDistance(time_on_multivare, hof.items[0]))
+
+    # total_setup_time = check_list_multik.calculate_time_setup()
+    #     # print('Время настройки2:', total_setup_time)
+
 
 
 def queue_dragger(orders: [TaskForMultik]):

@@ -74,7 +74,9 @@ class TaskForMultik:
         self.length_piece = 0
         self.length_strands = 0
         self.full_bobbin = ()
-        self.time_on_mult = order.time_on_multivare
+        self.time_on_multivare = order.time_on_multivare
+        self.time_on_mult_1_basket = 0
+        self.__time_setup = 0
         self.num_basket = 0
         self.counting_spinners()
         self.set_group()
@@ -105,8 +107,8 @@ class TaskForMultik:
     def calculating_length(self):
         # суммарная длина проволочек
 
-        self.total_weight_delays = ((
-                                                self.number_of_sliver * self.wires_in_sliver) * self.number_of_strands * self.number_of_veins * self.order.order_length) * pi * 8.89 * (
+        self.total_weight_delays = ((self.number_of_sliver * self.wires_in_sliver) * self.number_of_strands *
+                                    self.number_of_veins * self.order.order_length) * pi * 8.89 * (
                                                self.diameter ** 2) * 0.25
         self.length_piece = round(self.total_weight_delays * (self.diameter ** 2 / d_mult ** 2), 3)
 
@@ -114,6 +116,7 @@ class TaskForMultik:
         # 1 - сколько корзин еще заполнится (набирается число до 8)
         self.num_basket = (int(self.total_weight_delays / self.wires_in_sliver / KM_IN_1_BASKET // 8),
                            self.total_weight_delays / self.wires_in_sliver / KM_IN_1_BASKET % 8)
+        self.time_on_mult_1_basket = self.time_on_multivare / (self.num_basket[0] + self.num_basket[1])
 
         # длина заказа в расчете на одну прядь (весь заказ это length_strands *
         # (number_of_sliver + number_of_sliver_extra))
@@ -128,6 +131,14 @@ class TaskForMultik:
 
         self.full_bobbin = int(number_full_bobbin), volume_half_bobbin, int(int(number_full_bobbin) > 0)
 
+    @property
+    def time_setup(self):
+        return self.__time_setup
+
+    @time_setup.setter
+    def time_setup(self, value):
+        self.__time_setup = value
+
     def __str__(self) -> str:
         # return "{} | {} | {} | {} | {} | {} | {} | {} | {}".format(
         #     self.id, self.account_number, self.num_group, self.order.release_date, self.length_strands, self.group,
@@ -136,7 +147,7 @@ class TaskForMultik:
 
         return "{} | {} | {} | {} | {}".format(
             self.id, self.account_number, self.order.release_date, self.group,
-            self.full_bobbin, self.time_on_mult
+            self.full_bobbin, self.time_on_mult_1_basket
         )
 
     def __repr__(self):
@@ -153,18 +164,52 @@ class Basket:
     """
 
     def __init__(self, orders=None, sum_basket=0):
+        """
+        Создание корзины. Когда будет несколько заказов в корзинах, тогда используются значения параметров по умолчанию.
+        Если один заказ тратит 8 корзин, тогда используются переданные параметры
+        :param orders: None, если много заказов. Не None, если 1 заказ
+        :param sum_basket: 0, если много заказов. 8, если 1 заказ
+        """
         if orders is None:
             orders = []
+        self.time_work = 0
         self.orders: [TaskForMultik] = orders
         self.diameter_on_exit = d_mult
         self.len_basket = KM_IN_1_BASKET * 8
         self.sum_basket = sum_basket
-        self.time_work = 0
+        self.set_time_work()
 
-    def append(self, order: TaskForMultik):
+    def set_time_work(self):
+        """
+        Устанавливается время траты 8 корзин.
+        1. Если заказов 0, значит экземпляр корзины только что создан и будет набиваться заказами
+        2. Иначе заказ полностью тратит 8 корзин и время считается из его параметров + время перенастройки
+        :return: время, за которое потратится 8 корзин, если 0, тогда время будет увеличиваться по мере добавления заказов
+        """
+        if len(self.orders) == 0:
+            self.time_work = 0
+        else:
+            self.time_work = self.orders[0].time_on_mult_1_basket * self.sum_basket + self.orders[0].time_setup
+
+    def append(self, order: TaskForMultik, num_basket=None, use_time_setup=True):
+        """
+        1. Если заказ полностью подходит по вместимости корзины, то берем время и длину из заказа
+        2. Если заказ не влазит в текущую корзину, то в одну корзину добавляем, что остается до восьми целых,
+        а в следующую все что осталось от этого заказа
+        :param use_time_setup: True когда заказ сидит только в одной корзине. False, когда заказ встречается уже во второй раз, чтобы не учитывать второй раз время перенастройки
+        :param order: Заказ на мультик
+        :param num_basket: None, если заказ полностью влез в корзину. Не None, если часть заказа будет в двух разны корзинах
+        :return:
+        """
         self.orders.append(order)
-        self.time_work += order.time_on_mult
-        self.sum_basket += order.num_basket[1]
+        if num_basket is None:
+            # Тут берем траты корзины из заказа
+            self.time_work += order.time_on_mult_1_basket * order.num_basket[1] + order.time_setup
+            self.sum_basket += order.num_basket[1]
+        else:
+            # Тут берем траты корзины из параметра
+            self.time_work += order.time_on_mult_1_basket * num_basket + (order.time_setup if use_time_setup else 0)
+            self.sum_basket += num_basket
         # queue_multivare.find_order(account_number=order.account_number)
 
     def __str__(self):
@@ -176,7 +221,7 @@ class QueueMultivare:
     Оптимальная очередь на мультике. С методами поиска любого заказа по заданным параметрам
     """
 
-    rest_baskt: float = 0.0
+    rest_basket: float = 0.0
 
     def __init__(self):
         self.__queue: [TaskForMultik] = []
@@ -201,6 +246,111 @@ class QueueMultivare:
     def __iter_order(self, **kwargs):
         return (order for order in self.__queue if order.match(**kwargs))
 
+    @staticmethod
+    def calculate_setup_time_multivare(previous_order, order):
+        """
+        Функция для расчета времени перенастройки между заказами мультика.
+        Считается время перенастройки и смены катушки между заказами
+        Не учитывается добавление катушки, если она заполнена
+        ??? После определения оптимального варианта будет пересчет через чеклист мультика
+        :param previous_order:
+        :param order:
+        :return:
+        """
+
+        total_setup_time = 0
+
+        if previous_order is not None:
+
+            change = False
+
+            """
+                1 ПРОВЕРКА -- Разность диаметров
+            """
+
+            # меньше диаметр - больше фильер
+            if previous_order.spin > order.spin:
+                removed_spin = previous_order.spin - order.spin + 1  # снимаем фильеры +1, чтобы переставить ее в конец
+                total_setup_time += removed_spin * REMOVED_SPIN  # Время на снятие фильер
+                total_setup_time += INSERT_SPIN * order.wires_in_sliver  # Время на установку фильер
+                change = True
+            # больше диаметр - меньше фильер
+            elif previous_order.spin < order.spin:
+                removed_spin = 1  # снимаем последнюю
+                total_setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
+                total_setup_time += INSERT_SPIN * (
+                        order.spin - (
+                        previous_order.spin - 1)) * order.wires_in_sliver  # время на установку фильер +1, потому 1 уже снята tt
+                change = True
+
+            """
+                2 ПРОВЕРКА -- Разность проволочек
+            """
+
+            dif_wire = abs(order.wires_in_sliver - previous_order.wires_in_sliver)
+
+            if previous_order.wires_in_sliver < order.wires_in_sliver:
+                # Надо протянуть новые проволочки через все фильеры на новом заказе
+                total_setup_time += dif_wire * order.spin * CHANGE_WIRE + STRETCHING_WIRE
+                change = True
+            elif previous_order.wires_in_sliver > order.wires_in_sliver:
+                # Надо снять проволочки со всех фильер previous_order
+                total_setup_time += dif_wire * previous_order.spin * CHANGE_WIRE
+                change = True
+
+            if change:
+                # Если было любое изменение, то надо сменить катушку
+                total_setup_time += CHANGE_BOBBIN  # Время на смену катушки
+
+        return total_setup_time
+
+    @staticmethod
+    def form_matrix_multivare(orders):
+        """
+        Функция для создания матрицы времени перенастроек мультика
+        :param orders: неупорядоченный список заказов на мультик
+        :return: матрица времени перенастроек
+        """
+        temp_matrix1 = []
+        for order1 in orders:
+            temp_matrix2 = []
+            for order2 in orders:
+                temp_matrix2.append(QueueMultivare.calculate_setup_time_multivare(order1, order2))
+            temp_matrix1.append(temp_matrix2)
+        return temp_matrix1
+
+    @staticmethod
+    def get_total_time(time_on_multivare, indices):
+        """
+        Считается время перенастроек между заказов для текущей очереди
+        :param time_on_multivare: время перенастроек для каждого заказа с каждым
+        :param indices: текущий индивид (очередь).
+        :return: Всё время перенастроек для текущей очереди
+        """
+
+        time = 0
+
+        # время между каждой парой заказов
+        for i in range(len(indices) - 1):
+            time += time_on_multivare[indices[i]][indices[i + 1]]
+
+        return time,
+
+    def setting_time_setup(self):
+        """
+        Определяем время настройки заказов на мультике.
+        :return:
+        """
+
+        for i in range(len(self.__queue)):
+
+            # пропускаем первый индекс, т.к у него нет время на перенастройку
+            if i == 0:
+                continue
+
+            self.__queue[i].time_setup = QueueMultivare.calculate_setup_time_multivare(self.__queue[i - 1],
+                                                                                       self.__queue[i])
+
     def calculating_basket(self):
         """
         Для оптимально расставленных заказов на мультике считаются корзины. Корзина набивается заказами, которые сами по себе не формируют полноценные 8,
@@ -212,20 +362,42 @@ class QueueMultivare:
         temp_basket: Basket = Basket()
         for order in self.__queue:
 
-            sum_basket += order.num_basket[1]
-            temp_basket.append(order)
-
-            for _ in range(order.num_basket[0]):
-                Dragger.queue_dragger.orders.append(Basket([order], 8))
-
-            if sum_basket > 8:
+            # Если со следующим заказом получается меньше 8 корзин, но он занимает сам по себе больше 8 корзин
+            if order.num_basket[0] > 0 and (sum_basket + order.num_basket[1]) <= 8:
+                # Добавляем такой заказ последним и начинаем новые корзины, потому что после него пойдут корзины только для этого заказа
+                sum_basket += order.num_basket[1]
+                temp_basket.append(order)
                 Dragger.queue_dragger.orders.append(temp_basket)
-                temp_basket: Basket = Basket()
+
+                for _ in range(order.num_basket[0]):
+                    Dragger.queue_dragger.orders.append(Basket([order], 8))
+
                 sum_basket = 0
+                temp_basket: Basket = Basket()
+
+            # Если со следующим заказом получается больше 8 корзин
+            elif (sum_basket + order.num_basket[1]) > 8:
+                # Прибавляем так, чтобы стало 8 и добавляем время изготовления этой части корзины
+                rest_basket = 8 - sum_basket  # сколько нужно до 8 корзин
+                temp_basket.append(order, rest_basket)
+                Dragger.queue_dragger.orders.append(temp_basket)
+
+                # Если заказ на больше 8 корзин, то между корзин будут корзины с 1 этим заказом
+                for _ in range(order.num_basket[0]):
+                    Dragger.queue_dragger.orders.append(Basket([order], 8))
+
+                # начинаем новую корзину и добавляем в нее остаток текущего заказа
+                temp_basket: Basket = Basket()
+                sum_basket = order.num_basket[1] - rest_basket  # сколько корзин нужно
+                temp_basket.append(order, sum_basket, False)
+                # Переходим к следующему заказу, т.к. этот полностью исчерпан
+            else:
+                sum_basket += order.num_basket[1]
+                temp_basket.append(order)
         else:
             if len(temp_basket.orders) > 0:
                 Dragger.queue_dragger.orders.append(temp_basket)
-                QueueMultivare.rest_baskt += sum_basket
+                QueueMultivare.rest_basket += sum_basket
 
 
 class CheckListMultivare:
