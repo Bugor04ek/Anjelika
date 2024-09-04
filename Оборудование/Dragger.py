@@ -138,7 +138,7 @@ class QueueDragger:
         return total_setup_time
 
     @staticmethod
-    def form_matrix_multivare(orders):
+    def form_matrix_dragger(orders):
         """
         Функция для создания матрицы времени перенастроек мультика
         :param orders: неупорядоченный список заказов на мультик

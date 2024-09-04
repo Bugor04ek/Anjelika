@@ -134,12 +134,12 @@ def main_multivare(orders: list[TaskForMultik]):
         print(i, ": ", hof.items[i].fitness.values[0], " -> ", hof.items[i])
 
     best_order = hof.items[0]  # массив заказов в виде индексов
-    queue_multivare.queue = converting_indexes_to_numbers(best_order, orders)
-    queue_multivare.setting_time_setup()
-
-    queue_multivare.calculating_basket()
-    queue_dragger(Dragger.queue_dragger.orders)
-    print("Лучший индивидуум =", queue_multivare.queue)
+    # queue_multivare.queue = converting_indexes_to_numbers(best_order, orders)
+    # queue_multivare.setting_time_setup()
+    #
+    # queue_multivare.calculating_basket()
+    # queue_dragger(Dragger.queue_dragger.orders)
+    # print("Лучший индивидуум =", queue_multivare.queue)
     print("Лучший индивидуум =", best_order)
 
     end = datetime.datetime.now()
@@ -160,17 +160,17 @@ def main_multivare(orders: list[TaskForMultik]):
     #     # print('Время настройки2:', total_setup_time)
 
 
-def main_dragger(orders: list[TaskForMultik]):
+def main_dragger(orders: list):
     start = datetime.datetime.now()
-
     len_orders = len(orders)
 
     # # константы задачи
     HALL_OF_FAME_SIZE = len_orders * 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
     POPULATION_SIZE = len_orders * 150  # количество индивидуумов в популяции
     MAX_GENERATIONS = int(len_orders * 0.9)  # максимальное количество поколений
-
-    time_on_multivare = queue_multivare.form_matrix_multivare(orders)
+    NUM_OF_VEHICLES = len([order for order in orders if issubclass(Basket, type(order))])
+    print(NUM_OF_VEHICLES)
+    time_on_multivare = queue_dragger.form_matrix_dragger(orders)
     toolbox = base.Toolbox()
 
     df = pd.DataFrame(time_on_multivare)
@@ -245,10 +245,10 @@ def main_dragger(orders: list[TaskForMultik]):
 
 
 
-def queue_dragger(orders: [TaskForMultik]):
-    indexes_baskets = []
-    for order in orders:
-        if issubclass(Basket, type(order)):
-            indexes_baskets.append(orders.index(order))
-
+# def queue_dragger(orders: [TaskForMultik]):
+#     indexes_baskets = []
+#     for order in orders:
+#         if issubclass(Basket, type(order)):
+#             indexes_baskets.append(orders.index(order))
+#
 
