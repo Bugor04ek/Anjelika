@@ -177,5 +177,5 @@ if __name__ == "__main__":
     # vrp.main(TaskForMultik.orders)
     # gen_alg.main(TaskForMultik.orders)
     genetika.main_multivare(TaskForMultik.orders)
-    genetika.main_dragger(Dragger.queue_dragger.orders)
+    # genetika.main_dragger(Dragger.queue_dragger.orders)
     print(Dragger.queue_dragger, sep='\n')

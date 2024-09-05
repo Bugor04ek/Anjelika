@@ -134,10 +134,10 @@ def main_multivare(orders: list[TaskForMultik]):
         print(i, ": ", hof.items[i].fitness.values[0], " -> ", hof.items[i])
 
     best_order = hof.items[0]  # массив заказов в виде индексов
-    # queue_multivare.queue = converting_indexes_to_numbers(best_order, orders)
-    # queue_multivare.setting_time_setup()
+    queue_multivare.queue = converting_indexes_to_numbers(best_order, orders)
+    queue_multivare.setting_time_setup()
     #
-    # queue_multivare.calculating_basket()
+    queue_multivare.calculating_basket()
     # queue_dragger(Dragger.queue_dragger.orders)
     # print("Лучший индивидуум =", queue_multivare.queue)
     print("Лучший индивидуум =", best_order)
