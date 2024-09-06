@@ -183,13 +183,13 @@ class Basket:
         """
         Устанавливается время траты 8 корзин.
         1. Если заказов 0, значит экземпляр корзины только что создан и будет набиваться заказами
-        2. Иначе заказ полностью тратит 8 корзин и время считается из его параметров + время перенастройки
+        2. Иначе заказ полностью тратит 8 корзин и время считается из его параметров без времени перенастройки, т.к. в таком случае уже будет заказ ранее, где учтено это время
         :return: время, за которое потратится 8 корзин, если 0, тогда время будет увеличиваться по мере добавления заказов
         """
         if len(self.orders) == 0:
             self.time_work = 0
         else:
-            self.time_work = self.orders[0].time_on_mult_1_basket * self.sum_basket + self.orders[0].time_setup
+            self.time_work = self.orders[0].time_on_mult_1_basket * self.sum_basket
 
     def append(self, order: TaskForMultik, num_basket=None, use_time_setup=True):
         """
@@ -364,16 +364,21 @@ class QueueMultivare:
 
             # Если со следующим заказом получается меньше 8 корзин, но он занимает сам по себе больше 8 корзин
             if order.num_basket[0] > 0 and (sum_basket + order.num_basket[1]) <= 8:
+                rest_basket = 8 - sum_basket  # сколько нужно до 8 корзин
+                temp_num_basket = (order.num_basket[0] - 1, order.num_basket[1] + (8 - rest_basket))
+                # распределяем полные корзины -> (2 (полные корзины), 5.47 (неполные корзины) -> (1, 5.47) -> (1, 13.47 + (8 - rest_basket))
                 # Добавляем такой заказ последним и начинаем новые корзины, потому что после него пойдут корзины только для этого заказа
-                sum_basket += order.num_basket[1]
-                temp_basket.append(order)
+                sum_basket += rest_basket
+                temp_basket.append(order, rest_basket)
                 Dragger.queue_dragger.orders.append(temp_basket)
 
-                for _ in range(order.num_basket[0]):
+                for _ in range(temp_num_basket[0]):
                     Dragger.queue_dragger.orders.append(Basket([order], 8))
 
                 sum_basket = 0
                 temp_basket: Basket = Basket()
+                sum_basket += temp_num_basket[1]
+                temp_basket.append(order, num_basket=temp_num_basket[1], use_time_setup=False)
 
             # Если со следующим заказом получается больше 8 корзин
             elif (sum_basket + order.num_basket[1]) > 8:
