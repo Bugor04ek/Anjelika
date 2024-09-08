@@ -222,6 +222,7 @@ class QueueMultivare:
     """
 
     rest_basket: float = 0.0
+    rest_orders: [TaskForMultik] = []
 
     def __init__(self):
         self.__queue: [TaskForMultik] = []
@@ -401,8 +402,9 @@ class QueueMultivare:
                 temp_basket.append(order)
         else:
             if len(temp_basket.orders) > 0:
-                Dragger.queue_dragger.orders.append(temp_basket)
+                # Dragger.queue_dragger.orders.append(temp_basket)
                 QueueMultivare.rest_basket += sum_basket
+                QueueMultivare.rest_orders = temp_basket
 
 
 class CheckListMultivare:

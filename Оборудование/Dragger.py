@@ -76,9 +76,11 @@ class QueueDragger:
 
     def __init__(self):
         self.orders = []
+        self.num_basket = 0
 
     def __add__(self, other):
         self.orders.append(other)
+        self.num_basket += 1
 
     def __str__(self):
         res = ''
@@ -155,11 +157,39 @@ class QueueDragger:
     @staticmethod
     def get_cost():
 
+
+
         # первая функция должная следить чтобы время работы + время перенастройки заказов были меньше чем разница между корзинами
         # вторая функция возвращает время перенастроек
 
         pass
 
+    def get_routes(self, indices):
+        # initialize lists:
+        routes = []
+        route = []
+
+        # loop over all indices in the list:
+        for i in indices:
+
+            # skip depot index:
+            if i == self.depotIndex:
+                continue
+
+            # index is part of the current route:
+            if not self.isSeparatorIndex(i):
+                route.append(i)
+
+            # separator index - route is complete:
+            else:
+                routes.append(route)
+                route = []  # reset route
+
+        # append the last route:
+        if route or self.isSeparatorIndex(i):
+            routes.append(route)
+
+        return routes
 
 class Bobbin:
     count = 0

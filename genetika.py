@@ -168,7 +168,7 @@ def main_dragger(orders: list):
     HALL_OF_FAME_SIZE = len_orders * 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
     POPULATION_SIZE = len_orders * 150  # количество индивидуумов в популяции
     MAX_GENERATIONS = int(len_orders * 0.9)  # максимальное количество поколений
-    NUM_OF_VEHICLES = len([order for order in orders if issubclass(Basket, type(order))])
+    NUM_OF_VEHICLES = len([order for order in orders if issubclass(Basket, type(order))]) - 1 if QueueMultivare.rest_basket > 0 else 0
     print(NUM_OF_VEHICLES)
     time_on_multivare = queue_dragger.form_matrix_dragger(orders)
     toolbox = base.Toolbox()
