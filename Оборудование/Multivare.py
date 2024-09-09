@@ -212,8 +212,12 @@ class Basket:
             self.sum_basket += num_basket
         # queue_multivare.find_order(account_number=order.account_number)
 
-    def __str__(self):
-        return '{} \n'.format(self.orders)
+    def __repr__(self):
+        return 'Корзина (Время работы заказов = {}ч. {}мин.; Длина {}): {}'.format(str(self.time_work // 60),
+                                                                                   str(round(
+                                                                                       self.time_work % 60,
+                                                                                       2)), self.sum_basket,
+                                                                                   self.orders.__repr__())
 
 
 class QueueMultivare:
@@ -371,10 +375,10 @@ class QueueMultivare:
                 # Добавляем такой заказ последним и начинаем новые корзины, потому что после него пойдут корзины только для этого заказа
                 sum_basket += rest_basket
                 temp_basket.append(order, rest_basket)
-                Dragger.queue_dragger.orders.append(temp_basket)
+                Dragger.queue_dragger.append(Dragger.TaskForDragger(temp_basket, diameter=d_mult))
 
                 for _ in range(temp_num_basket[0]):
-                    Dragger.queue_dragger.orders.append(Basket([order], 8))
+                    Dragger.queue_dragger.append(Dragger.TaskForDragger(Basket([order], 8), diameter=d_mult))
 
                 sum_basket = 0
                 temp_basket: Basket = Basket()
@@ -386,11 +390,11 @@ class QueueMultivare:
                 # Прибавляем так, чтобы стало 8 и добавляем время изготовления этой части корзины
                 rest_basket = 8 - sum_basket  # сколько нужно до 8 корзин
                 temp_basket.append(order, rest_basket)
-                Dragger.queue_dragger.orders.append(temp_basket)
+                Dragger.queue_dragger.append(Dragger.TaskForDragger(temp_basket, diameter=d_mult))
 
                 # Если заказ на больше 8 корзин, то между корзин будут корзины с 1 этим заказом
                 for _ in range(order.num_basket[0]):
-                    Dragger.queue_dragger.orders.append(Basket([order], 8))
+                    Dragger.queue_dragger.append(Dragger.TaskForDragger(Basket([order], 8), diameter=d_mult))
 
                 # начинаем новую корзину и добавляем в нее остаток текущего заказа
                 temp_basket: Basket = Basket()

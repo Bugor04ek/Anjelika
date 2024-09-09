@@ -1,3 +1,4 @@
+import consts
 import Оборудование.Multivare as Multivare
 
 REMOVED_SPIN = 1  # время снятия фильер
@@ -29,10 +30,18 @@ class TaskForDragger:
     Класс для заказов на волочение.
     """
 
+    orders = []
+
     def __init__(self, order, diameter):
+        TaskForDragger.orders.append(self)
+        self.id = len(TaskForDragger.orders)
         self.order = order
-        self.IDZak = order.IDZak
-        self.account_number = order.account_number
+        if issubclass(consts.Order, type(order)):
+            self.IDZak = order.IDZak
+            self.account_number = order.account_number
+        elif issubclass(Multivare.Basket, type(order)):
+            pass
+
         self.diameter = diameter
         self.extra_spin = self.extra_spin()
         self.spin = self.counting_spinners()
@@ -65,7 +74,10 @@ class TaskForDragger:
                 return v + 1
 
     def __repr__(self):
-        return '{} IDZak {}'.format(self.account_number, self.IDZak)
+        if issubclass(consts.Order, type(self.order)):
+            return '{} IDZak {}'.format(self.account_number, self.IDZak)
+        elif issubclass(Multivare.Basket, type(self.order)):
+            return '{}'.format(self.order.__repr__())
 
 
 class QueueDragger:
@@ -78,28 +90,22 @@ class QueueDragger:
         self.orders = []
         self.num_basket = 0
 
-    def __add__(self, other):
+    def append(self, other):
         self.orders.append(other)
         self.num_basket += 1
 
     def __str__(self):
         res = ''
 
-        for orders in self.orders:
+        for order in self.orders:
 
-            if issubclass(Multivare.Basket, type(orders)):
-                res += 'Корзина (Время работы заказов = {}ч. {}мин.; Длина {}): {}'.format(str(orders.time_work // 60),
-                                                                                           str(round(
-                                                                                               orders.time_work % 60,
-                                                                                               2)), orders.sum_basket,
-                                                                                           orders.__str__())
-            elif issubclass(TaskForDragger, type(orders)):
-                res += 'Заказ на мультик {} \n'.format(orders.__repr__())
+            # elif issubclass(TaskForDragger, type(orders)):
+            res += 'Заказ на мультик {} \n'.format(order.__repr__())
 
         return res + '\n'
 
     @staticmethod
-    def calculate_setup_time_dragger(previous_order, order) -> float:
+    def calculate_setup_time_dragger(previous_order: TaskForDragger, order: TaskForDragger) -> float:
         """
         Создается матрица "расстояний"
         Считается время перенастройки оборудования для пары заказов и смены катушки
@@ -155,14 +161,20 @@ class QueueDragger:
         return temp_matrix1
 
     @staticmethod
-    def get_cost():
-
-
+    def get_cost(time_on_multivare, indexes_baskets, indices):
 
         # первая функция должная следить чтобы время работы + время перенастройки заказов были меньше чем разница между корзинами
+
         # вторая функция возвращает время перенастроек
 
-        pass
+        time = 0
+
+        # время между каждой парой заказов
+        for i in range(len(indices) - 1):
+            time += time_on_multivare[indices[i]][indices[i + 1]]
+
+        return time,
+
 
     def get_routes(self, indices):
         # initialize lists:
@@ -171,10 +183,6 @@ class QueueDragger:
 
         # loop over all indices in the list:
         for i in indices:
-
-            # skip depot index:
-            if i == self.depotIndex:
-                continue
 
             # index is part of the current route:
             if not self.isSeparatorIndex(i):
@@ -190,6 +198,15 @@ class QueueDragger:
             routes.append(route)
 
         return routes
+
+    def isSeparatorIndex(self, index):
+        """
+        Finds if curent index is a separator index
+        :param index: denotes the index of the location
+        :return: True if the given index is a separator
+        """
+        # check if the index is larger than the number of the participating locations:
+        return index >= len(self.orders) - (self.num_basket - 1)
 
 class Bobbin:
     count = 0

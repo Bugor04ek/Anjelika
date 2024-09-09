@@ -7,6 +7,7 @@ import random
 import matplotlib.pyplot as plt
 import numpy
 
+import consts
 from consts import converting_indexes_to_numbers
 from Оборудование.Multivare import *
 from Оборудование.Dragger import *
@@ -93,10 +94,10 @@ def main_multivare(orders: list[TaskForMultik]):
     # P_MUTATION = 0  # вероятность мутации индивидуума
     MAX_GENERATIONS = int(len_orders * 0.9)  # максимальное количество поколений
 
-    time_on_multivare = QueueMultivare.form_matrix_multivare(orders)
+    time_on_dragger = QueueMultivare.form_matrix_multivare(orders)
     toolbox = base.Toolbox()
 
-    df = pd.DataFrame(time_on_multivare)
+    df = pd.DataFrame(time_on_dragger)
 
     mode = "w" if os.path.exists("excel/matrix_time.xlsx") else "a"
 
@@ -108,7 +109,7 @@ def main_multivare(orders: list[TaskForMultik]):
     toolbox.register("randomOrder", random.sample, range(len_orders), len_orders)
     toolbox.register("individualCreator", tools.initIterate, creator.Individual, toolbox.randomOrder)
     toolbox.register("populationCreator", tools.initRepeat, list, toolbox.individualCreator)
-    toolbox.register("evaluate", QueueMultivare.get_total_time, time_on_multivare)
+    toolbox.register("evaluate", QueueMultivare.get_total_time, time_on_dragger)
     toolbox.register("select", tools.selTournament, tournsize=15)
     toolbox.register("mate", tools.cxOrdered)
     toolbox.register("mutate", tools.mutShuffleIndexes, indpb=1.0 / len_orders)
@@ -145,14 +146,14 @@ def main_multivare(orders: list[TaskForMultik]):
     end = datetime.datetime.now()
     print(end - start)
 
-    minFitnessValues, meanFitnessValues = logbook.select("min", "avg")
-
-    plt.plot(minFitnessValues, color='red')
-    plt.plot(meanFitnessValues, color='green')
-    plt.xlabel('Поколение')
-    plt.ylabel('Мин/средняя приспособленность')
-    plt.title('Зависимость максимальной и средней приспособленности от поколения')
-    plt.show()
+    # minFitnessValues, meanFitnessValues = logbook.select("min", "avg")
+    #
+    # plt.plot(minFitnessValues, color='red')
+    # plt.plot(meanFitnessValues, color='green')
+    # plt.xlabel('Поколение')
+    # plt.ylabel('Мин/средняя приспособленность')
+    # plt.title('Зависимость максимальной и средней приспособленности от поколения')
+    # plt.show()
 
     print("Время лучшего:", hof.items[0].fitness.values[0])
 
@@ -168,8 +169,9 @@ def main_dragger(orders: list):
     HALL_OF_FAME_SIZE = len_orders * 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
     POPULATION_SIZE = len_orders * 150  # количество индивидуумов в популяции
     MAX_GENERATIONS = int(len_orders * 0.9)  # максимальное количество поколений
-    NUM_OF_VEHICLES = len([order for order in orders if issubclass(Basket, type(order))]) - 1 if QueueMultivare.rest_basket > 0 else 0
+    NUM_OF_VEHICLES = queue_dragger.num_basket
     print(NUM_OF_VEHICLES)
+    indexes_baskets = [i for i in range(len_orders - NUM_OF_VEHICLES, len_orders)]
     time_on_multivare = queue_dragger.form_matrix_dragger(orders)
     toolbox = base.Toolbox()
 
@@ -185,7 +187,7 @@ def main_dragger(orders: list):
     toolbox.register("randomOrder", random.sample, range(len_orders), len_orders)
     toolbox.register("individualCreator", tools.initIterate, creator.Individual, toolbox.randomOrder)
     toolbox.register("populationCreator", tools.initRepeat, list, toolbox.individualCreator)
-    toolbox.register("evaluate", QueueDragger.get_cost, time_on_multivare)
+    toolbox.register("evaluate", QueueDragger.get_cost, time_on_multivare, indexes_baskets)
     toolbox.register("select", tools.selTournament, tournsize=15)
     toolbox.register("mate", tools.cxOrdered)
     toolbox.register("mutate", tools.mutShuffleIndexes, indpb=1.0 / len_orders)
@@ -211,39 +213,45 @@ def main_dragger(orders: list):
         print(i, ": ", hof.items[i].fitness.values[0], " -> ", hof.items[i])
 
     best_order = hof.items[0]  # массив заказов в виде индексов
-    queue_multivare.queue = converting_indexes_to_numbers(best_order, orders)
+    # queue_dragger.queue = converting_indexes_to_numbers(best_order, orders)
 
-    for num, i in enumerate(best_order):
+    # for num, i in enumerate(best_order):
+    #
+    #     # пропускаем первый индекс, т.к у него нет время на перенастройку
+    #     if num == 0:
+    #         continue
+    #
+    #     orders[i].time_setup = queue_dragger.calculate_setup_time_dragger[i][best_order[num-1]]
 
-        # пропускаем первый индекс, т.к у него нет время на перенастройку
-        if num == 0:
-            continue
-
-        orders[i].time_setup = time_on_multivare[i][best_order[num-1]]
-
-    queue_multivare.calculating_basket()
-    queue_dragger(Dragger.queue_dragger.orders)
-    print("Лучший индивидуум =", queue_multivare.queue)
+    # queue_dragger(Dragger.queue_dragger.orders)
     print("Лучший индивидуум =", best_order)
+    output = "Лучший индивидуум = "
+    i = 0
+    for order in best_order:
+        if issubclass(consts.Order, type(orders[order].order)):
+            output += '{}, '.format(orders[order].account_number)
+        elif issubclass(Basket, type(orders[order].order)):
+            output += 'Корзина {} время работы: {}ч. {}мин., '.format(i, str(orders[indexes_baskets[i]].order.time_work // 60),
+                                                                      str(round(orders[indexes_baskets[i]].order.time_work % 60, 2)))
+            i += 1
 
+    print(output)
     end = datetime.datetime.now()
     print(end - start)
 
     minFitnessValues, meanFitnessValues = logbook.select("min", "avg")
 
-    plt.plot(minFitnessValues, color='red')
-    plt.plot(meanFitnessValues, color='green')
-    plt.xlabel('Поколение')
-    plt.ylabel('Мин/средняя приспособленность')
-    plt.title('Зависимость максимальной и средней приспособленности от поколения')
-    plt.show()
+    # plt.plot(minFitnessValues, color='red')
+    # plt.plot(meanFitnessValues, color='green')
+    # plt.xlabel('Поколение')
+    # plt.ylabel('Мин/средняя приспособленность')
+    # plt.title('Зависимость максимальной и средней приспособленности от поколения')
+    # plt.show()
 
-    print("Время лучшего:", QueueDragger.getTotalDistance(time_on_multivare, hof.items[0]))
+    print("Время лучшего:", hof.items[i].fitness.values[0])
 
     # total_setup_time = check_list_multik.calculate_time_setup()
     #     # print('Время настройки2:', total_setup_time)
-
-
 
 # def queue_dragger(orders: [TaskForMultik]):
 #     indexes_baskets = []
@@ -251,4 +259,3 @@ def main_dragger(orders: list):
 #         if issubclass(Basket, type(order)):
 #             indexes_baskets.append(orders.index(order))
 #
-
