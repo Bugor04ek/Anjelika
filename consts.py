@@ -112,7 +112,7 @@ class Order:
         return task
 
     def set_task_for_dragger(self):
-        temp = Dragger.TaskForDragger(self, self.diameter)
+        temp = Dragger.TaskForDragger(self)
         Dragger.queue_dragger.queue.append(temp)
         return temp
 

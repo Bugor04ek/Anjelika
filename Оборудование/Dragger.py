@@ -33,7 +33,7 @@ class TaskForDragger:
 
     orders = []
 
-    def __init__(self, order, diameter):
+    def __init__(self, order):
         TaskForDragger.orders.append(self)
         self.id = len(TaskForDragger.orders)
         self.order = order
@@ -41,11 +41,12 @@ class TaskForDragger:
             self.IDZak = order.IDZak
             self.account_number = order.account_number
             self.time_work = order.time_on_dragger
+            self.diameter = order.diameter
         elif issubclass(Multivare.Basket, type(order)):
             self.time_work = order.time_work
+            self.diameter = Multivare.d_mult
 
         self.time_setup = 0
-        self.diameter = diameter
         self.extra_spin = self.extra_spin()
         self.spin = self.counting_spinners()
 
@@ -204,11 +205,11 @@ class QueueDragger:
                     total_time += reserve_time - time_route_to_basket
                     time_route_to_basket = 0
 
-                if route len(indexes_baskets):
-                    reserve_time = TaskForDragger.orders[indexes_baskets[route+1]].time_work + Multivare.QueueMultivare.rest_orders.time_work - W
-                    if time_route_to_basket > reserve_time:
-                        total_time += reserve_time - time_route_to_basket
-                        time_route_to_basket = 0
+                # if route len(indexes_baskets):
+                #     reserve_time = TaskForDragger.orders[indexes_baskets[route+1]].time_work + Multivare.QueueMultivare.rest_orders.time_work - W
+                #     if time_route_to_basket > reserve_time:
+                #         total_time += reserve_time - time_route_to_basket
+                #         time_route_to_basket = 0
 
 
 
