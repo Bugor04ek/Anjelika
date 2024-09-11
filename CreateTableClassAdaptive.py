@@ -183,6 +183,6 @@ if __name__ == "__main__":
     print(Multivare.QueueMultivare.rest_basket)
     print(Multivare.QueueMultivare.rest_orders)
 
-    genetika.main_dragger(Dragger.queue_dragger.orders)
+    genetika.main_dragger(Dragger.queue_dragger.queue)
 
 

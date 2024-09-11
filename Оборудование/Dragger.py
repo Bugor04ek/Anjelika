@@ -6,6 +6,7 @@ INSERT_SPIN = 5  # время вставки фильер
 CHANGE_BOBBIN = 5  # смена катушки
 CHANGE_WIRE = 1.5  # снятие/натягивание проволочки на 1 фильере
 STRETCHING_WIRE = 5  # протягивание проволочки в отжиге
+W = 12 * 60  # время изготовления 8 корзин
 
 dictionary_spinners = {
     7: 1,
@@ -39,9 +40,11 @@ class TaskForDragger:
         if issubclass(consts.Order, type(order)):
             self.IDZak = order.IDZak
             self.account_number = order.account_number
+            self.time_work = order.time_on_dragger
         elif issubclass(Multivare.Basket, type(order)):
-            pass
+            self.time_work = order.time_work
 
+        self.time_setup = 0
         self.diameter = diameter
         self.extra_spin = self.extra_spin()
         self.spin = self.counting_spinners()
@@ -75,7 +78,7 @@ class TaskForDragger:
 
     def __repr__(self):
         if issubclass(consts.Order, type(self.order)):
-            return '{} IDZak {}'.format(self.account_number, self.IDZak)
+            return '{} {} IDZak {}'.format(self.id, self.account_number, self.IDZak)
         elif issubclass(Multivare.Basket, type(self.order)):
             return '{}'.format(self.order.__repr__())
 
@@ -85,20 +88,28 @@ class QueueDragger:
     Класс очереди волочилки. В очереди могут быть либо заказы идущие на волочилку и не мультик,
     либо корзины, состоящие из заказов на мультик
     """
+    indexes_baskets: [int] = []
 
     def __init__(self):
-        self.orders = []
+        self.__queue = []
         self.num_basket = 0
 
+    @property
+    def queue(self):
+        return self.__queue
+
+    @queue.setter
+    def queue(self, orders):
+        self.__queue = orders
+
     def append(self, other):
-        self.orders.append(other)
+        self.__queue.append(other)
         self.num_basket += 1
 
     def __str__(self):
         res = ''
 
-        for order in self.orders:
-
+        for order in self.__queue:
             # elif issubclass(TaskForDragger, type(orders)):
             res += 'Заказ на мультик {} \n'.format(order.__repr__())
 
@@ -136,7 +147,7 @@ class QueueDragger:
                 removed_spin = 1  # Всегда снимаем фильеру с конца волочилки, т.к. если фильер меньше, тогда последняя ставится всегда в конец волочилки
                 total_setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
                 total_setup_time += INSERT_SPIN * (order.spin - (
-                            previous_order.spin - 1))  # время на установку фильер -1, потому что 1 уже снята
+                        previous_order.spin - 1))  # время на установку фильер -1, потому что 1 уже снята
                 change = True
 
             if change:
@@ -161,22 +172,67 @@ class QueueDragger:
         return temp_matrix1
 
     @staticmethod
-    def get_cost(time_on_multivare, indexes_baskets, indices):
+    def get_cost(time_on_multivare, indices):
+
+        indexes_baskets = QueueDragger.indexes_baskets
+        total_time = 0
+        max_route_time = 0
+        time_route_to_basket = 0
 
         # первая функция должная следить чтобы время работы + время перенастройки заказов были меньше чем разница между корзинами
+        routes: [[int]] = QueueDragger.get_routes(indices)
+
+        # контролируем число путей, чтобы не было подряд корзин
+        if len(routes) != len(indexes_baskets):
+            total_time += 2000
+        else:
+
+            for route in range(len(indexes_baskets) - 1):
+                # складываем время до корзины
+                for r1 in routes[route]:
+                    time_route_to_basket += time_on_multivare[indices[r1]][indices[r1 + 1]] + TaskForDragger.orders[
+                        r1].time_work
+                # складываем время после корзины
+                for r2 in routes[route + 1]:
+                    time_route_to_basket += time_on_multivare[indices[r2]][indices[r2 + 1]] + TaskForDragger.orders[
+                        r2].time_work
+                # проверяем сколько время есть в запасе для заказов на волочение
+
+                reserve_time = TaskForDragger.orders[indexes_baskets[route]].time_work + TaskForDragger.orders[indexes_baskets[route + 1]].time_work - W
+                # если время работы заказов превышает запасы для корзин
+                if time_route_to_basket > reserve_time:
+                    total_time += reserve_time - time_route_to_basket
+                    time_route_to_basket = 0
+
+                if route len(indexes_baskets):
+                    reserve_time = TaskForDragger.orders[indexes_baskets[route+1]].time_work + Multivare.QueueMultivare.rest_orders.time_work - W
+                    if time_route_to_basket > reserve_time:
+                        total_time += reserve_time - time_route_to_basket
+                        time_route_to_basket = 0
+
+
 
         # вторая функция возвращает время перенастроек
 
+        # уменьшаем длину максимального маршрута
+        for route in routes:
+            route_time = QueueDragger.get_time_route(route, time_on_multivare)
+            max_route_time = max(route_time, max_route_time)
+
+        # for i in range(len(indices) - 1):
+        #     total_time += time_on_multivare[indices[i]][indices[i + 1]]
+
+        return max_route_time + total_time,
+
+    @staticmethod
+    def get_time_route(route, time_on_multivare):
         time = 0
+        for i in range(len(route) - 1):
+            time += time_on_multivare[i][i + 1]
+        return time
 
-        # время между каждой парой заказов
-        for i in range(len(indices) - 1):
-            time += time_on_multivare[indices[i]][indices[i + 1]]
-
-        return time,
-
-
-    def get_routes(self, indices):
+    @staticmethod
+    def get_routes(indices):
         # initialize lists:
         routes = []
         route = []
@@ -185,28 +241,35 @@ class QueueDragger:
         for i in indices:
 
             # index is part of the current route:
-            if not self.isSeparatorIndex(i):
+            if i not in QueueDragger.indexes_baskets:
                 route.append(i)
 
             # separator index - route is complete:
-            else:
+            elif len(route) > 0:
                 routes.append(route)
                 route = []  # reset route
 
         # append the last route:
-        if route or self.isSeparatorIndex(i):
+        if route:
             routes.append(route)
 
         return routes
 
-    def isSeparatorIndex(self, index):
+    def setting_time_setup(self):
         """
-        Finds if curent index is a separator index
-        :param index: denotes the index of the location
-        :return: True if the given index is a separator
+        Определяем время настройки заказов на мультике.
+        :return:
         """
-        # check if the index is larger than the number of the participating locations:
-        return index >= len(self.orders) - (self.num_basket - 1)
+
+        for i in range(len(self.__queue)):
+
+            # пропускаем первый индекс, т.к у него нет время на перенастройку
+            if i == 0:
+                continue
+
+            self.__queue[i].time_setup = QueueDragger.calculate_setup_time_dragger(self.__queue[i - 1],
+                                                                                   self.__queue[i])
+
 
 class Bobbin:
     count = 0

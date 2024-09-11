@@ -94,10 +94,10 @@ def main_multivare(orders: list[TaskForMultik]):
     # P_MUTATION = 0  # вероятность мутации индивидуума
     MAX_GENERATIONS = int(len_orders * 0.9)  # максимальное количество поколений
 
-    time_on_dragger = QueueMultivare.form_matrix_multivare(orders)
+    time_on_multivare = QueueMultivare.form_matrix_multivare(orders)
     toolbox = base.Toolbox()
 
-    df = pd.DataFrame(time_on_dragger)
+    df = pd.DataFrame(time_on_multivare)
 
     mode = "w" if os.path.exists("excel/matrix_time.xlsx") else "a"
 
@@ -109,7 +109,7 @@ def main_multivare(orders: list[TaskForMultik]):
     toolbox.register("randomOrder", random.sample, range(len_orders), len_orders)
     toolbox.register("individualCreator", tools.initIterate, creator.Individual, toolbox.randomOrder)
     toolbox.register("populationCreator", tools.initRepeat, list, toolbox.individualCreator)
-    toolbox.register("evaluate", QueueMultivare.get_total_time, time_on_dragger)
+    toolbox.register("evaluate", QueueMultivare.get_total_time, time_on_multivare)
     toolbox.register("select", tools.selTournament, tournsize=15)
     toolbox.register("mate", tools.cxOrdered)
     toolbox.register("mutate", tools.mutShuffleIndexes, indpb=1.0 / len_orders)
@@ -171,11 +171,11 @@ def main_dragger(orders: list):
     MAX_GENERATIONS = int(len_orders * 0.9)  # максимальное количество поколений
     NUM_OF_VEHICLES = queue_dragger.num_basket
     print(NUM_OF_VEHICLES)
-    indexes_baskets = [i for i in range(len_orders - NUM_OF_VEHICLES, len_orders)]
-    time_on_multivare = queue_dragger.form_matrix_dragger(orders)
+    QueueDragger.indexes_baskets = [i for i in range(len_orders - NUM_OF_VEHICLES, len_orders)]
+    time_on_dragger = queue_dragger.form_matrix_dragger(orders)
     toolbox = base.Toolbox()
 
-    df = pd.DataFrame(time_on_multivare)
+    df = pd.DataFrame(time_on_dragger)
 
     mode = "w" if os.path.exists("excel/matrix_time.xlsx") else "a"
 
@@ -187,7 +187,7 @@ def main_dragger(orders: list):
     toolbox.register("randomOrder", random.sample, range(len_orders), len_orders)
     toolbox.register("individualCreator", tools.initIterate, creator.Individual, toolbox.randomOrder)
     toolbox.register("populationCreator", tools.initRepeat, list, toolbox.individualCreator)
-    toolbox.register("evaluate", QueueDragger.get_cost, time_on_multivare, indexes_baskets)
+    toolbox.register("evaluate", QueueDragger.get_cost, time_on_dragger)
     toolbox.register("select", tools.selTournament, tournsize=15)
     toolbox.register("mate", tools.cxOrdered)
     toolbox.register("mutate", tools.mutShuffleIndexes, indpb=1.0 / len_orders)
@@ -213,8 +213,8 @@ def main_dragger(orders: list):
         print(i, ": ", hof.items[i].fitness.values[0], " -> ", hof.items[i])
 
     best_order = hof.items[0]  # массив заказов в виде индексов
-    # queue_dragger.queue = converting_indexes_to_numbers(best_order, orders)
-
+    queue_dragger.queue = converting_indexes_to_numbers(best_order, orders)
+    queue_dragger.setting_time_setup()
     # for num, i in enumerate(best_order):
     #
     #     # пропускаем первый индекс, т.к у него нет время на перенастройку
@@ -227,14 +227,27 @@ def main_dragger(orders: list):
     print("Лучший индивидуум =", best_order)
     output = "Лучший индивидуум = "
     i = 0
+    total_time = 0
     for order in best_order:
         if issubclass(consts.Order, type(orders[order].order)):
-            output += '{}, '.format(orders[order].account_number)
-        elif issubclass(Basket, type(orders[order].order)):
-            output += 'Корзина {} время работы: {}ч. {}мин., '.format(i, str(orders[indexes_baskets[i]].order.time_work // 60),
-                                                                      str(round(orders[indexes_baskets[i]].order.time_work % 60, 2)))
-            i += 1
+            total_time += orders[order].time_work + orders[order].time_setup
+            output += '{} -- {} + {} = {}\n'.format(orders[order].account_number, orders[order].time_work,
+                                                    orders[order].time_setup,
+                                                    orders[order].time_work + orders[order].time_setup)
 
+        elif issubclass(Basket, type(orders[order].order)):
+            output += '{}ч. {}мин. \n'.format(round(total_time // 60, 0), round(total_time % 60, 0))
+            output += 'Корзина {} время работы: {}ч. {}мин., \n'.format(i, str(
+                orders[QueueDragger.indexes_baskets[i]].order.time_work // 60),
+                                                                        str(round(orders[QueueDragger.indexes_baskets[
+                                                                            i]].order.time_work % 60, 2)))
+            i += 1
+            total_time = 0
+    else:
+        output += '{}ч. {}мин. \n'.format(total_time // 60, total_time % 60)
+        output += 'остаток на мультике Корзина {} время работы: {}ч. {}мин., \n'.format(i,
+                                                                                        str(Multivare.QueueMultivare.rest_orders.time_work // 60),
+                                                                    str(round(Multivare.QueueMultivare.rest_orders.time_work % 60, 2)))
     print(output)
     end = datetime.datetime.now()
     print(end - start)

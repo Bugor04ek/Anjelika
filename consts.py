@@ -113,7 +113,7 @@ class Order:
 
     def set_task_for_dragger(self):
         temp = Dragger.TaskForDragger(self, self.diameter)
-        Dragger.queue_dragger.orders.append(temp)
+        Dragger.queue_dragger.queue.append(temp)
         return temp
 
     def set_task_for_multivare(self):
