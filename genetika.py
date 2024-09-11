@@ -89,7 +89,7 @@ def main_multivare(orders: list[TaskForMultik]):
     # константы задачи
     HALL_OF_FAME_SIZE = len_orders * 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
     # константы генетического алгоритма
-    POPULATION_SIZE = len_orders * 150  # количество индивидуумов в популяции
+    POPULATION_SIZE = len_orders * 300  # количество индивидуумов в популяции
     # P_CROSSOVER = 1  # вероятность скрещивания
     # P_MUTATION = 0  # вероятность мутации индивидуума
     MAX_GENERATIONS = int(len_orders * 0.9)  # максимальное количество поколений
@@ -122,13 +122,15 @@ def main_multivare(orders: list[TaskForMultik]):
     stats.register("min", numpy.min)
     stats.register("avg", numpy.mean)
 
-    population, logbook = eaSimpleWithElitism(population, toolbox,
-                                              cxpb=P_CROSSOVER,
-                                              mutpb=P_MUTATION,
-                                              ngen=MAX_GENERATIONS,
-                                              stats=stats,
-                                              halloffame=hof,
-                                              verbose=True)
+    population, logbook = eaSimpleWithElitism(
+        population, toolbox,
+        cxpb=P_CROSSOVER,
+        mutpb=P_MUTATION,
+        ngen=MAX_GENERATIONS,
+        stats=stats,
+        halloffame=hof,
+        verbose=True
+        )
 
     print("- Лучшие решения:")
     for i in range(HALL_OF_FAME_SIZE):
@@ -200,13 +202,15 @@ def main_dragger(orders: list):
     stats.register("min", numpy.min)
     stats.register("avg", numpy.mean)
 
-    population, logbook = eaSimpleWithElitism(population, toolbox,
-                                              cxpb=P_CROSSOVER,
-                                              mutpb=P_MUTATION,
-                                              ngen=MAX_GENERATIONS,
-                                              stats=stats,
-                                              halloffame=hof,
-                                              verbose=True)
+    population, logbook = eaSimpleWithElitism(
+        population, toolbox,
+        cxpb=P_CROSSOVER,
+        mutpb=P_MUTATION,
+        ngen=MAX_GENERATIONS,
+        stats=stats,
+        halloffame=hof,
+        verbose=True
+        )
 
     print("- Лучшие решения:")
     for i in range(HALL_OF_FAME_SIZE):
@@ -231,23 +235,26 @@ def main_dragger(orders: list):
     for order in best_order:
         if issubclass(consts.Order, type(orders[order].order)):
             total_time += orders[order].time_work + orders[order].time_setup
-            output += '{} -- {} + {} = {}\n'.format(orders[order].account_number, orders[order].time_work,
-                                                    orders[order].time_setup,
-                                                    orders[order].time_work + orders[order].time_setup)
+            output += '{} -- {} + {} = {}\n'.format(
+                orders[order].account_number, orders[order].time_work,
+                orders[order].time_setup,
+                orders[order].time_work + orders[order].time_setup
+                )
 
         elif issubclass(Basket, type(orders[order].order)):
             output += '{}ч. {}мин. \n'.format(round(total_time // 60, 0), round(total_time % 60, 0))
-            output += 'Корзина {} время работы: {}ч. {}мин., \n'.format(i, str(
-                orders[QueueDragger.indexes_baskets[i]].order.time_work // 60),
-                                                                        str(round(orders[QueueDragger.indexes_baskets[
-                                                                            i]].order.time_work % 60, 2)))
+            output += 'Корзина {} время работы: {}ч. {}мин., \n'.format(
+                i, str(orders[QueueDragger.indexes_baskets[i]].order.time_work // 60),
+                str(round(orders[QueueDragger.indexes_baskets[i]].order.time_work % 60, 2)))
             i += 1
             total_time = 0
     else:
         output += '{}ч. {}мин. \n'.format(total_time // 60, total_time % 60)
-        output += 'остаток на мультике Корзина {} время работы: {}ч. {}мин., \n'.format(i,
-                                                                                        str(Multivare.QueueMultivare.rest_orders.time_work // 60),
-                                                                    str(round(Multivare.QueueMultivare.rest_orders.time_work % 60, 2)))
+        output += 'остаток на мультике Корзина {} время работы: {}ч. {}мин., \n'.format(
+            i,
+            str(Multivare.QueueMultivare.rest_orders.time_work // 60),
+            str(round(Multivare.QueueMultivare.rest_orders.time_work % 60, 2))
+            )
     print(output)
     end = datetime.datetime.now()
     print(end - start)

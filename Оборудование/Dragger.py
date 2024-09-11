@@ -185,10 +185,24 @@ class QueueDragger:
 
         # контролируем число путей, чтобы не было подряд корзин
         if len(routes) != len(indexes_baskets):
-            total_time += 2000
+            total_time += 3000
         else:
 
             for route in range(len(indexes_baskets) - 1):
+                # складываем время до корзины
+                for r1 in routes[route]:
+                    time_route_to_basket += time_on_multivare[indices[r1]][indices[r1 + 1]] + TaskForDragger.orders[r1].time_work
+                # складываем время после корзины
+                for r2 in routes[route + 1]:
+                    time_route_to_basket += time_on_multivare[indices[r2]][indices[r2 + 1]] + TaskForDragger.orders[r2].time_work
+                # проверяем сколько времени есть в запасе для заказов на волочение
+
+                reserve_time = TaskForDragger.orders[indexes_baskets[route]].time_work + TaskForDragger.orders[indexes_baskets[route + 1]].time_work - W
+                # если время работы заказов превышает запасы для корзин
+                if time_route_to_basket > reserve_time:
+                    total_time += 1000 #time_route_to_basket - reserve_time
+                    time_route_to_basket = 0
+            else:
                 # складываем время до корзины
                 for r1 in routes[route]:
                     time_route_to_basket += time_on_multivare[indices[r1]][indices[r1 + 1]] + TaskForDragger.orders[
@@ -197,19 +211,13 @@ class QueueDragger:
                 for r2 in routes[route + 1]:
                     time_route_to_basket += time_on_multivare[indices[r2]][indices[r2 + 1]] + TaskForDragger.orders[
                         r2].time_work
-                # проверяем сколько время есть в запасе для заказов на волочение
+                # проверяем сколько времени есть в запасе для заказов на волочение
 
-                reserve_time = TaskForDragger.orders[indexes_baskets[route]].time_work + TaskForDragger.orders[indexes_baskets[route + 1]].time_work - W
+                reserve_time = TaskForDragger.orders[indexes_baskets[route+1]].time_work + Multivare.QueueMultivare.rest_orders.time_work - W
                 # если время работы заказов превышает запасы для корзин
                 if time_route_to_basket > reserve_time:
-                    total_time += reserve_time - time_route_to_basket
+                    total_time += 1000 # time_route_to_basket - reserve_time
                     time_route_to_basket = 0
-
-                # if route len(indexes_baskets):
-                #     reserve_time = TaskForDragger.orders[indexes_baskets[route+1]].time_work + Multivare.QueueMultivare.rest_orders.time_work - W
-                #     if time_route_to_basket > reserve_time:
-                #         total_time += reserve_time - time_route_to_basket
-                #         time_route_to_basket = 0
 
 
 

@@ -406,7 +406,9 @@ class QueueMultivare:
                 temp_basket.append(order)
         else:
             if len(temp_basket.orders) > 0:
-                Dragger.queue_dragger.append(Dragger.TaskForDragger(temp_basket))
+                # Dragger.queue_dragger.append(Dragger.TaskForDragger(temp_basket))
+                QueueMultivare.rest_basket += sum_basket
+                QueueMultivare.rest_orders = temp_basket
 
 
 class CheckListMultivare:
