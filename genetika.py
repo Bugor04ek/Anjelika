@@ -171,8 +171,10 @@ def main_dragger(orders: list):
     HALL_OF_FAME_SIZE = len_orders * 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
     POPULATION_SIZE = len_orders * 150  # количество индивидуумов в популяции
     MAX_GENERATIONS = int(len_orders * 0.9)  # максимальное количество поколений
+    P_CROSSOVER = 0.9  # вероятность скрещивания
+    P_MUTATION = 0.2  # вероятность мутации индивидуума
     NUM_OF_VEHICLES = queue_dragger.num_basket
-    print(NUM_OF_VEHICLES)
+    # self.depotIndex = depotIndex
     QueueDragger.indexes_baskets = [i for i in range(len_orders - NUM_OF_VEHICLES, len_orders)]
     time_on_dragger = queue_dragger.form_matrix_dragger(orders)
     toolbox = base.Toolbox()
@@ -190,8 +192,8 @@ def main_dragger(orders: list):
     toolbox.register("individualCreator", tools.initIterate, creator.Individual, toolbox.randomOrder)
     toolbox.register("populationCreator", tools.initRepeat, list, toolbox.individualCreator)
     toolbox.register("evaluate", QueueDragger.get_cost, time_on_dragger)
-    toolbox.register("select", tools.selTournament, tournsize=15)
-    toolbox.register("mate", tools.cxOrdered)
+    toolbox.register("select", tools.selTournament, tournsize=2)
+    toolbox.register("mate", tools.cxUniformPartialyMatched, indpb=2.0/len_orders)
     toolbox.register("mutate", tools.mutShuffleIndexes, indpb=1.0 / len_orders)
 
     population = toolbox.populationCreator(n=POPULATION_SIZE)  # Создаем начальную популяцию
@@ -250,7 +252,8 @@ def main_dragger(orders: list):
             total_time = 0
     else:
         output += '{}ч. {}мин. \n'.format(total_time // 60, total_time % 60)
-        output += 'остаток на мультике Корзина {} время работы: {}ч. {}мин., \n'.format(
+        output += 'остаток {} на мультике Корзина {} время работы: {}ч. {}мин., \n'.format(
+            Multivare.QueueMultivare.rest_basket,
             i,
             str(Multivare.QueueMultivare.rest_orders.time_work // 60),
             str(round(Multivare.QueueMultivare.rest_orders.time_work % 60, 2))
