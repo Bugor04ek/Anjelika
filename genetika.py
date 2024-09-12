@@ -231,7 +231,7 @@ def main_dragger(orders: list):
 
     # queue_dragger(Dragger.queue_dragger.orders)
     print("Лучший индивидуум =", best_order)
-    output = "Лучший индивидуум = "
+    output = "Лучший индивидуум = \n"
     i = 0
     total_time = 0
     for order in best_order:
@@ -244,10 +244,12 @@ def main_dragger(orders: list):
                 )
 
         elif issubclass(Basket, type(orders[order].order)):
+            total_time += Dragger.W
+            output += 'Корзина {} время работы -- {}ч\n'.format(i, Dragger.W // 60)
             output += '{}ч. {}мин. \n'.format(round(total_time // 60, 0), round(total_time % 60, 0))
-            output += 'Корзина {} время работы: {}ч. {}мин., \n'.format(
+            output += 'Корзина {} время работы на мультике: {}ч. {}мин.\n'.format(
                 i, str(orders[QueueDragger.indexes_baskets[i]].order.time_work // 60),
-                str(round(orders[QueueDragger.indexes_baskets[i]].order.time_work % 60, 2)))
+                str(round(orders[QueueDragger.indexes_baskets[i]].order.time_work % 60, 2)),)
             i += 1
             total_time = 0
     else:
