@@ -169,10 +169,10 @@ def main_dragger(orders: list):
 
     # # константы задачи
     HALL_OF_FAME_SIZE = len_orders * 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
-    POPULATION_SIZE = len_orders * 150  # количество индивидуумов в популяции
-    MAX_GENERATIONS = int(len_orders * 0.9)  # максимальное количество поколений
-    P_CROSSOVER = 0.9  # вероятность скрещивания
-    P_MUTATION = 0.2  # вероятность мутации индивидуума
+    POPULATION_SIZE = len_orders * 300  # количество индивидуумов в популяции
+    MAX_GENERATIONS = len_orders  # максимальное количество поколений
+    # P_CROSSOVER = 0.9  # вероятность скрещивания
+    # P_MUTATION = 0.2  # вероятность мутации индивидуума
     NUM_OF_VEHICLES = queue_dragger.num_basket
     # self.depotIndex = depotIndex
     QueueDragger.indexes_baskets = [i for i in range(len_orders - NUM_OF_VEHICLES, len_orders)]
@@ -237,21 +237,22 @@ def main_dragger(orders: list):
     for order in best_order:
         if issubclass(consts.Order, type(orders[order].order)):
             total_time += orders[order].time_work + orders[order].time_setup
-            output += '{} -- {} + {} = {}\n'.format(
-                orders[order].account_number, orders[order].time_work,
+            output += '{} -- {} + {} = {}ч. {}мин\n'.format(
+                orders[order].account_number,
+                orders[order].time_work,
                 orders[order].time_setup,
-                orders[order].time_work + orders[order].time_setup
-                )
-
+                round((orders[order].time_work + orders[order].time_setup) // 60, 0),
+                round((orders[order].time_work + orders[order].time_setup) % 60, 0)
+            )
         elif issubclass(Basket, type(orders[order].order)):
-            total_time += Dragger.W
-            output += 'Корзина {} время работы -- {}ч\n'.format(i, Dragger.W // 60)
             output += '{}ч. {}мин. \n'.format(round(total_time // 60, 0), round(total_time % 60, 0))
             output += 'Корзина {} время работы на мультике: {}ч. {}мин.\n'.format(
                 i, str(orders[QueueDragger.indexes_baskets[i]].order.time_work // 60),
                 str(round(orders[QueueDragger.indexes_baskets[i]].order.time_work % 60, 2)),)
+            output += 'Корзина {} время работы -- {}ч\n'.format(i, Dragger.W // 60)
             i += 1
             total_time = 0
+            total_time += Dragger.W
     else:
         output += '{}ч. {}мин. \n'.format(total_time // 60, total_time % 60)
         output += 'остаток {} на мультике Корзина {} время работы: {}ч. {}мин., \n'.format(
