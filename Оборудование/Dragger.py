@@ -181,6 +181,7 @@ class QueueDragger:
         num_downtime = 0
         downtime = 0
         time_route_to_basket = 0
+        last_route_time = 0
 
         # первая функция должная следить чтобы время работы + время перенастройки заказов были меньше чем разница между корзинами
         routes: [[int]] = QueueDragger.get_routes(indices)
@@ -193,69 +194,69 @@ class QueueDragger:
             reserve_time = TaskForDragger.orders[indexes_baskets[0]].order.time_work
 
             for route in range(len(indexes_baskets) - 1):
-                # складываем время до корзины
-                if route:
-                    time_route_to_basket += time_on_multivare[indexes_baskets[route-1]][indices[r1]] + TaskForDragger.orders[r1].time_work
 
-                for r1 in routes[route]:
-                    time_route_to_basket += time_on_multivare[indices[r1]][indices[r1 + 1]] + TaskForDragger.orders[r1].time_work
-                time_route_to_basket += W if route else 0
+                time_route_to_basket += QueueDragger.get_time_route(routes[route], time_on_multivare, indexes_baskets, route)
+
                 if reserve_time < time_route_to_basket < reserve_time + TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work - (W if route == 0 else 0):
-                    reserve_time = TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work - (time_route_to_basket - reserve_time) - (W if route == 0 else 0)
+                    reserve_time = TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work - (time_route_to_basket - reserve_time)
                 elif time_route_to_basket < reserve_time:
                     downtime += (reserve_time - time_route_to_basket)
                     num_downtime += 1
-                    reserve_time = TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work
+                    break
+                    # reserve_time = TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work
                 elif time_route_to_basket > reserve_time + TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work - (W if route == 0 else 0):
                     downtime += time_route_to_basket - (reserve_time + TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work - (W if route == 0 else 0))
                     num_downtime += 1
-                    reserve_time = TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work
+                    break
+                    # reserve_time = TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work
 
                 total_time += time_route_to_basket
                 time_route_to_basket = 0
+
             else:
-                # складываем время до корзины
-                time_route_to_basket += time_on_multivare[indexes_baskets[route-1]][indices[r1]] + TaskForDragger.orders[r1].time_work
-                for r1 in routes[route + 1]:
-                    time_route_to_basket += time_on_multivare[indices[r1]][indices[r1 + 1]] + TaskForDragger.orders[r1].time_work
-                time_route_to_basket += W
-                reserve_time = TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work
+
+                time_route_to_basket += QueueDragger.get_time_route(routes[-2], time_on_multivare, indexes_baskets, routes.index(routes[-2]))
+
+                reserve_time = TaskForDragger.orders[indexes_baskets[-1]].order.time_work
 
                 if reserve_time < time_route_to_basket < reserve_time + Multivare.QueueMultivare.rest_orders.time_work:
                     pass
-                    # reserve_time = TaskForDragger.orders[indexes_baskets[route + 1]].time_work - time_route_to_basket - reserve_time - W
                 elif time_route_to_basket < reserve_time:
                     downtime += (reserve_time - time_route_to_basket)
                     num_downtime += 1
-                    # reserve_time = TaskForDragger.orders[indexes_baskets[route + 1]].time_work
                 elif time_route_to_basket > reserve_time + Multivare.QueueMultivare.rest_orders.time_work:
                     downtime += time_route_to_basket - (reserve_time + Multivare.QueueMultivare.rest_orders.time_work)
                     num_downtime += 1
 
                 total_time += time_route_to_basket
-                # если время работы заказов превышает запасы для корзин
-                # if time_route_to_basket > reserve_time:
-                #     total_time += 20000 #time_route_to_basket - reserve_time
-                #     time_route_to_basket = 0
 
-        # вторая функция возвращает время перенастроек
+            last_route_time = QueueDragger.get_time_route(routes[-1], time_on_multivare, indexes_baskets, routes.index(routes[-1]))
 
-        # уменьшаем длину максимального маршрута
-        # for route in routes:
-        #     route_time = QueueDragger.get_time_route(route, time_on_multivare)
-        #     max_route_time = max(route_time, max_route_time)
-
-        last_route_time = QueueDragger.get_time_route(routes[-1], time_on_multivare)
-        # for i in range(len(indices) - 1):
-        #     total_time += time_on_multivare[indices[i]][indices[i + 1]]
-
-        return last_route_time + total_time * 0.9 + downtime * 5000 * num_downtime,
+        return last_route_time + total_time + (20000 * num_downtime),
 
     @staticmethod
-    def get_time_route(route, time_on_multivare):
+    def get_time_route(route: [int], time_on_multivare: [[]], indexes_baskets: [int], number_route: int):
+        """
+        Считается время работы + перенастройки между корзинами. route имеет вид [[],[],[]], поэтому, если number_route == 0,
+        то перенастройки с корзины не будет, т.к. это первый путь. Запятые символизируют корзины
+        :param route: массив индексов заказов одного из пути номером number_route
+        :param time_on_multivare: матрица времени перенастроек
+        :param indexes_baskets: массив индексов корзин
+        :param number_route: номер пути
+        :return: суммарное время работы
+        """
         time = 0
+
+        # перенастройка с предыдущей корзины
+        time += time_on_multivare[indexes_baskets[number_route - 1]][route[0]] if number_route else 0
+
         for i in range(len(route) - 1):
-            time += time_on_multivare[i][i + 1] + TaskForDragger.orders[i].time_work
+            time += time_on_multivare[route[i]][route[i + 1]] + TaskForDragger.orders[route[i]].time_work
+        else:
+            time += TaskForDragger.orders[route[-1]].time_work
+        # добавляем время на изготовление 8 корзин
+        time += (W if number_route else 0)
+
         return time
 
     @staticmethod
