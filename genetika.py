@@ -169,10 +169,10 @@ def main_dragger(orders: list):
 
     # # константы задачи
     HALL_OF_FAME_SIZE = len_orders * 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
-    POPULATION_SIZE = len_orders * 300  # количество индивидуумов в популяции
+    POPULATION_SIZE = len_orders * 500  # количество индивидуумов в популяции
     MAX_GENERATIONS = len_orders  # максимальное количество поколений
-    # P_CROSSOVER = 0.9  # вероятность скрещивания
-    # P_MUTATION = 0.2  # вероятность мутации индивидуума
+    P_CROSSOVER = 0.9  # вероятность скрещивания
+    P_MUTATION = 0.2  # вероятность мутации индивидуума
     NUM_OF_VEHICLES = queue_dragger.num_basket
     # self.depotIndex = depotIndex
     QueueDragger.indexes_baskets = [i for i in range(len_orders - NUM_OF_VEHICLES, len_orders)]
