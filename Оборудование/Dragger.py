@@ -6,7 +6,7 @@ INSERT_SPIN = 5  # время вставки фильер
 CHANGE_BOBBIN = 5  # смена катушки
 CHANGE_WIRE = 1.5  # снятие/натягивание проволочки на 1 фильере
 STRETCHING_WIRE = 5  # протягивание проволочки в отжиге
-W = 12 * 60  # время изготовления 8 корзин
+W = 10 * 60  # время изготовления 8 корзин
 
 dictionary_spinners = {
     7: 1,
@@ -202,17 +202,14 @@ class QueueDragger:
                     reserve_time = TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work - (time_route_to_basket - reserve_time)
                     if reserve_time < W:
                         num_downtime += 1
-                        break
                 elif time_route_to_basket < reserve_time:
                     downtime += (reserve_time - time_route_to_basket)
                     num_downtime += 1
-                    break
-                    # reserve_time = TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work
+                    reserve_time = TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work
                 elif time_route_to_basket > reserve_time + TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work - W:
                     downtime += time_route_to_basket - (reserve_time + TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work)
                     num_uptime += 1
-                    break
-                    # reserve_time = TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work
+                    reserve_time = TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work
 
                 # total_time += time_route_to_basket
                 time_route_to_basket = 0
