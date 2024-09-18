@@ -1,4 +1,6 @@
 import datetime
+
+import numpy as np
 from deap import base
 from deap import creator
 from deap import tools
@@ -212,7 +214,7 @@ def main_dragger(orders: list):
         stats=stats,
         halloffame=hof,
         verbose=True
-        )
+    )
 
     print("- Лучшие решения:")
     for i in range(HALL_OF_FAME_SIZE):
@@ -234,6 +236,11 @@ def main_dragger(orders: list):
     output = "Лучший индивидуум = \n"
     i = 0
     total_time = 0
+    temp_time1, temp_time2 = 0, 0
+    x = [0]
+    x1 = [0]
+    y = [0.25]
+    y1 = [0.5]
     for order in best_order:
         if issubclass(consts.Order, type(orders[order].order)):
             total_time += orders[order].time_work + orders[order].time_setup
@@ -244,7 +251,16 @@ def main_dragger(orders: list):
                 round((orders[order].time_work + orders[order].time_setup) // 60, 0),
                 round((orders[order].time_work + orders[order].time_setup) % 60, 0)
             )
+
         elif issubclass(Basket, type(orders[order].order)):
+            x1.append((temp_time1 + int(total_time)))
+            x1.append((temp_time1 + int(total_time) + Dragger.W))
+            y1.append(0.5)
+            y1.append(0.5)
+            x.append((temp_time2 + int(orders[QueueDragger.indexes_baskets[i]].order.time_work)))
+            y.append(0.25)
+            temp_time1 += total_time
+            temp_time2 += int(orders[QueueDragger.indexes_baskets[i]].order.time_work)
             output += '{}ч. {}мин. -- {}мин. \n'.format(round(total_time // 60, 0), round(total_time % 60, 0), round(total_time, 0))
             output += 'Корзина {} время работы на мультике: {}ч. {}мин. -- {}мин.\n'.format(
                 i, orders[QueueDragger.indexes_baskets[i]].order.time_work // 60,
@@ -256,19 +272,38 @@ def main_dragger(orders: list):
             total_time = 0
             total_time += Dragger.W
     else:
+        x1.append((temp_time1 + int(total_time)))
+        y1.append(0.5)
         output += '{}ч. {}мин. \n'.format(total_time // 60, total_time % 60)
         output += 'остаток {} на мультике Корзина {} время работы: {}ч. {}мин., \n'.format(
             Multivare.QueueMultivare.rest_basket,
             i,
             str(Multivare.QueueMultivare.rest_orders.time_work // 60),
             str(round(Multivare.QueueMultivare.rest_orders.time_work % 60, 2))
-            )
+        )
     print(output)
     end = datetime.datetime.now()
     print(end - start)
 
     minFitnessValues, meanFitnessValues = logbook.select("min", "avg")
 
+    # Add annotations
+    for i, (xi, yi) in enumerate(zip(x, y)):
+        plt.annotate(f'{int(xi)}', (xi, yi), textcoords="offset points", xytext=(0, 10), ha='center')
+
+    plt.plot(x, y, marker='|', linestyle='-', color='red')
+
+    for i, (xi, yi) in enumerate(zip(x1, y1)):
+        plt.annotate(f'{int(xi)}', (xi, yi), textcoords="offset points", xytext=(0, 10), ha='center')
+
+    plt.plot(x1, y1, marker='|', linestyle='-', color='green')
+    plt.grid(True)
+    # plt.plot(x, y, color='red')
+    # plt.plot(x1, y1, color='green')
+    plt.locator_params(axis='x', nbins=5)
+    plt.locator_params(axis='y', nbins=1)
+    plt.ylim(0, 1)
+    plt.show()
     # plt.plot(minFitnessValues, color='red')
     # plt.plot(meanFitnessValues, color='green')
     # plt.xlabel('Поколение')
