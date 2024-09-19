@@ -114,8 +114,8 @@ class TaskForMultik:
 
         # 0 - сколько корзин по 8 штук нужно, если заказ очень большой и требуется много корзин
         # 1 - сколько корзин еще заполнится (набирается число до 8)
-        self.num_basket = (int(self.total_weight_delays / self.wires_in_sliver / KM_IN_1_BASKET // 8),
-                           self.total_weight_delays / self.wires_in_sliver / KM_IN_1_BASKET % 8)
+        self.num_basket = (int(self.total_weight_delays * 1/(pi*0.25*8.89*d_mult**2)/ KM_IN_1_BASKET // 8),
+                           self.total_weight_delays * 1/(pi*0.25*8.89*d_mult**2) / KM_IN_1_BASKET % 8)
         self.time_on_mult_1_basket = self.time_on_multivare / (self.num_basket[0] + self.num_basket[1])
 
         # длина заказа в расчете на одну прядь (весь заказ это length_strands *
