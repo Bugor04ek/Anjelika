@@ -45,7 +45,8 @@ def converting_indexes_to_numbers(indexes: [int], orders: [Multivare.TaskForMult
 
 class Order:
     """
-    Класс содержит все не вычисляемые параметры по кабелю, дальнейшие
+    Класс содержит все не вычисляемые параметры по кабелю. По факту просто справочник содержащий все переменные по заказу.
+    Далее будет разбиваться по заданиям на оборудования, куда пойдут определенные переменные.
     """
 
     def __init__(
@@ -58,13 +59,6 @@ class Order:
             wires_in_sliver_extra_support, type_bobbin, volume_bobbin, time_on_dragger, time_on_multivare,
             time_on_streng):
         self.IDZak = IDZak
-        # self.length_strands = 0
-        # self.full_bobbin = ()
-        # self.length_piece = 0
-        # self.spin = 0
-        # self.num_group = None
-        # self.group = ()
-        # self.total_length_delays = 0
         self.account_number = account_number
         self.mark = Mark(mark)
         self.release_date = release_date
@@ -99,11 +93,14 @@ class Order:
 
     def set_task(self):
         """
-        Создаем задание на мультик, разбивая кабель на несколько составляющих, если это плюсовой или вспомогательный
-        :return:
+        Создаем задания на оборудования, разбивая кабель на несколько составляющих. Если в кабеле есть дополнительные жилы,
+        то каждая дополнительная жила в задании будет восприниматься как отдельный заказ с аналогичным номером с добавлением
+        +/е/s
+        :return: массив, элементы которого задания на различные оборудования по техцепочке
         """
         task = []
 
+        # Если заказ пойдет на мультик, то у него не должно быть задания на волочилку, т.к. для таких заказов заданием будет являться корзина
         if self.time_on_dragger and not self.time_on_multivare:
             task.append(self.set_task_for_dragger())
         if self.time_on_multivare:
@@ -112,9 +109,12 @@ class Order:
         return task
 
     def set_task_for_dragger(self):
-        temp = Dragger.TaskForDragger(self)
-        Dragger.queue_dragger.queue.append(temp)
-        return temp
+        """
+        Заводим Задание на волочилку и добавляем задание в очередь. Тут очередь будет еще не в оптимальном порядке
+        :return:
+        """
+        return Dragger.queue_dragger.queue.append(Dragger.TaskForDragger(self))
+
 
     def set_task_for_multivare(self):
         task = [Multivare.TaskForMultik(self, self.diameter, self.number_of_veins, self.number_of_strands,

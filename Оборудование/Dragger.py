@@ -6,7 +6,7 @@ INSERT_SPIN = 5  # время вставки фильер
 CHANGE_BOBBIN = 5  # смена катушки
 CHANGE_WIRE = 1.5  # снятие/натягивание проволочки на 1 фильере
 STRETCHING_WIRE = 5  # протягивание проволочки в отжиге
-W = 10 * 60  # время изготовления 8 корзин
+W = 12 * 60  # время изготовления 8 корзин
 
 dictionary_spinners = {
     7: 1,
@@ -28,9 +28,10 @@ dictionary_spinners = {
 
 class TaskForDragger:
     """
-    Класс для заказов на волочение.
+    Класс для заказов на волочение. Тут может быть либо обычный заказ, либо корзина состоящая из заказов на мультик.
     """
 
+    # Переменная класса для подсчета индексов
     orders = []
 
     def __init__(self, order):
@@ -47,7 +48,6 @@ class TaskForDragger:
             self.diameter = Multivare.d_mult
 
         self.time_setup = 0
-        self.extra_spin = self.extra_spin()
         self.spin = self.counting_spinners()
 
     def counting_spinners(self):
@@ -57,24 +57,24 @@ class TaskForDragger:
         Если не находим, тогда ищем после какой фильеры нужно поставить еще одну количество = ключ + 1
         """
 
-        # Если spin == 0, значит есть доп фильера
-        # Иначе количество фильер = spin
-        return self.extra_spin if self.extra_spin else self.counting_extra_spin()
+        # Определяет стандартные фильеры или нужна дополнительная
+        extra_spin = dictionary_spinners.get(self.diameter, 0)
 
-    def extra_spin(self):
-        """
-        Определяет стандартные фильеры или нужна дополнительная
-        :return: 0, если нет диметра в справочнике -- значит будет доп фильера. Int - количество фильер
-        """
-        return dictionary_spinners.get(self.diameter, 0)
+        # Если extra_spin == 0, значит есть доп фильера
+        # Иначе количество фильер = self.extra_spin
+
+        return extra_spin if extra_spin else self.counting_extra_spin()
 
     def counting_extra_spin(self) -> int:
         """
-        Рассчитывает количество фильер для заказа вместе с последней нестандартной фильерой
+        Находим в словаре фильер ближайшие значения к диаметру.
+        Если находим в справочнике значение фильеры, тогда количество = ключ
+        Если не находим, тогда ищем после какой фильеры нужно поставить еще одну количество = ключ + 1
         :return: количество фильер
         """
         for k, v in sorted(dictionary_spinners.items()):
             if self.diameter < k:
+                #  Рассчитывает количество фильер для заказа вместе с последней нестандартной фильерой
                 return v + 1
 
     def __repr__(self):
@@ -176,13 +176,11 @@ class QueueDragger:
     def get_cost(time_on_dragger, indices):
 
         indexes_baskets = QueueDragger.indexes_baskets
-        total_time = 0
-        max_route_time = 0
-        num_downtime = 0
-        num_uptime = 0
-        downtime = 0
+        total_time = 0  # суммарное время перенастроек
+        num_downtime = 0  # количество простоев волочилки
+        num_uptime = 0  # количесвто простоев мультика
         time_route_to_basket = 0
-        last_route_time = 0
+
 
         # первая функция должная следить чтобы время работы + время перенастройки заказов были меньше чем разница между корзинами
         routes: [[int]] = QueueDragger.get_routes(indices)
@@ -203,11 +201,9 @@ class QueueDragger:
                     if reserve_time < W:
                         num_downtime += 1
                 elif time_route_to_basket < reserve_time:
-                    downtime += (reserve_time - time_route_to_basket)
                     num_downtime += 1
                     reserve_time = TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work
                 elif time_route_to_basket > reserve_time + TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work - W:
-                    downtime += time_route_to_basket - (reserve_time + TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work)
                     num_uptime += 1
                     reserve_time = TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work
 
@@ -223,15 +219,13 @@ class QueueDragger:
                 if reserve_time < time_route_to_basket < reserve_time + Multivare.QueueMultivare.rest_orders.time_work:
                     pass
                 elif time_route_to_basket < reserve_time:
-                    downtime += (reserve_time - time_route_to_basket)
                     num_downtime += 1
                 elif time_route_to_basket > reserve_time:
-                    downtime += time_route_to_basket - (reserve_time + Multivare.QueueMultivare.rest_orders.time_work)
                     num_uptime += 1
 
                 # total_time += time_route_to_basket
 
-            last_route_time = QueueDragger.get_time_route(routes[-1], time_on_dragger, indexes_baskets, routes.index(routes[-1]))
+            # last_route_time = QueueDragger.get_time_route(routes[-1], time_on_dragger, indexes_baskets, routes.index(routes[-1]))
 
         # время между каждой парой заказов
         for i in range(len(indices) - 1):
@@ -266,7 +260,11 @@ class QueueDragger:
 
     @staticmethod
     def get_routes(indices):
-        # initialize lists:
+        """
+        Разбиваем индивида (очередь) на маршруты от корзины до корзины
+        :param indices: текущая очередь
+        :return: [[]]
+        """
         routes = []
         route = []
 

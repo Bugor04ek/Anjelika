@@ -92,8 +92,6 @@ def main_multivare(orders: list[TaskForMultik]):
     HALL_OF_FAME_SIZE = len_orders * 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
     # константы генетического алгоритма
     POPULATION_SIZE = len_orders * 300  # количество индивидуумов в популяции
-    # P_CROSSOVER = 1  # вероятность скрещивания
-    # P_MUTATION = 0  # вероятность мутации индивидуума
     MAX_GENERATIONS = int(len_orders * 0.9)  # максимальное количество поколений
 
     time_on_multivare = QueueMultivare.form_matrix_multivare(orders)
@@ -173,10 +171,8 @@ def main_dragger(orders: list):
     HALL_OF_FAME_SIZE = len_orders * 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
     POPULATION_SIZE = len_orders * 200  # количество индивидуумов в популяции
     MAX_GENERATIONS = len_orders  # максимальное количество поколений
-    # P_CROSSOVER = 0.9  # вероятность скрещивания
-    # P_MUTATION = 0.2  # вероятность мутации индивидуума
     NUM_OF_VEHICLES = queue_dragger.num_basket
-    # self.depotIndex = depotIndex
+
     QueueDragger.indexes_baskets = [i for i in range(len_orders - NUM_OF_VEHICLES, len_orders)]
     time_on_dragger = queue_dragger.form_matrix_dragger(orders)
     toolbox = base.Toolbox()
@@ -223,15 +219,7 @@ def main_dragger(orders: list):
     best_order = hof.items[0]  # массив заказов в виде индексов
     queue_dragger.queue = converting_indexes_to_numbers(best_order, orders)
     queue_dragger.setting_time_setup()
-    # for num, i in enumerate(best_order):
-    #
-    #     # пропускаем первый индекс, т.к у него нет время на перенастройку
-    #     if num == 0:
-    #         continue
-    #
-    #     orders[i].time_setup = queue_dragger.calculate_setup_time_dragger[i][best_order[num-1]]
 
-    # queue_dragger(Dragger.queue_dragger.orders)
     print("Лучший индивидуум =", best_order)
     output = "Лучший индивидуум = \n"
     i = 0

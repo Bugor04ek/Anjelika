@@ -1,4 +1,3 @@
-
 import genetika
 import vrp
 from consts import *
@@ -28,6 +27,11 @@ def formation_of_orders_in_the_date_range(orders: list[TaskForMultik], date_rang
 
 
 def sort_date(order):
+    """
+    Возвращает дату выхода заказа и позволяет отсортировать список заказов по дате
+    :param order:
+    :return: дата выхода заказа
+    """
     return order.order.release_date
 
 
@@ -122,10 +126,8 @@ def forming_file_with_groups_excel(arr_orders: list[TaskForMultik]):
 
 def create_orders():
     """
-    Создание 2 таблиц:
-    1. Основная, содержащая информацию о заказе
-    2. Таблица с параметрами для вычисления "Длина куска 1 корзины"
-    :return: result_table -- результирующая таблица с вычисленным столбцом "Длина куска 1 корзины"
+    Считывается excel файл file_name. В цикле создается массив из элементов класса Order
+    :return: массив заказов
     """
     # A - IDZak
     # B - Номер счета
@@ -150,6 +152,7 @@ def create_orders():
                                                           format='%d.%m.%Y').dt.date
     data = pd.DataFrame(excel_data).fillna(0)
     orders = list()
+
 
     for row in data.values:
         orders.append(Order(IDZak=row[0], account_number=row[1], mark=row[2], release_date=row[3], order_length=row[4],
@@ -178,12 +181,13 @@ if __name__ == "__main__":
     # gen_alg.main(TaskForMultik.orders)
 
     genetika.main_multivare(TaskForMultik.orders)
-
-    print(Dragger.queue_dragger, sep='\n')
-    print(Dragger.queue_dragger.num_basket)
-    print(Multivare.QueueMultivare.rest_basket)
-    print(Multivare.QueueMultivare.rest_orders)
-
     genetika.main_dragger(Dragger.queue_dragger.queue)
+
+    # print(Dragger.queue_dragger, sep='\n')
+    # print(Dragger.queue_dragger.num_basket)
+    # print(Multivare.QueueMultivare.rest_basket)
+    # print(Multivare.QueueMultivare.rest_orders)
+
+
 
 
