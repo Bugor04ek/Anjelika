@@ -4,11 +4,13 @@ from consts import *
 
 from optimization.calculate_bobbin import *
 import Оборудование.Dragger as Dragger
+import Оборудование.Multivare as Multivare
+import pandas as pd
 
 file_name = 'excel/Заказы.xlsx'
 
 
-def formation_of_orders_in_the_date_range(orders: list[TaskForMultik], date_range: int, groups_by_dates: dict):
+def formation_of_orders_in_the_date_range(orders: list[Multivare.TaskForMultik], date_range: int, groups_by_dates: dict):
     """
     Формирование заказов в диапазоне дат
     :return:
@@ -35,7 +37,7 @@ def sort_date(order):
     return order.order.release_date
 
 
-def forming_file_with_groups(arr_orders: list[TaskForMultik]):
+def forming_file_with_groups(arr_orders: list[Multivare.TaskForMultik]):
     # Загрузка существующего файла Excel
     existing_file = 'excel/output_class.xlsx'
 
@@ -86,7 +88,7 @@ def forming_file_with_groups(arr_orders: list[TaskForMultik]):
     return data_res
 
 
-def forming_file_with_groups_excel(arr_orders: list[TaskForMultik]):
+def forming_file_with_groups_excel(arr_orders: list[Multivare.TaskForMultik]):
     # Загрузка существующего файла Excel
     existing_file = 'excel/output_class.xlsx'
 
@@ -153,7 +155,6 @@ def create_orders():
     data = pd.DataFrame(excel_data).fillna(0)
     orders = list()
 
-
     for row in data.values:
         orders.append(Order(IDZak=row[0], account_number=row[1], mark=row[2], release_date=row[3], order_length=row[4],
                             number_of_veins=row[5], diameter=row[7], number_of_strands=row[8], number_of_sliver=row[9],
@@ -173,15 +174,16 @@ def create_orders():
 
 if __name__ == "__main__":
     orders = create_orders()
-    print(*TaskForMultik.orders, sep='\n')
+    print(*orders, sep='\n')
+    # print(*Multivare.TaskForMultik.orders, sep='\n')
     # result = forming_file_with_groups(TaskForMultik.orders)
     # check_list_multik.output_in_excel()
     #
     # vrp.main(TaskForMultik.orders)
     # gen_alg.main(TaskForMultik.orders)
 
-    genetika.main_multivare(TaskForMultik.orders)
-    genetika.main_dragger(Dragger.queue_dragger.queue)
+    genetika.main_multivare(Multivare.TaskForMultik.orders)
+    genetika.main_dragger(Dragger.TaskForDragger.orders)
 
     # print(Dragger.queue_dragger, sep='\n')
     # print(Dragger.queue_dragger.num_basket)

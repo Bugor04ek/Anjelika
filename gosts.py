@@ -3,17 +3,16 @@ import re
 GOSTS = {
     '55025-2012': {
         'pattern': r"(?P<Material>А|)"
-                   "(?P<InsulationMaterial>В|Пв|)"
-                   "(?P<Armor>Б|Ба|К|Ка|)"
-                   "(?P<OuterShellMaterial>В|П|Пу)"
-                   "(?P<NotArmor>Г|)"
-                   "(?P<FireDanger>нг|(нг\((AF\/R|A|B)\)(-LS|-HF|))|)"
-                   "(?P<SealingElements>г|2г|ж|$|)"
-                   "(\-|)(?P<TropicalDesign>T|)"
-                   "\s(?P<NumberVeins>[1|3])[x|х]"
-                   "(?P<NominalSection>\d+[,|.|]\d+|\d+)"
-                   "\s(?P<ConstructiveExecutionMetalScreen>ок|ос|мк|мс)(\/|)(?P<SectionMetalScreen>\d+|)"
-                   "-(?P<RatedVoltage>\d+[,|.|]\d+|\d+)",
+                   r"(?P<InsulationMaterial>В|Пв|)"
+                   r"(?P<Armor>Б|Ба|К|Ка|)"
+                   r"(?P<OuterShellMaterial>В|П|Пу)"
+                   r"(?P<NotArmor>Г|)"
+                   r"(?P<FireDanger>нг|(нг\((AF\/R|A|B)\)(-LS|-HF|))|)"
+                   r"(?P<SealingElements>г|2г|ж|$|)"
+                   r"(\-|)(?P<TropicalDesign>T|)"
+                   r"\s(?P<NumberVeins>[1|3])[x|х]"
+                   r"(?P<NominalSection>\d+[,|.|]\d+|\d+)"
+                   r"(\s(?P<ConstructiveExecutionMetalScreen>ок|ос|мк|мс)(\/|)(?P<SectionMetalScreen>\d+|)-(?P<RatedVoltage>\d+[,|.|]\d+|\d+)|)",
         'param': {
             'Material': 'Материал',
             'InsulationMaterial': 'Изоляция',
@@ -32,22 +31,20 @@ GOSTS = {
     },
     '31996-2012': {
         'pattern': r"(?P<Material>А|)"
-                   "(?P<InsulationMaterial>В|Пв|П)"
-                   "(?P<Armor>Б|Ба|К|Ка|)"
-                   "(?P<OuterShellMaterial>В|Шв|Шп|П)"
-                   "(?P<NotArmor>Г|)"
-                   "(?P<MetalScreen>Э|)"
-                   "(?P<FireDanger>нг|(нг\((AF\/R|[A,А]|B)\)(-LS|-HF|-FRLS|-FRHF))|)"
-                   "(?P<Shape>П|)"
-                   "(-|)(?P<TropicalDesign>\[T,Т]|)"
-                   "\s(?P<NumberVeins>[1-5])[x|х]"
-                   "(?P<NominalSection>\d+[,|.|]\d+|\d+)"
-                   "(?P<ConstructiveExecutionMetalScreen>ок|ос|мк|мс|)"
-                   "((?P<NumberVeinsNPE>\+\d+)[x|х]"
-                   "(?P<NominalSectionNPE>\d+[,|.|]\d+|\d+)"
-                   "(?P<ConstructiveExecutionMetalScreenNPE>ок|ос|мк|мс)|)"
-                   "(?P<NPE>(\((N\,PE|PE|N)\))|)"
-                   "-(?P<RatedVoltage>0,66|1|3)",
+                   r"(?P<InsulationMaterial>В|Пв|П)"
+                   r"(?P<Armor>Б|Ба|К|Ка|)"
+                   r"(?P<OuterShellMaterial>В|Шв|Шп|П)"
+                   r"(?P<NotArmor>Г|)"
+                   r"(?P<MetalScreen>Э|)"
+                   r"(?P<FireDanger>нг|(нг\((AF\/R|[A,А]|B)\)((-LS|-HF|-FRLS|-FRHF)|))|(нг(-LS|-HF|-FRLS|-FRHF))|)"
+                   r"(?P<Shape>П|)"
+                   r"(-|)(?P<TropicalDesign>\[T,Т]|)"
+                   r"\s(?P<NumberVeins>[1-5])[x|х]"
+                   r"(?P<NominalSection>\d+[,|.|]\d+|\d+)"
+                   r"(?P<ConstructiveExecutionMetalScreen>ок|ос|мк|мс|)"
+                   r"((?P<NumberVeinsNPE>\+\d+)[x|х](?P<NominalSectionNPE>\d+[,|.|]\d+|\d+)(?P<ConstructiveExecutionMetalScreenNPE>ок|ос|мк|мс|)|)"
+                   r"(?P<NPE>(\((N\,PE|PE|N)\))|)"
+                   r"(-(?P<RatedVoltage>0,66|1|3)|)",
         'param': {
             'Material': 'Материал',
             'InsulationMaterial': 'Изоляция',
@@ -69,14 +66,16 @@ GOSTS = {
         }
     },
     '31946-2012': {
-        'pattern': r"(?P<Wire>СИП)(-|\s)"
-                   "(?P<ConstructiveExecution>[1-4]|г)\s"
-                   "(?P<NumberVeins>[1-4])[x|х]"
-                   "(?P<NominalSection>\d+[,|.|]\d+|\d+)"
-                   "(\+(?P<NumberVeinsNPE>\d+)[x|х]"
-                   "(?P<NominalSectionNPE>\d+[,|.|]\d+|\d+)|)-"
-                   "(?P<RatedVoltage>0,6\/1|[a-zA-Z0-9][10-20]|35)",
+        'pattern': r"(?P<Material>)"
+                   r"(?P<Wire>СИП)(-|\s)"
+                   r"(?P<ConstructiveExecution>[1-4]|г)\s"
+                   r"(?P<NumberVeins>[1-4])[x|х]"
+                   r"(?P<NominalSection>\d+[,|.|]\d+|\d+)"
+                   r"(\+(?P<NumberVeinsNPE>\d+)[x|х]"
+                   r"(?P<NominalSectionNPE>\d+[,|.|]\d+|\d+)|)-"
+                   r"(?P<RatedVoltage>0,6\/1|[a-zA-Z0-9][10-20]|35)",
         'param': {
+            'Material': 'Материал',
             'Wire': 'Провод',
             'ConstructiveExecution': 'Конструктивное исполнение',
             'NumberVeins': 'Количество жил',
@@ -88,16 +87,16 @@ GOSTS = {
     },
     '31947-2012': {
         'pattern': r"(?P<ProductType>Пу|Ку)"
-                   "(?P<DegreeFlexibility>Г|)"
-                   "(?P<InsulationMaterial>В|П|.)"
-                   "(?P<OuterShellMaterial>В|П|[^-]|)"
-                   "(?P<FireDanger>нг(\(([A,А]|[В,B]|[C,С]|D)\)|)(-LS|-LSLTx|-HF|-HFLTx)|)"
-                   "(\-|)(?P<TropicalDesign>[T,Т]|ХЛ|)\s"
-                   "(?P<NumberVeins>[1-5])[x|х]"
-                   "(?P<NominalSection>\d+[,|.|]\d+|\d+)"
-                   "((?P<NumberVeinsNPE>\+\d+)[x|х]"
-                   "(?P<NominalSectionNPE>\d+[,|.|]\d+|\d+)|)"
-                   "(?P<NPE>(\((N\,PE|PE\,N|PE|N)\))|)",
+                   r"(?P<DegreeFlexibility>Г|)"
+                   r"(?P<InsulationMaterial>В|П|.)"
+                   r"(?P<OuterShellMaterial>В|П|[^-]|)"
+                   r"(?P<FireDanger>нг(\(([A,А]|[В,B]|[C,С]|D)\)|)(-LS|-LSLTx|-HF|-HFLTx)|)"
+                   r"(\-|)(?P<TropicalDesign>[T,Т]|ХЛ|)\s"
+                   r"(?P<NumberVeins>[1-5])[x|х]"
+                   r"(?P<NominalSection>\d+[,|.|]\d+|\d+)"
+                   r"((?P<NumberVeinsNPE>\+\d+)[x|х]"
+                   r"(?P<NominalSectionNPE>\d+[,|.|]\d+|\d+)|)"
+                   r"(?P<NPE>(\((N\,PE|PE\,N|PE|N)\))|)",
         'param': {
             'ProductType': 'Тип продукта',
             'DegreeFlexibility': 'Степень гибкости',

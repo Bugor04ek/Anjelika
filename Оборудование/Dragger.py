@@ -8,7 +8,7 @@ CHANGE_WIRE = 1.5  # снятие/натягивание проволочки н
 STRETCHING_WIRE = 5  # протягивание проволочки в отжиге
 W = 12 * 60  # время изготовления 8 корзин
 
-dictionary_spinners = {
+dictionary_spinners_new_dragger = {
     7: 1,
     5.75: 2,
     4.8: 3,
@@ -24,7 +24,54 @@ dictionary_spinners = {
     1.35: 13,
     1.25: 14,
 }
+dictionary_spinners_old_dragger = {
+    7: 1,
+    6.80: 2,
+    5.15: 3,
+    4.50: 4,
+    3.90: 5,
+    3.45: 6,
+    2.95: 7,
+    2.60: 8,
+    2.00: 9,
+    1.65: 10,
+    1.40: 11,
+    1.15: 12,
+}
+dictionary_spinners_al_dragger = {
+    9: 1,
+    8.15: 2,
+    7.05: 3,
+    6.15: 4,
+    5.39: 5,
+    4.72: 6,
+    4.14: 7,
+    3.64: 8,
+    3.20: 9,
+    2.80: 10,
+    2.48: 11,
+    2.20: 12,
+    1.93: 13,
+    1.70: 14,
+}
 
+
+draggers = {
+    'new':
+        {
+            'diameter_min': 1.37,
+            'diameter_max': 4.54,
+            'basket': True,
+            'Материал': 'Медь',
+        },
+    'old':
+        {
+            'diameter_min': 1.37,
+            'diameter_max': 1.37,
+            'basket': True,
+            'Материал': 'Медь',
+        }
+}
 
 class TaskForDragger:
     """
@@ -36,6 +83,12 @@ class TaskForDragger:
 
     def __init__(self, order):
         TaskForDragger.orders.append(self)
+        if order.mark.mark[0] == 'А':
+            self.type_of_equipment = 'queue_dragger_al_dragger'
+            a = globals()[self.type_of_equipment]
+        else:
+            self.type_of_equipment = None
+
         self.id = len(TaskForDragger.orders)
         self.order = order
         if issubclass(consts.Order, type(order)):
@@ -58,7 +111,7 @@ class TaskForDragger:
         """
 
         # Определяет стандартные фильеры или нужна дополнительная
-        extra_spin = dictionary_spinners.get(self.diameter, 0)
+        extra_spin = dictionary_spinners_new_dragger.get(self.diameter, 0)
 
         # Если extra_spin == 0, значит есть доп фильера
         # Иначе количество фильер = self.extra_spin
@@ -72,7 +125,7 @@ class TaskForDragger:
         Если не находим, тогда ищем после какой фильеры нужно поставить еще одну количество = ключ + 1
         :return: количество фильер
         """
-        for k, v in sorted(dictionary_spinners.items()):
+        for k, v in sorted(dictionary_spinners_new_dragger.items()):
             if self.diameter < k:
                 #  Рассчитывает количество фильер для заказа вместе с последней нестандартной фильерой
                 return v + 1
@@ -322,4 +375,6 @@ class Bobbin:
             self.time_on_mult += order.time_on_mult
 
 
-queue_dragger = QueueDragger()
+queue_dragger_new_dragger = QueueDragger()
+queue_dragger_old_dragger = QueueDragger()
+queue_dragger_al_dragger = QueueDragger()

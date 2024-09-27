@@ -375,10 +375,10 @@ class QueueMultivare:
                 # Добавляем такой заказ последним и начинаем новые корзины, потому что после него пойдут корзины только для этого заказа
                 sum_basket += rest_basket
                 temp_basket.append(order, rest_basket)
-                Dragger.queue_dragger.append(Dragger.TaskForDragger(temp_basket))
+                Dragger.queue_dragger_new_dragger.append(Dragger.TaskForDragger(temp_basket))
 
                 for _ in range(temp_num_basket[0]):
-                    Dragger.queue_dragger.append(Dragger.TaskForDragger(Basket([order], 8)))
+                    Dragger.queue_dragger_new_dragger.append(Dragger.TaskForDragger(Basket([order], 8)))
 
                 sum_basket = 0
                 temp_basket: Basket = Basket()
@@ -390,11 +390,11 @@ class QueueMultivare:
                 # Прибавляем так, чтобы стало 8 и добавляем время изготовления этой части корзины
                 rest_basket = 8 - sum_basket  # сколько нужно до 8 корзин
                 temp_basket.append(order, rest_basket)
-                Dragger.queue_dragger.append(Dragger.TaskForDragger(temp_basket))
+                Dragger.queue_dragger_new_dragger.append(Dragger.TaskForDragger(temp_basket))
 
                 # Если заказ на больше 8 корзин, то между корзин будут корзины с 1 этим заказом
                 for _ in range(order.num_basket[0]):
-                    Dragger.queue_dragger.append(Dragger.TaskForDragger(Basket([order], 8)))
+                    Dragger.queue_dragger_new_dragger.append(Dragger.TaskForDragger(Basket([order], 8)))
 
                 # начинаем новую корзину и добавляем в нее остаток текущего заказа
                 temp_basket: Basket = Basket()

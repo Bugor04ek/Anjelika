@@ -1,5 +1,5 @@
 from ortools.linear_solver import pywraplp
-from Оборудование.Multivare import *
+import Оборудование.Multivare as Multivare
 
 
 def create_data_model(orders, container_capacity):
@@ -12,7 +12,7 @@ def create_data_model(orders, container_capacity):
     return data
 
 
-def create_solution(orders: list[TaskForMultik], container_capacity: float, release_date: object) -> object:
+def create_solution(orders: list[Multivare.TaskForMultik], container_capacity: float, release_date: object) -> object:
     data = create_data_model(orders, container_capacity)
 
     # Create the mip solver with the SCIP backend.
@@ -61,7 +61,7 @@ def create_solution(orders: list[TaskForMultik], container_capacity: float, rele
                 count_order = 0
                 bin_dates = []
                 # Создает класс катушки, которую набивают кабелями
-                bobbin = Bobbin(0, data["bin_capacity"], release_date, None)
+                bobbin = Multivare.Bobbin(0, data["bin_capacity"], release_date, None)
                 for i in data["bins"]:
                     if x[i, j].solution_value() > 0:
                         bin_orders.append(data["orders"][i].account_number)
@@ -70,7 +70,7 @@ def create_solution(orders: list[TaskForMultik], container_capacity: float, rele
                         if data["orders"][i].full_bobbin[2]:
                             # Добавляем в задание на мультике полные катушки с одни кабелем
                             for _ in range(data["orders"][i].full_bobbin[0]):
-                                check_list_multik.append_bobbin(Bobbin(data["bin_capacity"], data["bin_capacity"], data["orders"][i].order.release_date, data["orders"][i]))
+                                Multivare.check_list_multik.append_bobbin(Multivare.Bobbin(data["bin_capacity"], data["bin_capacity"], data["orders"][i].order.release_date, data["orders"][i]))
 
                             # Добавляем общему числу катушек заранее просчитанные полные катушки с одним кабелем
                             num_bins += data["orders"][i].full_bobbin[0]
@@ -81,7 +81,7 @@ def create_solution(orders: list[TaskForMultik], container_capacity: float, rele
                         num_order += 1
                         bin_dates.append(data["orders"][i].order.release_date)
 
-                check_list_multik.append_bobbin(bobbin)
+                Multivare.check_list_multik.append_bobbin(bobbin)
 
                 if bin_orders:
                     num_bins += 1

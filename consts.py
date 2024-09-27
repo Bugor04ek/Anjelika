@@ -113,7 +113,7 @@ class Order:
         Заводим Задание на волочилку и добавляем задание в очередь. Тут очередь будет еще не в оптимальном порядке
         :return:
         """
-        return Dragger.queue_dragger.queue.append(Dragger.TaskForDragger(self))
+        return Dragger.TaskForDragger(self)
 
 
     def set_task_for_multivare(self):

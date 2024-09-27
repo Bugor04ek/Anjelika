@@ -171,10 +171,10 @@ def main_dragger(orders: list):
     HALL_OF_FAME_SIZE = len_orders * 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
     POPULATION_SIZE = len_orders * 200  # количество индивидуумов в популяции
     MAX_GENERATIONS = len_orders  # максимальное количество поколений
-    NUM_OF_VEHICLES = queue_dragger.num_basket
+    NUM_OF_VEHICLES = queue_dragger_new_dragger.num_basket
 
     QueueDragger.indexes_baskets = [i for i in range(len_orders - NUM_OF_VEHICLES, len_orders)]
-    time_on_dragger = queue_dragger.form_matrix_dragger(orders)
+    time_on_dragger = QueueDragger.form_matrix_dragger(orders)
     toolbox = base.Toolbox()
 
     df = pd.DataFrame(time_on_dragger)
