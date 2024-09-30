@@ -208,7 +208,6 @@ class GenetikDragger:
         self.toolbox.register("populationCreator", tools.initRepeat, list, self.toolbox.individualCreator)
 
         population = self.toolbox.population(n=POPULATION_SIZE)
-        population = self.toolbox.population(n=POPULATION_SIZE)
 
         self.toolbox.register("evaluate", QueueDragger.get_cost, time_on_dragger)
         self.toolbox.register("select", tools.selTournament, tournsize=2)
@@ -230,20 +229,24 @@ class GenetikDragger:
             temp_equipment = self.equipment
             while True:
                 equipment = random.choice(temp_equipment)
-                if self.check_limit(machine, order):
-                    ind[machine].append(order)
+                if self.check_limit(equipment, order):
+                    ind[equipment].append(order)
+                    break
+                else:
+                    temp_equipment.remove(equipment)
+                    continue
 
         return ind
 
-    def check_limit(self, machine, order):
-        ord = TaskForDragger.orders[order].order
-        basket: bool = True if type(TaskForDragger.orders[order].order).__name__ == 'basket' else False
-        d = ord.diameter
+    def check_limit(self, machine, i_order):
+        order = TaskForDragger.orders[i_order].order
+        basket: bool = True if type(TaskForDragger.orders[i_order].order).__name__ == 'Basket' else False
+        d = order.diameter
 
-        if type == 'Basket':
+        if basket == 'Basket':
             material = 'Cu'
         else:
-            m = ord.order.mark.cable_parameters['Материал']
+            m = order.mark.cable_parameters.get('Material', "")
             if m == '':
                 material = 'Cu'
             else:
@@ -251,8 +254,8 @@ class GenetikDragger:
 
         current_machine = self.limit_draggers[machine]
 
-        if (d > current_machine['diameter_min']
-                or d < current_machine['diameter_max']
+        if (d < current_machine['diameter_min']
+                or d > current_machine['diameter_max']
                 or basket != current_machine['Basket']
                 or material != current_machine['Material']):
             return False
@@ -266,10 +269,10 @@ def main_dragger(orders: list):
     GenetikDragger(len_orders)
 
     # # константы задачи
-    HALL_OF_FAME_SIZE = len_orders * 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
-    POPULATION_SIZE = len_orders * 200  # количество индивидуумов в популяции
-    MAX_GENERATIONS = len_orders  # максимальное количество поколений
-    NUM_OF_VEHICLES = queue_dragger_new_dragger.num_basket
+    HALL_OF_FAME_SIZE = len_orders * 10   # количеству индивидуумов, которых мы хотим хранить в зале славы
+    POPULATION_SIZE   = len_orders * 200  # количество индивидуумов в популяции
+    MAX_GENERATIONS   = len_orders        # максимальное количество поколений
+    NUM_OF_VEHICLES   = queue_dragger_new_dragger.num_basket
 
     QueueDragger.indexes_baskets = [i for i in range(len_orders - NUM_OF_VEHICLES, len_orders)]
     time_on_dragger = QueueDragger.form_matrix_dragger(orders)
