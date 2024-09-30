@@ -130,7 +130,7 @@ def main_multivare(orders: list[TaskForMultik]):
         stats=stats,
         halloffame=hof,
         verbose=True
-        )
+    )
 
     print("- Лучшие решения:")
     for i in range(HALL_OF_FAME_SIZE):
@@ -163,9 +163,107 @@ def main_multivare(orders: list[TaskForMultik]):
     #     # print('Время настройки2:', total_setup_time)
 
 
+# Операции над генами: распределение заказов по оборудованию и порядку
+
+
+class GenetikDragger:
+
+    def __init__(self, num_orders, ):
+        self.limit_draggers = {
+            'new':
+                {
+                    'diameter_min': 1.37,
+                    'diameter_max': 4.54,
+                    'basket': True,
+                    'Material': 'Cu',
+                },
+            'old':
+                {
+                    'diameter_min': 1.37,
+                    'diameter_max': 1.37,
+                    'basket': False,
+                    'Material': 'Cu',
+                },
+            'Al':
+                {
+                    'diameter_min': 1.70,
+                    'diameter_max': 4.54,
+                    'basket': False,
+                    'Material': 'Al',
+                }
+        }
+        self.equipment = list(self.limit_draggers.keys())
+        self.num_orders = num_orders
+
+        # Создаем классы для минимизации задачи
+        creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+        creator.create("Individual", list, fitness=creator.FitnessMin)
+
+        # Базовые инструменты DEAP
+        self.toolbox = base.Toolbox()
+        self.toolbox.register("individual", tools.initIterate, creator.Individual, self.generate_individual)
+        self.toolbox.register("population", tools.initRepeat, list, self.toolbox.individual)
+        self.toolbox.register("randomOrder", random.sample, range(num_orders), num_orders)
+        self.toolbox.register("individualCreator", tools.initIterate, creator.Individual, self.toolbox.randomOrder)
+        self.toolbox.register("populationCreator", tools.initRepeat, list, self.toolbox.individualCreator)
+
+        population = self.toolbox.population(n=POPULATION_SIZE)
+        population = self.toolbox.population(n=POPULATION_SIZE)
+
+        self.toolbox.register("evaluate", QueueDragger.get_cost, time_on_dragger)
+        self.toolbox.register("select", tools.selTournament, tournsize=2)
+        self.toolbox.register("mate", tools.cxUniformPartialyMatched, indpb=2.0 / num_orders)
+        self.toolbox.register("mutate", tools.mutShuffleIndexes, indpb=1.0 / num_orders)
+
+    def generate_individual(self):
+        available_orders = list(range(self.num_orders))
+        random.shuffle(available_orders)
+
+        # Случайно разбиваем заказы между тремя оборудованиями
+        ind = {
+            'new': [],
+            'old': [],
+            'Al': [],
+        }
+        # [Заказы для оборудования 0, заказы для оборудования 1]
+        for order in available_orders:
+            temp_equipment = self.equipment
+            while True:
+                equipment = random.choice(temp_equipment)
+                if self.check_limit(machine, order):
+                    ind[machine].append(order)
+
+        return ind
+
+    def check_limit(self, machine, order):
+        ord = TaskForDragger.orders[order].order
+        basket: bool = True if type(TaskForDragger.orders[order].order).__name__ == 'basket' else False
+        d = ord.diameter
+
+        if type == 'Basket':
+            material = 'Cu'
+        else:
+            m = ord.order.mark.cable_parameters['Материал']
+            if m == '':
+                material = 'Cu'
+            else:
+                material = 'Al' if m == 'А' else 'Cu'
+
+        current_machine = self.limit_draggers[machine]
+
+        if (d > current_machine['diameter_min']
+                or d < current_machine['diameter_max']
+                or basket != current_machine['Basket']
+                or material != current_machine['Material']):
+            return False
+        else:
+            return True
+
+
 def main_dragger(orders: list):
     start = datetime.datetime.now()
     len_orders = len(orders)
+    GenetikDragger(len_orders)
 
     # # константы задачи
     HALL_OF_FAME_SIZE = len_orders * 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
@@ -191,7 +289,7 @@ def main_dragger(orders: list):
     toolbox.register("populationCreator", tools.initRepeat, list, toolbox.individualCreator)
     toolbox.register("evaluate", QueueDragger.get_cost, time_on_dragger)
     toolbox.register("select", tools.selTournament, tournsize=2)
-    toolbox.register("mate", tools.cxUniformPartialyMatched, indpb=2.0/len_orders)
+    toolbox.register("mate", tools.cxUniformPartialyMatched, indpb=2.0 / len_orders)
     toolbox.register("mutate", tools.mutShuffleIndexes, indpb=1.0 / len_orders)
 
     population = toolbox.populationCreator(n=POPULATION_SIZE)  # Создаем начальную популяцию
@@ -249,7 +347,8 @@ def main_dragger(orders: list):
             y.append(0.25)
             temp_time1 += total_time
             temp_time2 += int(orders[QueueDragger.indexes_baskets[i]].order.time_work)
-            output += '{}ч. {}мин. -- {}мин. \n'.format(round(total_time // 60, 0), round(total_time % 60, 0), round(total_time, 0))
+            output += '{}ч. {}мин. -- {}мин. \n'.format(round(total_time // 60, 0), round(total_time % 60, 0),
+                                                        round(total_time, 0))
             output += 'Корзина {} время работы на мультике: {}ч. {}мин. -- {}мин.\n'.format(
                 i, orders[QueueDragger.indexes_baskets[i]].order.time_work // 60,
                 round(orders[QueueDragger.indexes_baskets[i]].order.time_work % 60, 2),

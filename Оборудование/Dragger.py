@@ -56,23 +56,6 @@ dictionary_spinners_al_dragger = {
 }
 
 
-draggers = {
-    'new':
-        {
-            'diameter_min': 1.37,
-            'diameter_max': 4.54,
-            'basket': True,
-            'Материал': 'Медь',
-        },
-    'old':
-        {
-            'diameter_min': 1.37,
-            'diameter_max': 1.37,
-            'basket': True,
-            'Материал': 'Медь',
-        }
-}
-
 class TaskForDragger:
     """
     Класс для заказов на волочение. Тут может быть либо обычный заказ, либо корзина состоящая из заказов на мультик.
@@ -83,11 +66,11 @@ class TaskForDragger:
 
     def __init__(self, order):
         TaskForDragger.orders.append(self)
-        if order.mark.mark[0] == 'А':
-            self.type_of_equipment = 'queue_dragger_al_dragger'
-            a = globals()[self.type_of_equipment]
-        else:
-            self.type_of_equipment = None
+        # if order.mark.mark[0] == 'А':
+        #     self.type_of_equipment = 'queue_dragger_al_dragger'
+        #     a = globals()[self.type_of_equipment]
+        # else:
+        #     self.type_of_equipment = None
 
         self.id = len(TaskForDragger.orders)
         self.order = order

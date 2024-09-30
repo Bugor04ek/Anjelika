@@ -174,7 +174,7 @@ class Basket:
             orders = []
         self.time_work = 0
         self.orders: [TaskForMultik] = orders
-        self.diameter_on_exit = d_mult
+        self.diameter = d_mult
         self.len_basket = KM_IN_1_BASKET * 8
         self.sum_basket = sum_basket
         self.set_time_work()
