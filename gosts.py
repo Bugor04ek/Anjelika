@@ -14,7 +14,7 @@ GOSTS = {
                    r"(?P<NominalSection>\d+[,|.|]\d+|\d+)"
                    r"(\s(?P<ConstructiveExecutionMetalScreen>ок|ос|мк|мс)(\/|)(?P<SectionMetalScreen>\d+|)-(?P<RatedVoltage>\d+[,|.|]\d+|\d+)|)",
         'param': {
-            'Material': 'Материал',
+            'Material': 'Material',
             'InsulationMaterial': 'Изоляция',
             'Armor': 'Бронированный',
             'OuterShellMaterial': 'Оболочка',
@@ -46,7 +46,7 @@ GOSTS = {
                    r"(?P<NPE>(\((N\,PE|PE|N)\))|)"
                    r"(-(?P<RatedVoltage>0,66|1|3)|)",
         'param': {
-            'Material': 'Материал',
+            'Material': 'Material',
             'InsulationMaterial': 'Изоляция',
             'Armor': 'Бронированный',
             'OuterShellMaterial': 'Оболочка',
@@ -75,7 +75,7 @@ GOSTS = {
                    r"(?P<NominalSectionNPE>\d+[,|.|]\d+|\d+)|)-"
                    r"(?P<RatedVoltage>0,6\/1|[a-zA-Z0-9][10-20]|35)",
         'param': {
-            'Material': 'Материал',
+            'Material': 'Material',
             'Wire': 'Провод',
             'ConstructiveExecution': 'Конструктивное исполнение',
             'NumberVeins': 'Количество жил',
@@ -131,7 +131,7 @@ GOSTS = {
                    r"(\s|)(?P<RatedVoltage>\d+\/\d+|)"
                    r"(-|)(?P<OperatingMode>\d|)",
         'param': {
-            'Material': 'Материал',
+            'Material': 'Material',
             'Cable': 'Кабель',
             'DegreesFlexibility': 'Степень гибкости',
             'InsulationMaterial': 'Изоляция',

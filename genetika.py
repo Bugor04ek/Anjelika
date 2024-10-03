@@ -72,7 +72,10 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, hall
         offspring = toolbox.select(population, len(population) - hof_size)
 
         # Vary the pool of individuals
-        offspring = varAnd(offspring, toolbox, cxpb, mutpb)
+        if isinstance(offspring, dict):
+            offspring = varAnd(offspring, toolbox, cxpb, mutpb)
+        else:
+            offspring = algorithms.varAnd(offspring, toolbox, cxpb, mutpb)
 
         # Evaluate the individuals with an invalid fitness
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
@@ -188,28 +191,27 @@ class GenetikDragger:
         HALL_OF_FAME_SIZE = len(orders) * 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
         POPULATION_SIZE = len(orders) * 200  # количество индивидуумов в популяции
         MAX_GENERATIONS = len(orders)  # максимальное количество поколений
-        NUM_OF_VEHICLES = queue_dragger_new_dragger.num_basket
         P_CROSSOVER = 1  # вероятность скрещивания
         P_MUTATION = 0  # вероятность мутации индивидуума
 
         self.limit_draggers = {
             'new':
                 {
-                    'diameter_min': 1.37,
+                    'diameter_min': 1.35,
                     'diameter_max': 4.54,
                     'Basket': True,
                     'Material': 'Cu',
                 },
             'old':
                 {
-                    'diameter_min': 1.15,
+                    'diameter_min': 1.13,
                     'diameter_max': 2.95,
                     'Basket': False,
                     'Material': 'Cu',
                 },
             'Al':
                 {
-                    'diameter_min': 1.70,
+                    'diameter_min': 1.68,
                     'diameter_max': 4.54,
                     'Basket': False,
                     'Material': 'Al',
@@ -224,7 +226,7 @@ class GenetikDragger:
 
         # Создаем классы для минимизации задачи
         creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
-        creator.create("Individual", list, fitness=creator.FitnessMin)
+        creator.create("Individual", dict, fitness=creator.FitnessMin)
 
         # Базовые инструменты DEAP
         self.toolbox = base.Toolbox()
@@ -258,10 +260,11 @@ class GenetikDragger:
         )
 
         print("- Лучшие решения:")
-        for i in range(HALL_OF_FAME_SIZE):
-            print(i, ": ", hof.items[i].fitness.values[0], " -> ", hof.items[i])
+        # for i in range(HALL_OF_FAME_SIZE):
+        #     print(i, ": ", hof.items[i].fitness.values[0], " -> ", hof.items[i])
 
         best_order = hof.items[0]  # массив заказов в виде индексов
+        print(best_order)
 
     def generate_individual(self):
         available_orders = list(range(self.num_orders))
@@ -275,7 +278,7 @@ class GenetikDragger:
         }
         # [Заказы для оборудования 0, заказы для оборудования 1]
         for order in available_orders:
-            temp_equipment = self.equipment
+            temp_equipment = self.equipment.copy()
             while True:
                 if len(temp_equipment):
                     equipment = random.choice(temp_equipment)
@@ -292,10 +295,10 @@ class GenetikDragger:
 
     def check_limit(self, machine, i_order):
         order = TaskForDragger.orders[i_order].order
-        basket: bool = True if type(TaskForDragger.orders[i_order].order).__name__ == 'Basket' else False
+        is_basket: bool = True if type(TaskForDragger.orders[i_order].order).__name__ == 'Basket' else False
         d = order.diameter
 
-        if basket:
+        if is_basket:
             material = 'Cu'
         else:
             m = order.mark.cable_parameters.get('Material', "")
@@ -306,10 +309,8 @@ class GenetikDragger:
 
         current_machine = self.limit_draggers[machine]
 
-        if (d < current_machine['diameter_min']
-            or d > current_machine['diameter_max']
-            or basket != current_machine['Basket']
-            or material != current_machine['Material']):
+        if (d < current_machine['diameter_min'] or d > current_machine['diameter_max'] or material != current_machine['Material']
+            or (is_basket and not current_machine['Basket'])):
             return False
         else:
             return True
@@ -424,7 +425,7 @@ class GenetikDragger:
             'Al': 0,
         }  # Время работы для каждого оборудования (new, old, Al)
 
-        for equipment in self.equipment:
+        for i, equipment in enumerate(self.equipment):
             orders = individual[equipment]
             if not orders:
                 continue  # Если нет заказов на оборудовании, пропускаем
@@ -433,7 +434,7 @@ class GenetikDragger:
             time_on_dragger = getattr(self, "time_setup_{}".format(equipment))
             individual[equipment] = getattr(self, "get_cost_{}".format(equipment))(time_on_dragger, orders)
 
-        return sum(list(total_time.values())),  # Возвращаем суммарное время выполнения
+        return sum(list(individual.values())),  # Возвращаем суммарное время выполнения
 
     @staticmethod
     def get_cost_new(time_on_dragger, indices):
@@ -498,7 +499,7 @@ class GenetikDragger:
         for i in range(len(indices) - 1):
             total_time += time_on_dragger[indices[i]][indices[i + 1]]
 
-        return total_time + (20000 * num_downtime) + (20000 * num_uptime),
+        return total_time + (20000 * num_downtime) + (20000 * num_uptime)
 
     @staticmethod
     def get_cost_old(time_on_dragger, indices):
@@ -549,6 +550,8 @@ class GenetikDragger:
 def main_dragger(orders: list):
     start = datetime.datetime.now()
     len_orders = len(orders)
+    NUM_OF_VEHICLES = queue_dragger_new_dragger.num_basket
+    QueueDragger.indexes_baskets = [i for i in range(len_orders - NUM_OF_VEHICLES, len_orders)]
     GenetikDragger(orders)
     #
     # # # константы задачи
@@ -557,7 +560,7 @@ def main_dragger(orders: list):
     # MAX_GENERATIONS = len_orders  # максимальное количество поколений
     # NUM_OF_VEHICLES = queue_dragger_new_dragger.num_basket
     #
-    # QueueDragger.indexes_baskets = [i for i in range(len_orders - NUM_OF_VEHICLES, len_orders)]
+
     # time_on_dragger = QueueDragger.form_matrix_dragger(orders)
     # toolbox = base.Toolbox()
     #
