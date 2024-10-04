@@ -23,14 +23,16 @@ P_CROSSOVER = 1  # вероятность скрещивания
 P_MUTATION = 0  # вероятность мутации индивидуума
 MAX_GENERATIONS = 70  # максимальное количество поколений
 
+
 def varAnd(population, toolbox, cxpb, mutpb):
     offspring = [toolbox.clone(ind) for ind in population]
 
     # Apply crossover and mutation on the offspring
     for i in range(1, len(offspring), 2):
         if random.random() < cxpb:
-            toolbox.mate(offspring[i - 1], offspring[i])
-            del offspring[i - 1].fitness.values, offspring[i].fitness.values
+            offspring[i - 1], offspring[i] = toolbox.mate(offspring[i - 1], offspring[i])
+            del offspring[i - 1].fitness.values  # Удаление старого значения fitness
+            del offspring[i].fitness.values  # Удаление старого значения fitness
 
     for i in range(len(offspring)):
         if random.random() < mutpb:
@@ -38,6 +40,7 @@ def varAnd(population, toolbox, cxpb, mutpb):
             del offspring[i].fitness.values
 
     return offspring
+
 
 def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, halloffame=None, verbose=__debug__):
     """This algorithm is similar to DEAP eaSimple() algorithm, with the modification that
@@ -72,7 +75,7 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, hall
         offspring = toolbox.select(population, len(population) - hof_size)
 
         # Vary the pool of individuals
-        if isinstance(offspring, dict):
+        if isinstance(offspring[0], dict):
             offspring = varAnd(offspring, toolbox, cxpb, mutpb)
         else:
             offspring = algorithms.varAnd(offspring, toolbox, cxpb, mutpb)
@@ -295,22 +298,20 @@ class GenetikDragger:
 
     def check_limit(self, machine, i_order):
         order = TaskForDragger.orders[i_order].order
-        is_basket: bool = True if type(TaskForDragger.orders[i_order].order).__name__ == 'Basket' else False
+        is_basket: bool = isinstance(order, Basket)
         d = order.diameter
 
         if is_basket:
             material = 'Cu'
         else:
             m = order.mark.cable_parameters.get('Material', "")
-            if m == '':
-                material = 'Cu'
-            else:
-                material = 'Al' if m == 'А' else 'Cu'
+            material = 'Al' if m == 'А' else 'Cu'
 
         current_machine = self.limit_draggers[machine]
 
-        if (d < current_machine['diameter_min'] or d > current_machine['diameter_max'] or material != current_machine['Material']
-            or (is_basket and not current_machine['Basket'])):
+        if (d < current_machine['diameter_min'] or d > current_machine['diameter_max'] or material != current_machine[
+            'Material']
+                or (is_basket and not current_machine['Basket'])):
             return False
         else:
             return True
@@ -432,9 +433,9 @@ class GenetikDragger:
 
             # Выбираем соответствующую матрицу перенастроек
             time_on_dragger = getattr(self, "time_setup_{}".format(equipment))
-            individual[equipment] = getattr(self, "get_cost_{}".format(equipment))(time_on_dragger, orders)
+            total_time[equipment] = getattr(self, "get_cost_{}".format(equipment))(time_on_dragger, orders)
 
-        return sum(list(individual.values())),  # Возвращаем суммарное время выполнения
+        return sum(total_time.values()),  # Возвращаем суммарное время выполнения
 
     @staticmethod
     def get_cost_new(time_on_dragger, indices):
@@ -463,7 +464,7 @@ class GenetikDragger:
                 if reserve_time < time_route_to_basket < reserve_time + TaskForDragger.orders[
                     indexes_baskets[route + 1]].order.time_work:
                     reserve_time = TaskForDragger.orders[indexes_baskets[route + 1]].order.time_work - (
-                                time_route_to_basket - reserve_time)
+                            time_route_to_basket - reserve_time)
                     if reserve_time < W:
                         num_downtime += 1
                 elif time_route_to_basket < reserve_time:
@@ -536,15 +537,51 @@ class GenetikDragger:
         return time
 
     def mate(self, ind1, ind2):
-        """Оператор скрещивания (кроссовера): двуточечный кроссовер для списков заказов на оборудовании"""
-        for machine in self.equipment:
-            tools.cxTwoPoint(ind1[machine], ind2[machine])
+        """Оператор скрещивания: Partially Matched Crossover (PMX) с новыми индексами."""
+
+        # Применяем PMX внутри каждого оборудования ('new', 'old', 'Al')
+        for equipment in ['new', 'old', 'Al']:
+            # Получаем количество заказов на данном оборудовании
+            num_orders_ind1 = len(ind1[equipment])
+            num_orders_ind2 = len(ind2[equipment])
+
+            # Создаём новые индексы для заказов (от 0 до n)
+            new_indices_ind1 = list(range(num_orders_ind1))
+            new_indices_ind2 = list(range(num_orders_ind2))
+
+            # Применяем PMX к новым индексам
+            tools.cxPartialyMatched(new_indices_ind1, new_indices_ind2)
+
+            # Используем новые индексы, чтобы скрестить заказы, соответствующие этим индексам
+            # Создаём новый список заказов для каждого индивида на основе новых индексов
+            new_orders_ind1 = [ind1[equipment][i] for i in new_indices_ind1]
+            new_orders_ind2 = [ind2[equipment][i] for i in new_indices_ind2]
+
+            # Обновляем заказы после кроссовера
+            ind1[equipment] = new_orders_ind1
+            ind2[equipment] = new_orders_ind2
+
+        # Обмен заказами между 'new' и 'old', если это возможно по ограничениям
+        for i in range(min(len(ind1['new']), len(ind2['old']))):
+            order_new = ind1['new'][i]  # Индекс заказа для 'new'
+            order_old = ind2['old'][i]  # Индекс заказа для 'old'
+
+            # Проверка ограничения на выполнение заказа
+            if self.check_limit('old', order_new) and self.check_limit('new', order_old):
+                # Обмен индексами заказов между 'new' и 'old'
+                ind1['new'][i], ind2['old'][i] = ind2['old'][i], ind1['new'][i]
+
+        return ind1, ind2
 
     def mutate(self, individual):
         """Оператор мутации: случайное перемешивание заказов на оборудовании"""
-        for machine in self.equipment:
+        for equipment in self.equipment:
             if random.random() < 0.1:  # Вероятность мутации
-                random.shuffle(individual[machine])  # Перемешиваем заказы на оборудовании
+                tools.mutShuffleIndexes(individual[equipment],
+                                        indpb=1.0 / self.num_orders)  # Перемешиваем заказы на оборудовании
+
+    def print_res(self):
+        pass
 
 
 def main_dragger(orders: list):
@@ -553,148 +590,147 @@ def main_dragger(orders: list):
     NUM_OF_VEHICLES = queue_dragger_new_dragger.num_basket
     QueueDragger.indexes_baskets = [i for i in range(len_orders - NUM_OF_VEHICLES, len_orders)]
     GenetikDragger(orders)
-    #
-    # # # константы задачи
-    # HALL_OF_FAME_SIZE = len_orders * 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
-    # POPULATION_SIZE = len_orders * 200  # количество индивидуумов в популяции
-    # MAX_GENERATIONS = len_orders  # максимальное количество поколений
-    # NUM_OF_VEHICLES = queue_dragger_new_dragger.num_basket
-    #
-
-    # time_on_dragger = QueueDragger.form_matrix_dragger(orders)
-    # toolbox = base.Toolbox()
-    #
-    # df = pd.DataFrame(time_on_dragger)
-    #
-    # mode = "w" if os.path.exists("excel/matrix_time.xlsx") else "a"
-    #
-    # with ExcelWriter("excel/matrix_time.xlsx", mode=mode, engine="openpyxl") as writer:
-    #     df.to_excel(writer)
-    #
-    # creator.create("FitnessMin", base.Fitness, weights=(-1.0,))  # стратегия приспособления - минимальное время
-    # creator.create("Individual", list, typecode='i', fitness=creator.FitnessMin)  # представление индивидуумов
-    # toolbox.register("randomOrder", random.sample, range(len_orders), len_orders)
-    # toolbox.register("individualCreator", tools.initIterate, creator.Individual, toolbox.randomOrder)
-    # toolbox.register("populationCreator", tools.initRepeat, list, toolbox.individualCreator)
-    # toolbox.register("evaluate", QueueDragger.get_cost, time_on_dragger)
-    # toolbox.register("select", tools.selTournament, tournsize=2)
-    # toolbox.register("mate", tools.cxUniformPartialyMatched, indpb=2.0 / len_orders)
-    # toolbox.register("mutate", tools.mutShuffleIndexes, indpb=1.0 / len_orders)
-    #
-    # population = toolbox.populationCreator(n=POPULATION_SIZE)  # Создаем начальную популяцию
-    # hof = tools.HallOfFame(HALL_OF_FAME_SIZE)
-    #
-    # stats = tools.Statistics(lambda ind: ind.fitness.values)
-    #
-    # stats.register("min", numpy.min)
-    # stats.register("avg", numpy.mean)
-    #
-    # population, logbook = eaSimpleWithElitism(
-    #     population, toolbox,
-    #     cxpb=P_CROSSOVER,
-    #     mutpb=P_MUTATION,
-    #     ngen=MAX_GENERATIONS,
-    #     stats=stats,
-    #     halloffame=hof,
-    #     verbose=True
-    # )
-    #
-    # print("- Лучшие решения:")
-    # for i in range(HALL_OF_FAME_SIZE):
-    #     print(i, ": ", hof.items[i].fitness.values[0], " -> ", hof.items[i])
-    #
-    # best_order = hof.items[0]  # массив заказов в виде индексов
-    # queue_dragger.queue = converting_indexes_to_numbers(best_order, orders)
-    # queue_dragger.setting_time_setup()
-    #
-    # print("Лучший индивидуум =", best_order)
-    # output = "Лучший индивидуум = \n"
-    # i = 0
-    # total_time = 0
-    # temp_time1, temp_time2 = 0, 0
-    # x = [0]
-    # x1 = [0]
-    # y = [0.25]
-    # y1 = [0.5]
-    # for order in best_order:
-    #     if issubclass(consts.Order, type(orders[order].order)):
-    #         total_time += orders[order].time_work + orders[order].time_setup
-    #         output += '{} -- {} + {} = {}ч. {}мин\n'.format(
-    #             orders[order].account_number,
-    #             orders[order].time_work,
-    #             orders[order].time_setup,
-    #             round((orders[order].time_work + orders[order].time_setup) // 60, 0),
-    #             round((orders[order].time_work + orders[order].time_setup) % 60, 0)
-    #         )
-    #
-    #     elif issubclass(Basket, type(orders[order].order)):
-    #         x1.append((temp_time1 + int(total_time)))
-    #         x1.append((temp_time1 + int(total_time) + Dragger.W))
-    #         y1.append(0.5)
-    #         y1.append(0.5)
-    #         x.append((temp_time2 + int(orders[QueueDragger.indexes_baskets[i]].order.time_work)))
-    #         y.append(0.25)
-    #         temp_time1 += total_time
-    #         temp_time2 += int(orders[QueueDragger.indexes_baskets[i]].order.time_work)
-    #         output += '{}ч. {}мин. -- {}мин. \n'.format(round(total_time // 60, 0), round(total_time % 60, 0),
-    #                                                     round(total_time, 0))
-    #         output += 'Корзина {} время работы на мультике: {}ч. {}мин. -- {}мин.\n'.format(
-    #             i, orders[QueueDragger.indexes_baskets[i]].order.time_work // 60,
-    #             round(orders[QueueDragger.indexes_baskets[i]].order.time_work % 60, 2),
-    #             round(orders[QueueDragger.indexes_baskets[i]].order.time_work, 0)
-    #         )
-    #         output += 'Корзина {} время работы -- {}ч\n'.format(i, Dragger.W // 60)
-    #         i += 1
-    #         total_time = 0
-    #         total_time += Dragger.W
-    # else:
-    #     x1.append((temp_time1 + int(total_time)))
-    #     y1.append(0.5)
-    #     output += '{}ч. {}мин. \n'.format(total_time // 60, total_time % 60)
-    #     output += 'остаток {} на мультике Корзина {} время работы: {}ч. {}мин., \n'.format(
-    #         Multivare.QueueMultivare.rest_basket,
-    #         i,
-    #         str(Multivare.QueueMultivare.rest_orders.time_work // 60),
-    #         str(round(Multivare.QueueMultivare.rest_orders.time_work % 60, 2))
-    #     )
-    # print(output)
-    # end = datetime.datetime.now()
-    # print(end - start)
-    #
-    # minFitnessValues, meanFitnessValues = logbook.select("min", "avg")
-    #
-    # # Add annotations
-    # for i, (xi, yi) in enumerate(zip(x, y)):
-    #     plt.annotate(f'{int(xi)}', (xi, yi), textcoords="offset points", xytext=(0, 10), ha='center')
-    #
-    # plt.plot(x, y, marker='|', linestyle='-', color='red')
-    #
-    # for i, (xi, yi) in enumerate(zip(x1, y1)):
-    #     plt.annotate(f'{int(xi)}', (xi, yi), textcoords="offset points", xytext=(0, 10), ha='center')
-    #
-    # plt.plot(x1, y1, marker='|', linestyle='-', color='green')
-    # plt.grid(True)
-    # # plt.plot(x, y, color='red')
-    # # plt.plot(x1, y1, color='green')
-    # plt.locator_params(axis='x', nbins=5)
-    # plt.locator_params(axis='y', nbins=1)
-    # plt.ylim(0, 1)
-    # plt.show()
-    # # plt.plot(minFitnessValues, color='red')
-    # # plt.plot(meanFitnessValues, color='green')
-    # # plt.xlabel('Поколение')
-    # # plt.ylabel('Мин/средняя приспособленность')
-    # # plt.title('Зависимость максимальной и средней приспособленности от поколения')
-    # # plt.show()
-    #
-    # print("Время лучшего:", hof.items[i].fitness.values[0])
-
-    # total_setup_time = check_list_multik.calculate_time_setup()
-    #     # print('Время настройки2:', total_setup_time)
-
-# def queue_dragger(orders: [TaskForMultik]):
-#     indexes_baskets = []
-#     for order in orders:
-#         if issubclass(Basket, type(order)):
-#             indexes_baskets.append(orders.index(order))
+#     #
+#     # # константы задачи
+#     HALL_OF_FAME_SIZE = len_orders * 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
+#     POPULATION_SIZE = len_orders * 200  # количество индивидуумов в популяции
+#     MAX_GENERATIONS = len_orders  # максимальное количество поколений
+#     NUM_OF_VEHICLES = queue_dragger_new_dragger.num_basket
 #
+#     time_on_dragger = QueueDragger.form_matrix_dragger(orders)
+#     toolbox = base.Toolbox()
+#
+#     df = pd.DataFrame(time_on_dragger)
+#
+#     mode = "w" if os.path.exists("excel/matrix_time.xlsx") else "a"
+#
+#     with ExcelWriter("excel/matrix_time.xlsx", mode=mode, engine="openpyxl") as writer:
+#         df.to_excel(writer)
+#
+#     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))  # стратегия приспособления - минимальное время
+#     creator.create("Individual", list, typecode='i', fitness=creator.FitnessMin)  # представление индивидуумов
+#     toolbox.register("randomOrder", random.sample, range(len_orders), len_orders)
+#     toolbox.register("individualCreator", tools.initIterate, creator.Individual, toolbox.randomOrder)
+#     toolbox.register("populationCreator", tools.initRepeat, list, toolbox.individualCreator)
+#     toolbox.register("evaluate", QueueDragger.get_cost, time_on_dragger)
+#     toolbox.register("select", tools.selTournament, tournsize=2)
+#     toolbox.register("mate", tools.cxUniformPartialyMatched, indpb=2.0 / len_orders)
+#     toolbox.register("mutate", tools.mutShuffleIndexes, indpb=1.0 / len_orders)
+#
+#     population = toolbox.populationCreator(n=POPULATION_SIZE)  # Создаем начальную популяцию
+#     hof = tools.HallOfFame(HALL_OF_FAME_SIZE)
+#
+#     stats = tools.Statistics(lambda ind: ind.fitness.values)
+#
+#     stats.register("min", numpy.min)
+#     stats.register("avg", numpy.mean)
+#
+#     population, logbook = eaSimpleWithElitism(
+#         population, toolbox,
+#         cxpb=P_CROSSOVER,
+#         mutpb=P_MUTATION,
+#         ngen=MAX_GENERATIONS,
+#         stats=stats,
+#         halloffame=hof,
+#         verbose=True
+#     )
+#
+#     print("- Лучшие решения:")
+#     for i in range(HALL_OF_FAME_SIZE):
+#         print(i, ": ", hof.items[i].fitness.values[0], " -> ", hof.items[i])
+#
+#     best_order = hof.items[0]  # массив заказов в виде индексов
+#     # queue_dragger.queue = converting_indexes_to_numbers(best_order, orders)
+#     # queue_dragger.setting_time_setup()
+#
+#     print("Лучший индивидуум =", best_order)
+#     output = "Лучший индивидуум = \n"
+#     i = 0
+#     total_time = 0
+#     temp_time1, temp_time2 = 0, 0
+#     x = [0]
+#     x1 = [0]
+#     y = [0.25]
+#     y1 = [0.5]
+#     for order in best_order:
+#         if issubclass(consts.Order, type(orders[order].order)):
+#             total_time += orders[order].time_work + orders[order].time_setup
+#             output += '{} -- {} + {} = {}ч. {}мин\n'.format(
+#                 orders[order].account_number,
+#                 orders[order].time_work,
+#                 orders[order].time_setup,
+#                 round((orders[order].time_work + orders[order].time_setup) // 60, 0),
+#                 round((orders[order].time_work + orders[order].time_setup) % 60, 0)
+#             )
+#
+#         elif issubclass(Basket, type(orders[order].order)):
+#             x1.append((temp_time1 + int(total_time)))
+#             x1.append((temp_time1 + int(total_time) + Dragger.W))
+#             y1.append(0.5)
+#             y1.append(0.5)
+#             x.append((temp_time2 + int(orders[QueueDragger.indexes_baskets[i]].order.time_work)))
+#             y.append(0.25)
+#             temp_time1 += total_time
+#             temp_time2 += int(orders[QueueDragger.indexes_baskets[i]].order.time_work)
+#             output += '{}ч. {}мин. -- {}мин. \n'.format(round(total_time // 60, 0), round(total_time % 60, 0),
+#                                                         round(total_time, 0))
+#             output += 'Корзина {} время работы на мультике: {}ч. {}мин. -- {}мин.\n'.format(
+#                 i, orders[QueueDragger.indexes_baskets[i]].order.time_work // 60,
+#                 round(orders[QueueDragger.indexes_baskets[i]].order.time_work % 60, 2),
+#                 round(orders[QueueDragger.indexes_baskets[i]].order.time_work, 0)
+#             )
+#             output += 'Корзина {} время работы -- {}ч\n'.format(i, Dragger.W // 60)
+#             i += 1
+#             total_time = 0
+#             total_time += Dragger.W
+#     else:
+#         x1.append((temp_time1 + int(total_time)))
+#         y1.append(0.5)
+#         output += '{}ч. {}мин. \n'.format(total_time // 60, total_time % 60)
+#         output += 'остаток {} на мультике Корзина {} время работы: {}ч. {}мин., \n'.format(
+#             Multivare.QueueMultivare.rest_basket,
+#             i,
+#             str(Multivare.QueueMultivare.rest_orders.time_work // 60),
+#             str(round(Multivare.QueueMultivare.rest_orders.time_work % 60, 2))
+#         )
+#     print(output)
+#     end = datetime.datetime.now()
+#     print(end - start)
+#
+#     minFitnessValues, meanFitnessValues = logbook.select("min", "avg")
+#
+#     # Add annotations
+#     for i, (xi, yi) in enumerate(zip(x, y)):
+#         plt.annotate(f'{int(xi)}', (xi, yi), textcoords="offset points", xytext=(0, 10), ha='center')
+#
+#     plt.plot(x, y, marker='|', linestyle='-', color='red')
+#
+#     for i, (xi, yi) in enumerate(zip(x1, y1)):
+#         plt.annotate(f'{int(xi)}', (xi, yi), textcoords="offset points", xytext=(0, 10), ha='center')
+#
+#     plt.plot(x1, y1, marker='|', linestyle='-', color='green')
+#     plt.grid(True)
+#     # plt.plot(x, y, color='red')
+#     # plt.plot(x1, y1, color='green')
+#     plt.locator_params(axis='x', nbins=5)
+#     plt.locator_params(axis='y', nbins=1)
+#     plt.ylim(0, 1)
+#     plt.show()
+#     # plt.plot(minFitnessValues, color='red')
+#     # plt.plot(meanFitnessValues, color='green')
+#     # plt.xlabel('Поколение')
+#     # plt.ylabel('Мин/средняя приспособленность')
+#     # plt.title('Зависимость максимальной и средней приспособленности от поколения')
+#     # plt.show()
+#
+#     print("Время лучшего:", hof.items[i].fitness.values[0])
+#
+#     total_setup_time = check_list_multik.calculate_time_setup()
+#     print('Время настройки2:', total_setup_time)
+#
+# # def queue_dragger(orders: [TaskForMultik]):
+# #     indexes_baskets = []
+# #     for order in orders:
+# #         if issubclass(Basket, type(order)):
+# #             indexes_baskets.append(orders.index(order))
+# #
