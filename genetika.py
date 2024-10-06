@@ -539,37 +539,38 @@ class GenetikDragger:
     def mate(self, ind1, ind2):
         """Оператор скрещивания: Partially Matched Crossover (PMX) с новыми индексами."""
 
-        # Применяем PMX внутри каждого оборудования ('new', 'old', 'Al')
-        for equipment in ['new', 'old', 'Al']:
-            # Получаем количество заказов на данном оборудовании
-            num_orders_ind1 = len(ind1[equipment])
-            num_orders_ind2 = len(ind2[equipment])
+        if random.randint(0,1) == 0:
+            # Применяем PMX внутри каждого оборудования ('new', 'old', 'Al')
+            for equipment in ['new', 'old', 'Al']:
+                # Получаем количество заказов на данном оборудовании
+                num_orders_ind1 = len(ind1[equipment])
+                num_orders_ind2 = len(ind2[equipment])
 
-            # Создаём новые индексы для заказов (от 0 до n)
-            new_indices_ind1 = list(range(num_orders_ind1))
-            new_indices_ind2 = list(range(num_orders_ind2))
+                # Создаём новые индексы для заказов (от 0 до n)
+                new_indices_ind1 = list(range(num_orders_ind1))
+                new_indices_ind2 = list(range(num_orders_ind2))
 
-            # Применяем PMX к новым индексам
-            tools.cxPartialyMatched(new_indices_ind1, new_indices_ind2)
+                # Применяем PMX к новым индексам
+                tools.cxPartialyMatched(new_indices_ind1, new_indices_ind2)
 
-            # Используем новые индексы, чтобы скрестить заказы, соответствующие этим индексам
-            # Создаём новый список заказов для каждого индивида на основе новых индексов
-            new_orders_ind1 = [ind1[equipment][i] for i in new_indices_ind1]
-            new_orders_ind2 = [ind2[equipment][i] for i in new_indices_ind2]
+                # Используем новые индексы, чтобы скрестить заказы, соответствующие этим индексам
+                # Создаём новый список заказов для каждого индивида на основе новых индексов
+                new_orders_ind1 = [ind1[equipment][i] for i in new_indices_ind1]
+                new_orders_ind2 = [ind2[equipment][i] for i in new_indices_ind2]
 
-            # Обновляем заказы после кроссовера
-            ind1[equipment] = new_orders_ind1
-            ind2[equipment] = new_orders_ind2
+                # Обновляем заказы после кроссовера
+                ind1[equipment] = new_orders_ind1
+                ind2[equipment] = new_orders_ind2
+        else:
+            # Обмен заказами между 'new' и 'old', если это возможно по ограничениям
+            for i in range(min(len(ind1['new']), len(ind2['old']))):
+                order_new = ind1['new'][i]  # Индекс заказа для 'new'
+                order_old = ind2['old'][i]  # Индекс заказа для 'old'
 
-        # Обмен заказами между 'new' и 'old', если это возможно по ограничениям
-        for i in range(min(len(ind1['new']), len(ind2['old']))):
-            order_new = ind1['new'][i]  # Индекс заказа для 'new'
-            order_old = ind2['old'][i]  # Индекс заказа для 'old'
-
-            # Проверка ограничения на выполнение заказа
-            if self.check_limit('old', order_new) and self.check_limit('new', order_old):
-                # Обмен индексами заказов между 'new' и 'old'
-                ind1['new'][i], ind2['old'][i] = ind2['old'][i], ind1['new'][i]
+                # Проверка ограничения на выполнение заказа
+                if self.check_limit('old', order_new) and self.check_limit('new', order_old):
+                    # Обмен индексами заказов между 'new' и 'old'
+                    ind1['new'][i], ind2['old'][i] = ind2['old'][i], ind1['new'][i]
 
         return ind1, ind2
 
