@@ -30,7 +30,7 @@ def varAnd(population, toolbox, cxpb, mutpb):
     # Apply crossover and mutation on the offspring
     for i in range(1, len(offspring), 2):
         if random.random() < cxpb:
-            offspring[i - 1], offspring[i] = toolbox.mate(offspring[i - 1], offspring[i])
+            toolbox.mate(offspring[i - 1], offspring[i])
             del offspring[i - 1].fitness.values  # Удаление старого значения fitness
             del offspring[i].fitness.values  # Удаление старого значения fitness
 
@@ -266,8 +266,19 @@ class GenetikDragger:
         # for i in range(HALL_OF_FAME_SIZE):
         #     print(i, ": ", hof.items[i].fitness.values[0], " -> ", hof.items[i])
 
-        best_order = hof.items[0]  # массив заказов в виде индексов
-        print(best_order)
+        self.best_order = hof.items[0]  # массив заказов в виде индексов
+        print(self.best_order)
+
+        for equipment in self.equipment:
+            globals()['queue_dragger_{}_dragger'.format(equipment)].queue = converting_indexes_to_numbers(self.best_order[equipment], orders)
+            # queue_dragger_old_dragger.queue = converting_indexes_to_numbers(self.best_order['old'], orders)
+            # queue_dragger_Al_dragger.queue = converting_indexes_to_numbers(self.best_order['Al'], orders)
+            globals()['queue_dragger_{}_dragger'.format(equipment)].setting_time_setup()
+            # queue_dragger_old_dragger.setting_time_setup()
+            # queue_dragger_Al_dragger.setting_time_setup()
+
+        for equipment in self.equipment:
+            getattr(self, "print_{}".format(equipment))()
 
     def generate_individual(self):
         available_orders = list(range(self.num_orders))
@@ -350,6 +361,9 @@ class GenetikDragger:
                 total_setup_time += INSERT_SPIN * (order.spin - (
                         previous_order.spin - 1))  # время на установку фильер -1, потому что 1 уже снята
                 change = True
+            elif previous_order.spin == order.spin and previous_order.diameter != order.diameter:
+                total_setup_time += 1 * REMOVED_SPIN  # время на снятие 1 фильеры
+                total_setup_time += 1 * INSERT_SPIN  # время на снятие 1 фильеры
 
             if change:
                 # Если было любое изменение, то надо сменить катушку
@@ -426,7 +440,7 @@ class GenetikDragger:
             'Al': 0,
         }  # Время работы для каждого оборудования (new, old, Al)
 
-        for i, equipment in enumerate(self.equipment):
+        for equipment in self.equipment:
             orders = individual[equipment]
             if not orders:
                 continue  # Если нет заказов на оборудовании, пропускаем
@@ -539,38 +553,38 @@ class GenetikDragger:
     def mate(self, ind1, ind2):
         """Оператор скрещивания: Partially Matched Crossover (PMX) с новыми индексами."""
 
-        if random.randint(0,1) == 0:
-            # Применяем PMX внутри каждого оборудования ('new', 'old', 'Al')
-            for equipment in ['new', 'old', 'Al']:
-                # Получаем количество заказов на данном оборудовании
-                num_orders_ind1 = len(ind1[equipment])
-                num_orders_ind2 = len(ind2[equipment])
+        # if random.randint(0,1) == 0:
+        # Применяем PMX внутри каждого оборудования ('new', 'old', 'Al')
+        for equipment in ['new', 'old', 'Al']:
+            # Получаем количество заказов на данном оборудовании
+            num_orders_ind1 = len(ind1[equipment])
+            num_orders_ind2 = len(ind2[equipment])
 
-                # Создаём новые индексы для заказов (от 0 до n)
-                new_indices_ind1 = list(range(num_orders_ind1))
-                new_indices_ind2 = list(range(num_orders_ind2))
+            # Создаём новые индексы для заказов (от 0 до n)
+            new_indices_ind1 = list(range(num_orders_ind1))
+            new_indices_ind2 = list(range(num_orders_ind2))
 
-                # Применяем PMX к новым индексам
-                tools.cxPartialyMatched(new_indices_ind1, new_indices_ind2)
+            # Применяем PMX к новым индексам
+            tools.cxUniformPartialyMatched(new_indices_ind1, new_indices_ind2, indpb=2.0 / self.num_orders)
 
-                # Используем новые индексы, чтобы скрестить заказы, соответствующие этим индексам
-                # Создаём новый список заказов для каждого индивида на основе новых индексов
-                new_orders_ind1 = [ind1[equipment][i] for i in new_indices_ind1]
-                new_orders_ind2 = [ind2[equipment][i] for i in new_indices_ind2]
+            # Используем новые индексы, чтобы скрестить заказы, соответствующие этим индексам
+            # Создаём новый список заказов для каждого индивида на основе новых индексов
+            new_orders_ind1 = [ind1[equipment][i] for i in new_indices_ind1]
+            new_orders_ind2 = [ind2[equipment][i] for i in new_indices_ind2]
 
-                # Обновляем заказы после кроссовера
-                ind1[equipment] = new_orders_ind1
-                ind2[equipment] = new_orders_ind2
-        else:
-            # Обмен заказами между 'new' и 'old', если это возможно по ограничениям
-            for i in range(min(len(ind1['new']), len(ind2['old']))):
-                order_new = ind1['new'][i]  # Индекс заказа для 'new'
-                order_old = ind2['old'][i]  # Индекс заказа для 'old'
-
-                # Проверка ограничения на выполнение заказа
-                if self.check_limit('old', order_new) and self.check_limit('new', order_old):
-                    # Обмен индексами заказов между 'new' и 'old'
-                    ind1['new'][i], ind2['old'][i] = ind2['old'][i], ind1['new'][i]
+            # Обновляем заказы после кроссовера
+            ind1[equipment] = new_orders_ind1
+            ind2[equipment] = new_orders_ind2
+        # else:
+        #     # Обмен заказами между 'new' и 'old', если это возможно по ограничениям
+        #     for i in range(min(len(ind1['new']), len(ind2['old']))):
+        #         order_new = ind1['new'][i]  # Индекс заказа для 'new'
+        #         order_old = ind2['old'][i]  # Индекс заказа для 'old'
+        #
+        #         # Проверка ограничения на выполнение заказа
+        #         if self.check_limit('old', order_new) and self.check_limit('new', order_old):
+        #             # Обмен индексами заказов между 'new' и 'old'
+        #             ind1['new'][i], ind2['old'][i] = ind2['old'][i], ind1['new'][i]
 
         return ind1, ind2
 
@@ -581,9 +595,113 @@ class GenetikDragger:
                 tools.mutShuffleIndexes(individual[equipment],
                                         indpb=1.0 / self.num_orders)  # Перемешиваем заказы на оборудовании
 
-    def print_res(self):
-        pass
+    def print_new(self):
+        output = ''
+        i = 0
+        total_time = 0
+        temp_time1, temp_time2 = 0, 0
+        x = [0]
+        x1 = [0]
+        y = [0.25]
+        y1 = [0.5]
+        for order in self.best_order['new']:
+            if issubclass(consts.Order, type(self.orders[order].order)):
+                total_time += self.orders[order].time_work + self.orders[order].time_setup
+                output += '{} -- {} + {} = {}ч. {}мин\n'.format(
+                    self.orders[order].account_number,
+                    self.orders[order].time_work,
+                    self.orders[order].time_setup,
+                    round((self.orders[order].time_work + self.orders[order].time_setup) // 60, 0),
+                    round((self.orders[order].time_work + self.orders[order].time_setup) % 60, 0)
+                )
 
+            elif issubclass(Basket, type(self.orders[order].order)):
+                x1.append((temp_time1 + int(total_time)))
+                x1.append((temp_time1 + int(total_time) + Dragger.W))
+                y1.append(0.5)
+                y1.append(0.5)
+                x.append((temp_time2 + int(self.orders[QueueDragger.indexes_baskets[i]].order.time_work)))
+                y.append(0.25)
+                temp_time1 += total_time
+                temp_time2 += int(self.orders[QueueDragger.indexes_baskets[i]].order.time_work)
+                output += '{}ч. {}мин. -- {}мин. \n'.format(round(total_time // 60, 0), round(total_time % 60, 0),
+                                                            round(total_time, 0))
+                output += 'Корзина {} время работы на мультике: {}ч. {}мин. -- {}мин.\n'.format(
+                    i, self.orders[QueueDragger.indexes_baskets[i]].order.time_work // 60,
+                    round(self.orders[QueueDragger.indexes_baskets[i]].order.time_work % 60, 2),
+                    round(self.orders[QueueDragger.indexes_baskets[i]].order.time_work, 0)
+                )
+                output += 'Корзина {} время работы -- {}ч\n'.format(i, Dragger.W // 60)
+                i += 1
+                total_time = 0
+                total_time += Dragger.W
+        else:
+            x1.append((temp_time1 + int(total_time)))
+            y1.append(0.5)
+            output += '{}ч. {}мин. \n'.format(total_time // 60, total_time % 60)
+            output += 'остаток {} на мультике Корзина {} время работы: {}ч. {}мин., \n'.format(
+                Multivare.QueueMultivare.rest_basket,
+                i,
+                str(Multivare.QueueMultivare.rest_orders.time_work // 60),
+                str(round(Multivare.QueueMultivare.rest_orders.time_work % 60, 2))
+            )
+        print(output)
+
+        # minFitnessValues, meanFitnessValues = self.logbook.select("min", "avg")
+
+        # Add annotations
+        for i, (xi, yi) in enumerate(zip(x, y)):
+            plt.annotate(f'{int(xi)}', (xi, yi), textcoords="offset points", xytext=(0, 10), ha='center')
+
+        plt.plot(x, y, marker='|', linestyle='-', color='red')
+
+        for i, (xi, yi) in enumerate(zip(x1, y1)):
+            plt.annotate(f'{int(xi)}', (xi, yi), textcoords="offset points", xytext=(0, 10), ha='center')
+
+        plt.plot(x1, y1, marker='|', linestyle='-', color='green')
+        plt.grid(True)
+        # plt.plot(x, y, color='red')
+        # plt.plot(x1, y1, color='green')
+        plt.locator_params(axis='x', nbins=5)
+        plt.locator_params(axis='y', nbins=1)
+        plt.ylim(0, 1)
+        plt.show()
+        # plt.plot(minFitnessValues, color='red')
+        # plt.plot(meanFitnessValues, color='green')
+        # plt.xlabel('Поколение')
+        # plt.ylabel('Мин/средняя приспособленность')
+        # plt.title('Зависимость максимальной и средней приспособленности от поколения')
+        # plt.show()
+
+    def print_old(self):
+        output = ''
+        total_time = 0
+        for order in self.best_order['old']:
+            total_time += self.orders[order].time_work + self.orders[order].time_setup
+            output += '{} -- {} + {} = {}ч. {}мин\n'.format(
+                    self.orders[order].account_number,
+                    self.orders[order].time_work,
+                    self.orders[order].time_setup,
+                    round((self.orders[order].time_work + self.orders[order].time_setup) // 60, 0),
+                    round((self.orders[order].time_work + self.orders[order].time_setup) % 60, 0)
+                )
+
+        print(output)
+
+    def print_Al(self):
+        output = ''
+        total_time = 0
+        for order in self.best_order['Al']:
+            total_time += self.orders[order].time_work + self.orders[order].time_setup
+            output += '{} -- {} + {} = {}ч. {}мин\n'.format(
+                self.orders[order].account_number,
+                self.orders[order].time_work,
+                self.orders[order].time_setup,
+                round((self.orders[order].time_work + self.orders[order].time_setup) // 60, 0),
+                round((self.orders[order].time_work + self.orders[order].time_setup) % 60, 0)
+            )
+
+        print(output)
 
 def main_dragger(orders: list):
     start = datetime.datetime.now()
@@ -591,6 +709,8 @@ def main_dragger(orders: list):
     NUM_OF_VEHICLES = queue_dragger_new_dragger.num_basket
     QueueDragger.indexes_baskets = [i for i in range(len_orders - NUM_OF_VEHICLES, len_orders)]
     GenetikDragger(orders)
+    end = datetime.datetime.now()
+    print(end - start)
 #     #
 #     # # константы задачи
 #     HALL_OF_FAME_SIZE = len_orders * 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
