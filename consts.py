@@ -1,3 +1,4 @@
+import weakref
 from prettytable import PrettyTable
 import re
 from gosts import GOSTS
@@ -22,15 +23,15 @@ import Оборудование.Dragger as Dragger
 # P - Километраж масса VS Длина
 # Q - Время на мультике
 
-main_table = PrettyTable(
-    ["Номер счета", "Марка", "Дата выпуска", "Длина кабеля, км", "Километраж", "Время на мультике"]
-)
-
-second_param_table = PrettyTable(
-    ["Длина кабеля, км", "Количество жил", "Диаметр проволоки на волочении, мм",
-     "Кол-во стренг", "Кол-во прядей", "Кол-во проволок в пряди", "Кол-во прядей доп",
-     "Кол-во проволок доп", "Тип барабана", "Километраж", "Время на мультике"]
-)
+# main_table = PrettyTable(
+#     ["Номер счета", "Марка", "Дата выпуска", "Длина кабеля, км", "Километраж", "Время на мультике"]
+# )
+#
+# second_param_table = PrettyTable(
+#     ["Длина кабеля, км", "Количество жил", "Диаметр проволоки на волочении, мм",
+#      "Кол-во стренг", "Кол-во прядей", "Кол-во проволок в пряди", "Кол-во прядей доп",
+#      "Кол-во проволок доп", "Тип барабана", "Километраж", "Время на мультике"]
+# )
 
 
 def converting_indexes_to_numbers(indexes: [int], orders: [Multivare.TaskForMultik]):
@@ -43,7 +44,23 @@ def converting_indexes_to_numbers(indexes: [int], orders: [Multivare.TaskForMult
     return list(map(lambda i: orders[i], indexes))
 
 
-class Order:
+class OrderMeta(type):
+    """
+    Метакласс для отслеживания всех экземпляров класса Order.
+    """
+    _instances = weakref.WeakSet()
+
+    def __call__(cls, *args, **kwargs):
+        instance = super().__call__(*args, **kwargs)
+        cls._instances.add(instance)
+        return instance
+
+    @classmethod
+    def get_all_instances(cls):
+        return list(cls._instances)
+
+
+class Order(metaclass=OrderMeta):
     """
     Класс содержит все не вычисляемые параметры по кабелю. По факту просто справочник содержащий все переменные по заказу.
     Далее будет разбиваться по заданиям на оборудования, куда пойдут определенные переменные.
@@ -89,6 +106,7 @@ class Order:
         self.time_on_dragger = time_on_dragger
         self.time_on_multivare = time_on_multivare
         self.time_on_streng = time_on_streng
+        self.operation_sequence = []
         self.task = self.set_task()
 
     def set_task(self):
@@ -102,9 +120,11 @@ class Order:
 
         # Если заказ пойдет на мультик, то у него не должно быть задания на волочилку, т.к. для таких заказов заданием будет являться корзина
         if self.time_on_dragger and not self.time_on_multivare:
-            task.append(self.set_task_for_dragger())
+            # task.append(self.set_task_for_dragger())
+            self.operation_sequence.append('WireDrawing')
         if self.time_on_multivare:
-            task.extend(self.set_task_for_multivare())
+            # task.extend(self.set_task_for_multivare())
+            self.operation_sequence.append('Multivare')
 
         return task
 
@@ -114,7 +134,6 @@ class Order:
         :return:
         """
         return Dragger.TaskForDragger(self)
-
 
     def set_task_for_multivare(self):
         task = [Multivare.TaskForMultik(self, self.diameter, self.number_of_veins, self.number_of_strands,
@@ -151,7 +170,7 @@ class Order:
 
         return task
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         return "{} | {} | {} | {} | {}".format(
             self.account_number, self.mark.mark, self.mark.cable_parameters, self.release_date, self.order_length
         )

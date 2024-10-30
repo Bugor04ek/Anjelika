@@ -1,5 +1,4 @@
 import datetime
-
 import numpy as np
 from deap import base
 from deap import creator
@@ -9,7 +8,6 @@ import random
 import matplotlib.pyplot as plt
 import numpy
 
-import consts
 from consts import converting_indexes_to_numbers
 from Оборудование.Multivare import *
 from Оборудование.Dragger import *
@@ -702,6 +700,7 @@ class GenetikDragger:
             )
 
         print(output)
+
 
 def main_dragger(orders: list):
     start = datetime.datetime.now()

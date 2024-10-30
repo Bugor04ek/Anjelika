@@ -1,59 +1,52 @@
 import consts
 import Оборудование.Multivare as Multivare
+from Оборудование.Equipments import MachineMeta
 
-REMOVED_SPIN = 1  # время снятия фильер
-INSERT_SPIN = 5  # время вставки фильер
-CHANGE_BOBBIN = 5  # смена катушки
-CHANGE_WIRE = 1.5  # снятие/натягивание проволочки на 1 фильере
-STRETCHING_WIRE = 5  # протягивание проволочки в отжиге
-W = 12 * 60  # время изготовления 8 корзин
 
-dictionary_spinners_new_dragger = {
-    7: 1,
-    5.75: 2,
-    4.8: 3,
-    4.03: 4,
-    3.43: 5,
-    2.95: 6,
-    2.56: 7,
-    2.25: 8,
-    1.99: 9,
-    1.78: 10,
-    1.58: 11,
-    1.41: 12,
-    1.35: 13,
-    1.25: 14,
-}
-dictionary_spinners_old_dragger = {
-    7: 1,
-    6.80: 2,
-    5.15: 3,
-    4.50: 4,
-    3.90: 5,
-    3.45: 6,
-    2.95: 7,
-    2.60: 8,
-    2.00: 9,
-    1.65: 10,
-    1.40: 11,
-    1.15: 12,
-}
-dictionary_spinners_al_dragger = {
-    9: 1,
-    8.15: 2,
-    7.05: 3,
-    6.15: 4,
-    5.39: 5,
-    4.72: 6,
-    4.14: 7,
-    3.64: 8,
-    3.20: 9,
-    2.80: 10,
-    2.48: 11,
-    2.20: 12,
-    1.93: 13,
-    1.70: 14,
-}
+class WireDrawingMachine(metaclass=MachineMeta):
+    REMOVED_SPIN = 1  # время снятия фильер
+    INSERT_SPIN = 5  # время вставки фильер
+    CHANGE_BOBBIN = 5  # смена катушки
+    CHANGE_WIRE = 1.5  # снятие/натягивание проволочки на 1 фильере
+    STRETCHING_WIRE = 5  # протягивание проволочки в отжиге
+    W = 12 * 60  # время изготовления 8 корзин
+
+    def __init__(self, name, machine_type, supported_materials):
+        self.name = name
+        self.machine_type = machine_type.lower()
+        self.supported_materials = supported_materials
+        self.spinner_dict = getattr(self, f"{self.machine_type}_spinner_dict")
+        self.min_diameter = min(self.spinner_dict.keys())
+        self.max_diameter = max(self.spinner_dict.keys())
+
+    new_spinner_dict = {
+        7: 1, 5.75: 2, 4.8: 3, 4.03: 4, 3.43: 5, 2.95: 6,
+        2.56: 7, 2.25: 8, 1.99: 9, 1.78: 10, 1.58: 11,
+        1.41: 12, 1.35: 13, 1.25: 14
+    }
+
+    old_spinner_dict = {
+        7: 1, 6.80: 2, 5.15: 3, 4.50: 4, 3.90: 5, 3.45: 6,
+        2.95: 7, 2.60: 8, 2.00: 9, 1.65: 10, 1.40: 11, 1.15: 12
+    }
+
+    al_spinner_dict = {
+        9: 1, 8.15: 2, 7.05: 3, 6.15: 4, 5.39: 5, 4.72: 6,
+        4.14: 7, 3.64: 8, 3.20: 9, 2.80: 10, 2.48: 11,
+        2.20: 12, 1.93: 13, 1.70: 14
+    }
+
+    def is_suitable(self, material, diameter):
+        return (
+            material in self.supported_materials and
+            self.min_diameter <= diameter <= self.max_diameter
+        )
+
+    @classmethod
+    def get_all_instances(cls, names=None):
+        if names is None:
+            return list(cls._instances)
+        return [instance for instance in cls._instances if instance.name in names]
 
 
 class TaskForDragger:
@@ -94,12 +87,11 @@ class TaskForDragger:
         """
 
         # Определяет стандартные фильеры или нужна дополнительная
-        extra_spin = dictionary_spinners_new_dragger.get(self.diameter, 0)
+        extra_spin = WireDrawingMachine.new_spinner_dict.get(self.diameter, 0)
+        return extra_spin if extra_spin else self.counting_extra_spin()
 
         # Если extra_spin == 0, значит есть доп фильера
         # Иначе количество фильер = self.extra_spin
-
-        return extra_spin if extra_spin else self.counting_extra_spin()
 
     def counting_extra_spin(self) -> int:
         """
@@ -338,6 +330,14 @@ class QueueDragger:
                                                                                    self.__queue[i])
 
 
+queue_dragger_new_dragger = QueueDragger()
+queue_dragger_old_dragger = QueueDragger()
+queue_dragger_Al_dragger = QueueDragger()
+
+
+
+
+
 class Bobbin:
     count = 0
 
@@ -356,8 +356,3 @@ class Bobbin:
             self.volume += volume
             self.orders.append(order)
             self.time_on_mult += order.time_on_mult
-
-
-queue_dragger_new_dragger = QueueDragger()
-queue_dragger_old_dragger = QueueDragger()
-queue_dragger_Al_dragger = QueueDragger()

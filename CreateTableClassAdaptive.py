@@ -10,7 +10,8 @@ import pandas as pd
 file_name = 'excel/Заказы.xlsx'
 
 
-def formation_of_orders_in_the_date_range(orders: list[Multivare.TaskForMultik], date_range: int, groups_by_dates: dict):
+def formation_of_orders_in_the_date_range(orders: list[Multivare.TaskForMultik], date_range: int,
+                                          groups_by_dates: dict):
     """
     Формирование заказов в диапазоне дат
     :return:
@@ -157,39 +158,39 @@ def create_orders():
 
     for row in data.values:
         orders.append(Order(IDZak=row[0], account_number=row[1], mark=row[2], release_date=row[3], order_length=row[4],
-                            number_of_veins=row[5], diameter=row[7], number_of_strands=row[8], number_of_sliver=row[9],
-                            wires_in_sliver=row[10], number_of_sliver_extra=row[11], wires_in_sliver_extra=row[12],
-                            number_of_veins_plus=row[13], diameter_plus=row[14], number_of_strands_plus=row[15],
-                            number_of_sliver_plus=row[16],
-                            wires_in_sliver_plus=row[17], number_of_sliver_extra_plus=row[18],
-                            wires_in_sliver_extra_plus=row[19],
-                            number_of_veins_support=row[20], diameter_support=row[21],
-                            number_of_strands_support=row[22], number_of_sliver_support=row[23],
-                            wires_in_sliver_support=row[24], number_of_sliver_extra_support=row[25],
-                            wires_in_sliver_extra_support=row[26],
-                            type_bobbin=row[27], volume_bobbin=row[28], time_on_dragger=row[29], time_on_multivare=row[30], time_on_streng=row[31]))
+              number_of_veins=row[5], diameter=row[7], number_of_strands=row[8], number_of_sliver=row[9],
+              wires_in_sliver=row[10], number_of_sliver_extra=row[11], wires_in_sliver_extra=row[12],
+              number_of_veins_plus=row[13], diameter_plus=row[14], number_of_strands_plus=row[15],
+              number_of_sliver_plus=row[16],
+              wires_in_sliver_plus=row[17], number_of_sliver_extra_plus=row[18],
+              wires_in_sliver_extra_plus=row[19],
+              number_of_veins_support=row[20], diameter_support=row[21],
+              number_of_strands_support=row[22], number_of_sliver_support=row[23],
+              wires_in_sliver_support=row[24], number_of_sliver_extra_support=row[25],
+              wires_in_sliver_extra_support=row[26],
+              type_bobbin=row[27], volume_bobbin=row[28], time_on_dragger=row[29], time_on_multivare=row[30],
+              time_on_streng=row[31]))
 
     return orders
 
 
 if __name__ == "__main__":
-    orders = create_orders()
-    print(*orders, sep='\n')
-    # print(*Multivare.TaskForMultik.orders, sep='\n')
-    # result = forming_file_with_groups(TaskForMultik.orders)
-    # check_list_multik.output_in_excel()
+    a = create_orders()
+    all_orders = Order.get_all_instances()
+    print(*all_orders, sep='\n')
+    # orders = create_orders()
+    # print(*orders, sep='\n')
+    # # print(*Multivare.TaskForMultik.orders, sep='\n')
+    # # result = forming_file_with_groups(TaskForMultik.orders)
+    # # check_list_multik.output_in_excel()
+    # #
+    # # vrp.main(TaskForMultik.orders)
+    # # gen_alg.main(TaskForMultik.orders)
     #
-    # vrp.main(TaskForMultik.orders)
-    # gen_alg.main(TaskForMultik.orders)
-
-    genetika.main_multivare(Multivare.TaskForMultik.orders)
-    genetika.main_dragger(Dragger.TaskForDragger.orders)
-
-    # print(Dragger.queue_dragger, sep='\n')
-    # print(Dragger.queue_dragger.num_basket)
-    # print(Multivare.QueueMultivare.rest_basket)
-    # print(Multivare.QueueMultivare.rest_orders)
-
-
-
-
+    # genetika.main_multivare(Multivare.TaskForMultik.orders)
+    # genetika.main_dragger(Dragger.TaskForDragger.orders)
+    #
+    # # print(Dragger.queue_dragger, sep='\n')
+    # # print(Dragger.queue_dragger.num_basket)
+    # # print(Multivare.QueueMultivare.rest_basket)
+    # # print(Multivare.QueueMultivare.rest_orders)

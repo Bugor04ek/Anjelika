@@ -1,46 +1,65 @@
 import os
-from pandas import ExcelWriter
 import pandas as pd
+from pandas import ExcelWriter
 import Оборудование.Dragger as Dragger
+from Оборудование.Equipments import MachineMeta
 
-REMOVED_SPIN = 1  # время снятия фильер
-INSERT_SPIN = 5  # время вставки фильер (это время надо умножить на количество проволочек в пряди)
-CHANGE_BASKET = 20  # смена корзины на мультике
-CHANGE_BOBBIN = 5  # смена катушки на мультике
-CHANGE_WIRE = 1.5  # снятие/натягивание проволочки на 1 фильере
-STRETCHING_WIRE = 5  # протягивание пучка проволочек после всех фильер
-KM_IN_1_BASKET = 35  # КМ в 1 корзине
-KM_IN_8_BASKET = KM_IN_1_BASKET * 8  # КМ в 8 корзинах
-
-dictionary_spinners = {
-    2.28: 1,
-    2.0264: 2,
-    1.8: 3,
-    1.6: 4,
-    1.422: 5,
-    1.2638: 6,
-    1.1232: 7,
-    0.9983: 8,
-    0.8872: 9,
-    0.7875: 10,
-    0.6993: 11,
-    0.621: 12,
-    0.5514: 13,
-    0.4896: 14,
-    0.446: 15,
-    0.4063: 16,
-    0.3701: 17,
-    0.3371: 18,
-    0.3075: 19,
-    0.2795: 20,
-    0.26: 21
-}
-
-d_mult = 2.08
 
 pi = 3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095
 
 dict_key_group = {}
+
+
+class MultivareMachine(metaclass=MachineMeta):
+    REMOVED_SPIN = 1  # время снятия фильер
+    INSERT_SPIN = 5  # время вставки фильер (это время надо умножить на количество проволочек в пряди)
+    CHANGE_BASKET = 20  # смена корзины на мультике
+    CHANGE_BOBBIN = 5  # смена катушки на мультике
+    CHANGE_WIRE = 1.5  # снятие/натягивание проволочки на 1 фильере
+    STRETCHING_WIRE = 5  # протягивание пучка проволочек после всех фильер
+    KM_IN_1_BASKET = 35  # КМ в 1 корзине
+    KM_IN_8_BASKET = KM_IN_1_BASKET * 8  # КМ в 8 корзинах
+
+    dictionary_spinners = {
+        2.28: 1,
+        2.0264: 2,
+        1.8: 3,
+        1.6: 4,
+        1.422: 5,
+        1.2638: 6,
+        1.1232: 7,
+        0.9983: 8,
+        0.8872: 9,
+        0.7875: 10,
+        0.6993: 11,
+        0.621: 12,
+        0.5514: 13,
+        0.4896: 14,
+        0.446: 15,
+        0.4063: 16,
+        0.3701: 17,
+        0.3371: 18,
+        0.3075: 19,
+        0.2795: 20,
+        0.26: 21
+    }
+
+    d_mult = 2.08
+    pi = 3.141592653589793
+
+    def __init__(self, name, capacity, supported_materials):
+        self.name = name
+        self.capacity = capacity
+        self.supported_materials = supported_materials
+
+    def is_suitable(self, material, quantity):
+        return material in self.supported_materials and quantity <= self.capacity
+
+    @classmethod
+    def get_all_instances(cls, names=None):
+        if names is None:
+            return list(cls._instances)
+        return [instance for instance in cls._instances if instance.name in names]
 
 
 class TaskForMultik:
