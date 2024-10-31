@@ -15,3 +15,5 @@ class MachineMeta(type):
         instance = super().__call__(*args, **kwargs)
         cls._instances.add(instance)
         return instance
+
+

@@ -154,24 +154,24 @@ def create_orders():
     excel_data['Дата выпуска по заказу'] = pd.to_datetime(excel_data['Дата выпуска по заказу'],
                                                           format='%d.%m.%Y').dt.date
     data = pd.DataFrame(excel_data).fillna(0)
-    orders = list()
+    # orders = list()
 
-    for row in data.values:
-        orders.append(Order(IDZak=row[0], account_number=row[1], mark=row[2], release_date=row[3], order_length=row[4],
-              number_of_veins=row[5], diameter=row[7], number_of_strands=row[8], number_of_sliver=row[9],
-              wires_in_sliver=row[10], number_of_sliver_extra=row[11], wires_in_sliver_extra=row[12],
-              number_of_veins_plus=row[13], diameter_plus=row[14], number_of_strands_plus=row[15],
-              number_of_sliver_plus=row[16],
-              wires_in_sliver_plus=row[17], number_of_sliver_extra_plus=row[18],
-              wires_in_sliver_extra_plus=row[19],
-              number_of_veins_support=row[20], diameter_support=row[21],
-              number_of_strands_support=row[22], number_of_sliver_support=row[23],
-              wires_in_sliver_support=row[24], number_of_sliver_extra_support=row[25],
-              wires_in_sliver_extra_support=row[26],
-              type_bobbin=row[27], volume_bobbin=row[28], time_on_dragger=row[29], time_on_multivare=row[30],
-              time_on_streng=row[31]))
+    # for row in data.values:
+        # orders.append(Order(IDZak=row[0], account_number=row[1], mark=row[2], release_date=row[3], order_length=row[4],
+        #       number_of_veins=row[5], diameter=row[7], number_of_strands=row[8], number_of_sliver=row[9],
+        #       wires_in_sliver=row[10], number_of_sliver_extra=row[11], wires_in_sliver_extra=row[12],
+        #       number_of_veins_plus=row[13], diameter_plus=row[14], number_of_strands_plus=row[15],
+        #       number_of_sliver_plus=row[16],
+        #       wires_in_sliver_plus=row[17], number_of_sliver_extra_plus=row[18],
+        #       wires_in_sliver_extra_plus=row[19],
+        #       number_of_veins_support=row[20], diameter_support=row[21],
+        #       number_of_strands_support=row[22], number_of_sliver_support=row[23],
+        #       wires_in_sliver_support=row[24], number_of_sliver_extra_support=row[25],
+        #       wires_in_sliver_extra_support=row[26],
+        #       type_bobbin=row[27], volume_bobbin=row[28], time_on_dragger=row[29], time_on_multivare=row[30],
+        #       time_on_streng=row[31]))
 
-    return orders
+    return [Order(row) for index, row in data.iterrows()]
 
 
 if __name__ == "__main__":
