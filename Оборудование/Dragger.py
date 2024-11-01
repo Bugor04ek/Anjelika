@@ -1,6 +1,7 @@
 import consts
 import Оборудование.Multivare as Multivare
 from Оборудование.Equipments import MachineMeta
+from Оборудование.Equipments import TaskMeta
 
 
 class WireDrawingMachine(metaclass=MachineMeta):
@@ -10,6 +11,18 @@ class WireDrawingMachine(metaclass=MachineMeta):
     CHANGE_WIRE = 1.5  # снятие/натягивание проволочки на 1 фильере
     STRETCHING_WIRE = 5  # протягивание проволочки в отжиге
     W = 12 * 60  # время изготовления 8 корзин
+
+    spinner_dicts = {
+        'new': {
+            7: 1, 5.75: 2, 4.8: 3, 4.03: 4, 3.43: 5, 2.95: 6,
+            2.56: 7, 2.25: 8, 1.99: 9, 1.78: 10, 1.58: 11,
+            1.41: 12, 1.35: 13, 1.25: 14
+        },
+        'old': {
+            7: 1, 6.80: 2, 5.15: 3, 4.50: 4, 3.90: 5, 3.45: 6,
+            2.95: 7, 2.60: 8, 2.00: 9, 1.65: 10, 1.40: 11, 1.15: 12
+        }
+    }
 
     def __init__(self, name, machine_type, supported_materials):
         self.name = name
@@ -36,11 +49,12 @@ class WireDrawingMachine(metaclass=MachineMeta):
         2.20: 12, 1.93: 13, 1.70: 14
     }
 
+    @classmethod
+    def get_spinner_dict(cls, machine_type):
+        return cls.spinner_dicts.get(machine_type, {})
+
     def is_suitable(self, material, diameter):
-        return (
-            material in self.supported_materials and
-            self.min_diameter <= diameter <= self.max_diameter
-        )
+        return material in self.supported_materials and self.min_diameter <= diameter <= self.max_diameter
 
     @classmethod
     def get_all_instances(cls, names=None):
@@ -49,7 +63,7 @@ class WireDrawingMachine(metaclass=MachineMeta):
         return [instance for instance in cls._instances if instance.name in names]
 
 
-class TaskForDragger:
+class TaskForDragger(metaclass=TaskMeta):
     """
     Класс для заказов на волочение. Тут может быть либо обычный заказ, либо корзина состоящая из заказов на мультик.
     """
@@ -64,8 +78,9 @@ class TaskForDragger:
         #     a = globals()[self.type_of_equipment]
         # else:
         #     self.type_of_equipment = None
-
-        self.id = len(TaskForDragger.orders)
+        self.id = order.IDZak if not is_basket else f"basket-{len(TaskMeta.get_all_instances()) + 1}"
+        self.diameter = Multivare.d_mult if is_basket else order.diameter
+        # self.id = len(TaskForDragger.orders)
         self.order = order
         if issubclass(consts.Order, type(order)):
             self.IDZak = order.IDZak
@@ -73,8 +88,8 @@ class TaskForDragger:
             self.time_work = order.time_on_dragger
             self.diameter = order.diameter
         elif issubclass(Multivare.Basket, type(order)):
-            self.time_work = W
-            self.diameter = Multivare.d_mult
+            self.time_work = WireDrawingMachine.W
+            self.diameter = Multivare.MultivareMachine.d_mult
 
         self.time_setup = 0
         self.spin = self.counting_spinners()
@@ -100,7 +115,7 @@ class TaskForDragger:
         Если не находим, тогда ищем после какой фильеры нужно поставить еще одну количество = ключ + 1
         :return: количество фильер
         """
-        for k, v in sorted(dictionary_spinners_new_dragger.items()):
+        for k, v in sorted(WireDrawingMachine.spinner_dict.items()):
             if self.diameter < k:
                 #  Рассчитывает количество фильер для заказа вместе с последней нестандартной фильерой
                 return v + 1
@@ -333,9 +348,6 @@ class QueueDragger:
 queue_dragger_new_dragger = QueueDragger()
 queue_dragger_old_dragger = QueueDragger()
 queue_dragger_Al_dragger = QueueDragger()
-
-
-
 
 
 class Bobbin:

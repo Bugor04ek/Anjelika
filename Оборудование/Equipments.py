@@ -16,4 +16,15 @@ class MachineMeta(type):
         cls._instances.add(instance)
         return instance
 
+class TaskMeta(type):
+    """Метакласс для хранения всех экземпляров заданий на волочилку."""
+    _instances = weakref.WeakSet()
 
+    def __call__(cls, *args, **kwargs):
+        instance = super().__call__(*args, **kwargs)
+        cls._instances.add(instance)
+        return instance
+
+    @classmethod
+    def get_all_instances(cls):
+        return list(cls._instances)
