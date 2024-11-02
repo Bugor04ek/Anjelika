@@ -12,7 +12,7 @@ def create_data_model(orders, container_capacity):
     return data
 
 
-def create_solution(orders: list[Multivare.TaskForMultik], container_capacity: float, release_date: object) -> object:
+def create_solution(orders: list[Multivare.MultivareTask], container_capacity: float, release_date: object) -> object:
     data = create_data_model(orders, container_capacity)
 
     # Create the mip solver with the SCIP backend.

@@ -1,9 +1,9 @@
 import os
 import pandas as pd
 from pandas import ExcelWriter
+import consts
 import Оборудование.Dragger as Dragger
 from Оборудование.Equipments import MachineMeta
-
 
 pi = 3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095
 
@@ -62,18 +62,13 @@ class MultivareMachine(metaclass=MachineMeta):
         return [instance for instance in cls._instances if instance.name in names]
 
 
-class TaskForMultik:
+class MultivareTask(consts.Task):
     """
     Задание на мультик хранит в переменной класса хранит все заказы в массиве, их можно будет найти по IDZak
     """
-    orders = []
 
     def __init__(self, order, diameter, number_of_veins, number_of_strands, number_of_sliver, wires_in_sliver, type):
-        TaskForMultik.orders.append(self)
-        self.order = order
-
-        self.id = len(TaskForMultik.orders)
-
+        super().__init__(order, equipment_type='Multivare')
         # self.volume_bobbin = order.volume_bobbin
         # 350 - Ограничение по массе барабана для гибкой жилы на 630 барабан
         # 8.89 - Плотность меди
@@ -121,20 +116,23 @@ class TaskForMultik:
         Находим в словаре фильер ближайшие значения к диаметру.
         """
 
-        self.spin = dictionary_spinners[min(dictionary_spinners, key=lambda x: abs(self.order.diameter - x))]
+        self.spin = MultivareMachine.dictionary_spinners[
+            min(MultivareMachine.dictionary_spinners, key=lambda x: abs(self.diameter - x))]
 
     def calculating_length(self):
         # суммарная длина проволочек
 
         self.total_weight_delays = ((self.number_of_sliver * self.wires_in_sliver) * self.number_of_strands *
                                     self.number_of_veins * self.order.order_length) * pi * 8.89 * (
-                                               self.diameter ** 2) * 0.25
-        self.length_piece = round(self.total_weight_delays * (self.diameter ** 2 / d_mult ** 2), 3)
+                                           self.diameter ** 2) * 0.25
+        self.length_piece = round(self.total_weight_delays * (self.diameter ** 2 / MultivareMachine.d_mult ** 2), 3)
 
         # 0 - сколько корзин по 8 штук нужно, если заказ очень большой и требуется много корзин
         # 1 - сколько корзин еще заполнится (набирается число до 8)
-        self.num_basket = (int(self.total_weight_delays * 1/(pi*0.25*8.89*d_mult**2)/ KM_IN_1_BASKET // 8),
-                           self.total_weight_delays * 1/(pi*0.25*8.89*d_mult**2) / KM_IN_1_BASKET % 8)
+        self.num_basket = (int(self.total_weight_delays * 1 / (
+                    pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET // 8),
+                           self.total_weight_delays * 1 / (
+                                       pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET % 8)
         self.time_on_mult_1_basket = self.time_on_multivare / (self.num_basket[0] + self.num_basket[1])
 
         # длина заказа в расчете на одну прядь (весь заказ это length_strands *
@@ -164,8 +162,8 @@ class TaskForMultik:
         #     self.full_bobbin, self.time_on_mult, self.order.time_on_streng
         # )
 
-        return "{} | {} | {} | {} | {}".format(
-            self.id, self.account_number, self.order.release_date, self.group,
+        return "{} | {} | {} | {}".format(
+            self.account_number, self.order.release_date, self.group,
             self.full_bobbin, self.time_on_mult_1_basket
         )
 
@@ -192,7 +190,7 @@ class Basket:
         if orders is None:
             orders = []
         self.time_work = 0
-        self.orders: [TaskForMultik] = orders
+        self.orders: [MultivareTask] = orders
         self.diameter = d_mult
         self.len_basket = KM_IN_1_BASKET * 8
         self.sum_basket = sum_basket
@@ -210,7 +208,7 @@ class Basket:
         else:
             self.time_work = self.orders[0].time_on_mult_1_basket * self.sum_basket
 
-    def append(self, order: TaskForMultik, num_basket=None, use_time_setup=True):
+    def append(self, order: MultivareTask, num_basket=None, use_time_setup=True):
         """
         1. Если заказ полностью подходит по вместимости корзины, то берем время и длину из заказа
         2. Если заказ не влазит в текущую корзину, то в одну корзину добавляем, что остается до восьми целых,
@@ -245,10 +243,10 @@ class QueueMultivare:
     """
 
     rest_basket: float = 0.0
-    rest_orders: [TaskForMultik] = []
+    rest_orders: [MultivareTask] = []
 
     def __init__(self):
-        self.__queue: [TaskForMultik] = []
+        self.__queue: [MultivareTask] = []
 
     @property
     def queue(self):
@@ -295,14 +293,14 @@ class QueueMultivare:
             # меньше диаметр - больше фильер
             if previous_order.spin > order.spin:
                 removed_spin = previous_order.spin - order.spin + 1  # снимаем фильеры +1, чтобы переставить ее в конец
-                total_setup_time += removed_spin * REMOVED_SPIN  # Время на снятие фильер
-                total_setup_time += INSERT_SPIN * order.wires_in_sliver  # Время на установку фильер
+                total_setup_time += removed_spin * MultivareMachine.REMOVED_SPIN  # Время на снятие фильер
+                total_setup_time += MultivareMachine.INSERT_SPIN * order.wires_in_sliver  # Время на установку фильер
                 change = True
             # больше диаметр - меньше фильер
             elif previous_order.spin < order.spin:
                 removed_spin = 1  # снимаем последнюю
-                total_setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
-                total_setup_time += INSERT_SPIN * (
+                total_setup_time += removed_spin * MultivareMachine.REMOVED_SPIN  # время на снятие фильер
+                total_setup_time += MultivareMachine.INSERT_SPIN * (
                         order.spin - (
                         previous_order.spin - 1)) * order.wires_in_sliver  # время на установку фильер +1, потому 1 уже снята tt
                 change = True
@@ -315,16 +313,17 @@ class QueueMultivare:
 
             if previous_order.wires_in_sliver < order.wires_in_sliver:
                 # Надо протянуть новые проволочки через все фильеры на новом заказе
-                total_setup_time += dif_wire * order.spin * CHANGE_WIRE + STRETCHING_WIRE
+                total_setup_time += dif_wire * order.spin * MultivareMachine.CHANGE_WIRE + MultivareMachine.STRETCHING_WIRE
                 change = True
             elif previous_order.wires_in_sliver > order.wires_in_sliver:
                 # Надо снять проволочки со всех фильер previous_order
-                total_setup_time += dif_wire * previous_order.spin * CHANGE_WIRE
+                total_setup_time += dif_wire * previous_order.spin * MultivareMachine.CHANGE_WIRE
                 change = True
 
-            if change:
-                # Если было любое изменение, то надо сменить катушку
-                total_setup_time += CHANGE_BOBBIN  # Время на смену катушки
+            # после каждого заказа будет смена заказа
+            # if change:
+            #     # Если было любое изменение, то надо сменить катушку
+            #     total_setup_time += CHANGE_BOBBIN  # Время на смену катушки
 
         return total_setup_time
 
@@ -565,7 +564,7 @@ class Bobbin:
         self.max_volume = max_volume
         self.date_first_order = date
         self.volume: float = 0
-        self.orders: [TaskForMultik] = []
+        self.orders: [MultivareTask] = []
         self.time_on_mult: float = 0
         self.add(volume, order)
 

@@ -10,7 +10,7 @@ import pandas as pd
 file_name = 'excel/Заказы.xlsx'
 
 
-def formation_of_orders_in_the_date_range(orders: list[Multivare.TaskForMultik], date_range: int,
+def formation_of_orders_in_the_date_range(orders: list[Multivare.MultivareTask], date_range: int,
                                           groups_by_dates: dict):
     """
     Формирование заказов в диапазоне дат
@@ -38,7 +38,7 @@ def sort_date(order):
     return order.order.release_date
 
 
-def forming_file_with_groups(arr_orders: list[Multivare.TaskForMultik]):
+def forming_file_with_groups(arr_orders: list[Multivare.MultivareTask]):
     # Загрузка существующего файла Excel
     existing_file = 'excel/output_class.xlsx'
 
@@ -89,7 +89,7 @@ def forming_file_with_groups(arr_orders: list[Multivare.TaskForMultik]):
     return data_res
 
 
-def forming_file_with_groups_excel(arr_orders: list[Multivare.TaskForMultik]):
+def forming_file_with_groups_excel(arr_orders: list[Multivare.MultivareTask]):
     # Загрузка существующего файла Excel
     existing_file = 'excel/output_class.xlsx'
 

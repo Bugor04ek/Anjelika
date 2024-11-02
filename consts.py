@@ -4,6 +4,7 @@ import re
 from gosts import GOSTS
 import Оборудование.Multivare as Multivare
 import Оборудование.Dragger as Dragger
+from Оборудование.Equipments import TaskMeta
 
 # A - IDZak
 # B - Номер счета
@@ -34,7 +35,7 @@ import Оборудование.Dragger as Dragger
 # )
 
 
-def converting_indexes_to_numbers(indexes: [int], orders: [Multivare.TaskForMultik]):
+def converting_indexes_to_numbers(indexes: [int], orders: [Multivare.MultivareTask]):
     """
     Преобразует список индексов заказов в список номеров и ссылок
     :param indexes: список индексов заказов
@@ -60,19 +61,17 @@ class OrderMeta(type):
         return list(cls._instances)
 
 
-class OrderTask:
+class Task(metaclass=TaskMeta):
     """
     Класс для описания конкретного задания на операцию для части кабеля (например, основного, плюсового или вспомогательного).
     """
 
-    def __init__(self, order, part_type, operation_sequence, diameter, number_of_veins, number_of_strands):
+    def __init__(self, order, operation_sequence, equipment_type):
         self.order = order  # Основной заказ, к которому относится задание
-        self.part_type = part_type  # Тип части: основная, плюсовая, вспомогательная
         self.operation_sequence = operation_sequence  # Список операций, которые должен пройти данный элемент
         self.current_operation_index = 0  # Указатель на текущую операцию
-        self.diameter = diameter
-        self.number_of_veins = number_of_veins
-        self.number_of_strands = number_of_strands
+        self.equipment_type = equipment_type  # Тип оборудования (например, "WireDrawing" или "Multivare")
+        self.equipment = None  # Оборудование не указано при инициализации
 
     def next_operation(self):
         """
@@ -82,6 +81,17 @@ class OrderTask:
             self.current_operation_index += 1
             return self.operation_sequence[self.current_operation_index]
         return None  # Завершение операций
+
+    def assign_equipment(self, equipment):
+        if equipment.equipment_type == self.equipment_type:
+            self.equipment = equipment
+
+    def assign_tasks_to_equipment(tasks, available_equipments):
+        for task in tasks:
+            suitable_equipments = [eq for eq in available_equipments if eq.is_suitable(task.material, task.diameter)]
+            if suitable_equipments:
+                equipment = random.choice(suitable_equipments)
+                task.assign_equipment(equipment)
 
     def __repr__(self):
         return f"OrderTask(part_type={self.part_type}, current_operation={self.operation_sequence[self.current_operation_index]})"
@@ -198,34 +208,34 @@ class Order(metaclass=OrderMeta):
         return Dragger.TaskForDragger(self)
 
     def set_task_for_multivare(self):
-        task = [Multivare.TaskForMultik(self, self.diameter, self.number_of_veins, self.number_of_strands,
+        task = [Multivare.MultivareTask(self, self.diameter, self.number_of_veins, self.number_of_strands,
                                         self.number_of_sliver, self.wires_in_sliver, '')]
         if self.number_of_sliver_extra:
-            task.append([Multivare.TaskForMultik(self, self.diameter, self.number_of_veins, self.wires_in_sliver_extra,
+            task.append([Multivare.MultivareTask(self, self.diameter, self.number_of_veins, self.wires_in_sliver_extra,
                                                  self.number_of_sliver_extra,
                                                  self.wires_in_sliver_extra, 'e')])
 
         if self.mark.cable_parameters.get('Тип') == 'Плюсовой':
-            task.append(Multivare.TaskForMultik(self, self.diameter_plus, self.number_of_veins_plus,
+            task.append(Multivare.MultivareTask(self, self.diameter_plus, self.number_of_veins_plus,
                                                 self.number_of_strands_plus,
                                                 self.number_of_sliver_plus,
                                                 self.wires_in_sliver_plus, '+'))
 
             if self.number_of_sliver_extra_plus:
                 task.append(
-                    [Multivare.TaskForMultik(self, self.diameter_plus, self.number_of_veins_plus,
+                    [Multivare.MultivareTask(self, self.diameter_plus, self.number_of_veins_plus,
                                              self.number_of_strands_plus,
                                              self.number_of_sliver_extra_plus,
                                              self.wires_in_sliver_extra_plus, 'e+')])
 
         if self.mark.cable_parameters.get('Тип') == 'Вспомогательный':
-            task.append(Multivare.TaskForMultik(self, self.diameter, self.number_of_veins_support,
+            task.append(Multivare.MultivareTask(self, self.diameter, self.number_of_veins_support,
                                                 self.number_of_strands_support,
                                                 self.number_of_sliver_support,
                                                 self.wires_in_sliver_support, 's'))
             if self.number_of_sliver_extra_support:
                 task.append(
-                    Multivare.TaskForMultik(self, self.diameter, self.number_of_veins_support,
+                    Multivare.MultivareTask(self, self.diameter, self.number_of_veins_support,
                                             self.number_of_strands_support,
                                             self.number_of_sliver_extra_support,
                                             self.wires_in_sliver_extra_support, 'es'))

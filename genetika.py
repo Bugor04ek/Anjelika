@@ -102,7 +102,7 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, hall
     return population, logbook
 
 
-def main_multivare(orders: list[TaskForMultik]):
+def main_multivare(orders: list[MultivareTask]):
     start = datetime.datetime.now()
 
     len_orders = len(orders)
