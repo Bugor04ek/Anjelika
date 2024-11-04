@@ -326,7 +326,7 @@ class GenetikDragger:
             return True
 
     @staticmethod
-    def calculate_setup_time_new_dragger(previous_order: TaskForDragger, order: TaskForDragger) -> float:
+    def calculate_setup_time_new_dragger(previous_order: WireDrawingTask, order: WireDrawingTask) -> float:
         """
         Создается матрица "расстояний"
         Считается время перенастройки оборудования для пары заказов и смены катушки
@@ -370,7 +370,7 @@ class GenetikDragger:
         return total_setup_time
 
     @staticmethod
-    def calculate_setup_time_old_dragger(previous_order: TaskForDragger, order: TaskForDragger) -> float:
+    def calculate_setup_time_old_dragger(previous_order: WireDrawingTask, order: WireDrawingTask) -> float:
         """
         Создается матрица "расстояний"
         Считается время перенастройки оборудования для пары заказов и смены катушки

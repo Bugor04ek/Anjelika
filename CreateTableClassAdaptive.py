@@ -1,3 +1,5 @@
+import os
+
 import genetika
 import vrp
 from consts import *
@@ -188,7 +190,7 @@ if __name__ == "__main__":
     # # gen_alg.main(TaskForMultik.orders)
     #
     # genetika.main_multivare(Multivare.TaskForMultik.orders)
-    # genetika.main_dragger(Dragger.TaskForDragger.orders)
+    # genetika.main_dragger(Dragger.WireDrawingTask.orders)
     #
     # # print(Dragger.queue_dragger, sep='\n')
     # # print(Dragger.queue_dragger.num_basket)

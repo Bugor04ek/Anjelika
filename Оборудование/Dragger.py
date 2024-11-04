@@ -1,21 +1,21 @@
 import consts
 import Оборудование.Multivare as Multivare
-from Оборудование.Equipments import WireDrawingMachine
+import Оборудование.Equipments as Equipments
 
 
-class TaskForDragger(consts.Task):
+class WireDrawingTask(consts.Task):
     """
     Класс для заказов на волочение. Тут может быть либо обычный заказ, либо корзина состоящая из заказов на мультик.
     """
 
     # Переменная класса для подсчета индексов
-    def __init__(self, order, diameter):
+    def __init__(self, order, diameter, equipment_type):
         super().__init__(order, equipment_type='WireDrawing')
         if issubclass(consts.Order, type(order)):
             self.time_work = order.time_on_dragger
             self.diameter = diameter
         elif issubclass(Multivare.Basket, type(order)):
-            self.time_work = WireDrawingMachine.W
+            self.time_work = Equipments.WireDrawingMachine.W
             self.diameter = Multivare.MultivareMachine.d_mult
 
         self.time_setup = 0
@@ -29,7 +29,7 @@ class TaskForDragger(consts.Task):
         """
 
         # Определяет стандартные фильеры или нужна дополнительная
-        extra_spin = WireDrawingMachine.new_spinner_dict.get(self.diameter, 0)
+        extra_spin = Equipments.WireDrawingMachine.new_spinner_dict.get(self.diameter, 0)
         return extra_spin if extra_spin else self.counting_extra_spin()
 
         # Если extra_spin == 0, значит есть доп фильера
@@ -42,14 +42,14 @@ class TaskForDragger(consts.Task):
         Если не находим, тогда ищем после какой фильеры нужно поставить еще одну количество = ключ + 1
         :return: количество фильер
         """
-        for k, v in sorted(WireDrawingMachine.spinner_dict.items()):
+        for k, v in sorted(Equipments.WireDrawingMachine.spinner_dict.items()):
             if self.diameter < k:
                 #  Рассчитывает количество фильер для заказа вместе с последней нестандартной фильерой
                 return v + 1
 
     def __repr__(self):
         if issubclass(consts.Order, type(self.order)):
-            return '{} {} IDZak {}'.format(self.id, self.account_number, self.IDZak)
+            return '{} IDZak {}'.format(self.account_number, self.order.IDZak)
         elif issubclass(Multivare.Basket, type(self.order)):
             return '{}'.format(self.order.__repr__())
 

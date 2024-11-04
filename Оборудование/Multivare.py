@@ -2,64 +2,13 @@ import os
 import pandas as pd
 from pandas import ExcelWriter
 import consts
-import Оборудование.Dragger as Dragger
-from Оборудование.Equipments import MachineMeta
+import Оборудование.Equipments as Equipments
 
 pi = 3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095
 
 dict_key_group = {}
 
 
-class MultivareMachine(metaclass=MachineMeta):
-    REMOVED_SPIN = 1  # время снятия фильер
-    INSERT_SPIN = 5  # время вставки фильер (это время надо умножить на количество проволочек в пряди)
-    CHANGE_BASKET = 20  # смена корзины на мультике
-    CHANGE_BOBBIN = 5  # смена катушки на мультике
-    CHANGE_WIRE = 1.5  # снятие/натягивание проволочки на 1 фильере
-    STRETCHING_WIRE = 5  # протягивание пучка проволочек после всех фильер
-    KM_IN_1_BASKET = 35  # КМ в 1 корзине
-    KM_IN_8_BASKET = KM_IN_1_BASKET * 8  # КМ в 8 корзинах
-
-    dictionary_spinners = {
-        2.28: 1,
-        2.0264: 2,
-        1.8: 3,
-        1.6: 4,
-        1.422: 5,
-        1.2638: 6,
-        1.1232: 7,
-        0.9983: 8,
-        0.8872: 9,
-        0.7875: 10,
-        0.6993: 11,
-        0.621: 12,
-        0.5514: 13,
-        0.4896: 14,
-        0.446: 15,
-        0.4063: 16,
-        0.3701: 17,
-        0.3371: 18,
-        0.3075: 19,
-        0.2795: 20,
-        0.26: 21
-    }
-
-    d_mult = 2.08
-    pi = 3.141592653589793
-
-    def __init__(self, name, capacity, supported_materials):
-        self.name = name
-        self.capacity = capacity
-        self.supported_materials = supported_materials
-
-    def is_suitable(self, material, quantity):
-        return material in self.supported_materials and quantity <= self.capacity
-
-    @classmethod
-    def get_all_instances(cls, names=None):
-        if names is None:
-            return list(cls._instances)
-        return [instance for instance in cls._instances if instance.name in names]
 
 
 class MultivareTask(consts.Task):
@@ -72,8 +21,7 @@ class MultivareTask(consts.Task):
         # self.volume_bobbin = order.volume_bobbin
         # 350 - Ограничение по массе барабана для гибкой жилы на 630 барабан
         # 8.89 - Плотность меди
-        self.volume_bobbin = 350 / (
-                pi * 0.25 * 8.89 * order.diameter ** 2 * max(order.wires_in_sliver, order.wires_in_sliver_extra))
+        self.volume_bobbin = 350 / (pi * 0.25 * 8.89 * order.diameter ** 2 * max(order.wires_in_sliver, order.wires_in_sliver_extra))
         self.IDZak = order.IDZak
         self.account_number = order.account_number + type
         self.diameter = diameter
@@ -191,8 +139,8 @@ class Basket:
             orders = []
         self.time_work = 0
         self.orders: [MultivareTask] = orders
-        self.diameter = d_mult
-        self.len_basket = KM_IN_1_BASKET * 8
+        self.diameter = MultivareMachine.d_mult
+        self.len_basket = MultivareMachine.KM_IN_1_BASKET * 8
         self.sum_basket = sum_basket
         self.set_time_work()
 
@@ -237,196 +185,196 @@ class Basket:
                                                                                    self.orders.__repr__())
 
 
-class QueueMultivare:
-    """
-    Оптимальная очередь на мультике. С методами поиска любого заказа по заданным параметрам
-    """
-
-    rest_basket: float = 0.0
-    rest_orders: [MultivareTask] = []
-
-    def __init__(self):
-        self.__queue: [MultivareTask] = []
-
-    @property
-    def queue(self):
-        return self.__queue
-
-    @queue.setter
-    def queue(self, orders):
-        self.__queue = orders
-
-    def __add__(self, other):
-        self.__queue.append(other)
-
-    def find_order(self, **kwargs):
-        return next(self.__iter_order(**kwargs))
-
-    def all_orders(self, **kwargs):
-        return list(self.__iter_order(**kwargs))
-
-    def __iter_order(self, **kwargs):
-        return (order for order in self.__queue if order.match(**kwargs))
-
-    @staticmethod
-    def calculate_setup_time_multivare(previous_order, order):
-        """
-        Функция для расчета времени перенастройки между заказами мультика.
-        Считается время перенастройки и смены катушки между заказами
-        Не учитывается добавление катушки, если она заполнена
-        ??? После определения оптимального варианта будет пересчет через чеклист мультика
-        :param previous_order:
-        :param order:
-        :return:
-        """
-
-        total_setup_time = 0
-
-        if previous_order is not None:
-
-            change = False
-
-            """
-                1 ПРОВЕРКА -- Разность диаметров
-            """
-
-            # меньше диаметр - больше фильер
-            if previous_order.spin > order.spin:
-                removed_spin = previous_order.spin - order.spin + 1  # снимаем фильеры +1, чтобы переставить ее в конец
-                total_setup_time += removed_spin * MultivareMachine.REMOVED_SPIN  # Время на снятие фильер
-                total_setup_time += MultivareMachine.INSERT_SPIN * order.wires_in_sliver  # Время на установку фильер
-                change = True
-            # больше диаметр - меньше фильер
-            elif previous_order.spin < order.spin:
-                removed_spin = 1  # снимаем последнюю
-                total_setup_time += removed_spin * MultivareMachine.REMOVED_SPIN  # время на снятие фильер
-                total_setup_time += MultivareMachine.INSERT_SPIN * (
-                        order.spin - (
-                        previous_order.spin - 1)) * order.wires_in_sliver  # время на установку фильер +1, потому 1 уже снята tt
-                change = True
-
-            """
-                2 ПРОВЕРКА -- Разность проволочек
-            """
-
-            dif_wire = abs(order.wires_in_sliver - previous_order.wires_in_sliver)
-
-            if previous_order.wires_in_sliver < order.wires_in_sliver:
-                # Надо протянуть новые проволочки через все фильеры на новом заказе
-                total_setup_time += dif_wire * order.spin * MultivareMachine.CHANGE_WIRE + MultivareMachine.STRETCHING_WIRE
-                change = True
-            elif previous_order.wires_in_sliver > order.wires_in_sliver:
-                # Надо снять проволочки со всех фильер previous_order
-                total_setup_time += dif_wire * previous_order.spin * MultivareMachine.CHANGE_WIRE
-                change = True
-
-            # после каждого заказа будет смена заказа
-            # if change:
-            #     # Если было любое изменение, то надо сменить катушку
-            #     total_setup_time += CHANGE_BOBBIN  # Время на смену катушки
-
-        return total_setup_time
-
-    @staticmethod
-    def form_matrix_multivare(orders):
-        """
-        Функция для создания матрицы времени перенастроек мультика
-        :param orders: неупорядоченный список заказов на мультик
-        :return: матрица времени перенастроек
-        """
-        temp_matrix1 = []
-        for order1 in orders:
-            temp_matrix2 = []
-            for order2 in orders:
-                temp_matrix2.append(QueueMultivare.calculate_setup_time_multivare(order1, order2))
-            temp_matrix1.append(temp_matrix2)
-        return temp_matrix1
-
-    @staticmethod
-    def get_total_time(time_on_multivare, indices):
-        """
-        Считается время перенастроек между заказов для текущей очереди
-        :param time_on_multivare: время перенастроек для каждого заказа с каждым
-        :param indices: текущий индивид (очередь).
-        :return: Всё время перенастроек для текущей очереди
-        """
-
-        time = 0
-
-        # время между каждой парой заказов
-        for i in range(len(indices) - 1):
-            time += time_on_multivare[indices[i]][indices[i + 1]]
-
-        return time,
-
-    def setting_time_setup(self):
-        """
-        Определяем время настройки заказов на мультике.
-        :return:
-        """
-
-        for i in range(len(self.__queue)):
-
-            # пропускаем первый индекс, т.к у него нет время на перенастройку
-            if i == 0:
-                continue
-
-            self.__queue[i].time_setup = QueueMultivare.calculate_setup_time_multivare(self.__queue[i - 1],
-                                                                                       self.__queue[i])
-
-    def calculating_basket(self):
-        """
-        Для оптимально расставленных заказов на мультике считаются корзины. Корзина набивается заказами, которые сами по себе не формируют полноценные 8,
-        если такие заказы есть, то заказ должен занимать нужное количество корзин в одиночку, а остаток делить с остальными заказами
-        :return:
-        """
-
-        sum_basket: int = 0
-        temp_basket: Basket = Basket()
-        for order in self.__queue:
-
-            # Если со следующим заказом получается меньше 8 корзин, но он занимает сам по себе больше 8 корзин
-            if order.num_basket[0] > 0 and (sum_basket + order.num_basket[1]) <= 8:
-                rest_basket = 8 - sum_basket  # сколько нужно до 8 корзин
-                temp_num_basket = (order.num_basket[0] - 1, order.num_basket[1] + (8 - rest_basket))
-                # распределяем полные корзины -> (2 (полные корзины), 5.47 (неполные корзины) -> (1, 5.47) -> (1, 13.47 + (8 - rest_basket))
-                # Добавляем такой заказ последним и начинаем новые корзины, потому что после него пойдут корзины только для этого заказа
-                sum_basket += rest_basket
-                temp_basket.append(order, rest_basket)
-                Dragger.queue_dragger_new_dragger.append(Dragger.TaskForDragger(temp_basket))
-
-                for _ in range(temp_num_basket[0]):
-                    Dragger.queue_dragger_new_dragger.append(Dragger.TaskForDragger(Basket([order], 8)))
-
-                sum_basket = 0
-                temp_basket: Basket = Basket()
-                sum_basket += temp_num_basket[1]
-                temp_basket.append(order, num_basket=temp_num_basket[1], use_time_setup=False)
-
-            # Если со следующим заказом получается больше 8 корзин
-            elif (sum_basket + order.num_basket[1]) > 8:
-                # Прибавляем так, чтобы стало 8 и добавляем время изготовления этой части корзины
-                rest_basket = 8 - sum_basket  # сколько нужно до 8 корзин
-                temp_basket.append(order, rest_basket)
-                Dragger.queue_dragger_new_dragger.append(Dragger.TaskForDragger(temp_basket))
-
-                # Если заказ на больше 8 корзин, то между корзин будут корзины с 1 этим заказом
-                for _ in range(order.num_basket[0]):
-                    Dragger.queue_dragger_new_dragger.append(Dragger.TaskForDragger(Basket([order], 8)))
-
-                # начинаем новую корзину и добавляем в нее остаток текущего заказа
-                temp_basket: Basket = Basket()
-                sum_basket = order.num_basket[1] - rest_basket  # сколько корзин нужно
-                temp_basket.append(order, sum_basket, False)
-                # Переходим к следующему заказу, т.к. этот полностью исчерпан
-            else:
-                sum_basket += order.num_basket[1]
-                temp_basket.append(order)
-        else:
-            if len(temp_basket.orders) > 0:
-                # Dragger.queue_dragger.append(Dragger.TaskForDragger(temp_basket))
-                QueueMultivare.rest_basket += sum_basket
-                QueueMultivare.rest_orders = temp_basket
+# class QueueMultivare:
+#     """
+#     Оптимальная очередь на мультике. С методами поиска любого заказа по заданным параметрам
+#     """
+#
+#     rest_basket: float = 0.0
+#     rest_orders: [MultivareTask] = []
+#
+#     def __init__(self):
+#         self.__queue: [MultivareTask] = []
+#
+#     @property
+#     def queue(self):
+#         return self.__queue
+#
+#     @queue.setter
+#     def queue(self, orders):
+#         self.__queue = orders
+#
+#     def __add__(self, other):
+#         self.__queue.append(other)
+#
+#     def find_order(self, **kwargs):
+#         return next(self.__iter_order(**kwargs))
+#
+#     def all_orders(self, **kwargs):
+#         return list(self.__iter_order(**kwargs))
+#
+#     def __iter_order(self, **kwargs):
+#         return (order for order in self.__queue if order.match(**kwargs))
+#
+#     @staticmethod
+#     def calculate_setup_time_multivare(previous_order, order):
+#         """
+#         Функция для расчета времени перенастройки между заказами мультика.
+#         Считается время перенастройки и смены катушки между заказами
+#         Не учитывается добавление катушки, если она заполнена
+#         ??? После определения оптимального варианта будет пересчет через чеклист мультика
+#         :param previous_order:
+#         :param order:
+#         :return:
+#         """
+#
+#         total_setup_time = 0
+#
+#         if previous_order is not None:
+#
+#             change = False
+#
+#             """
+#                 1 ПРОВЕРКА -- Разность диаметров
+#             """
+#
+#             # меньше диаметр - больше фильер
+#             if previous_order.spin > order.spin:
+#                 removed_spin = previous_order.spin - order.spin + 1  # снимаем фильеры +1, чтобы переставить ее в конец
+#                 total_setup_time += removed_spin * MultivareMachine.REMOVED_SPIN  # Время на снятие фильер
+#                 total_setup_time += MultivareMachine.INSERT_SPIN * order.wires_in_sliver  # Время на установку фильер
+#                 change = True
+#             # больше диаметр - меньше фильер
+#             elif previous_order.spin < order.spin:
+#                 removed_spin = 1  # снимаем последнюю
+#                 total_setup_time += removed_spin * MultivareMachine.REMOVED_SPIN  # время на снятие фильер
+#                 total_setup_time += MultivareMachine.INSERT_SPIN * (
+#                         order.spin - (
+#                         previous_order.spin - 1)) * order.wires_in_sliver  # время на установку фильер +1, потому 1 уже снята tt
+#                 change = True
+#
+#             """
+#                 2 ПРОВЕРКА -- Разность проволочек
+#             """
+#
+#             dif_wire = abs(order.wires_in_sliver - previous_order.wires_in_sliver)
+#
+#             if previous_order.wires_in_sliver < order.wires_in_sliver:
+#                 # Надо протянуть новые проволочки через все фильеры на новом заказе
+#                 total_setup_time += dif_wire * order.spin * MultivareMachine.CHANGE_WIRE + MultivareMachine.STRETCHING_WIRE
+#                 change = True
+#             elif previous_order.wires_in_sliver > order.wires_in_sliver:
+#                 # Надо снять проволочки со всех фильер previous_order
+#                 total_setup_time += dif_wire * previous_order.spin * MultivareMachine.CHANGE_WIRE
+#                 change = True
+#
+#             # после каждого заказа будет смена заказа
+#             # if change:
+#             #     # Если было любое изменение, то надо сменить катушку
+#             #     total_setup_time += CHANGE_BOBBIN  # Время на смену катушки
+#
+#         return total_setup_time
+#
+#     @staticmethod
+#     def form_matrix_multivare(orders):
+#         """
+#         Функция для создания матрицы времени перенастроек мультика
+#         :param orders: неупорядоченный список заказов на мультик
+#         :return: матрица времени перенастроек
+#         """
+#         temp_matrix1 = []
+#         for order1 in orders:
+#             temp_matrix2 = []
+#             for order2 in orders:
+#                 temp_matrix2.append(QueueMultivare.calculate_setup_time_multivare(order1, order2))
+#             temp_matrix1.append(temp_matrix2)
+#         return temp_matrix1
+#
+#     @staticmethod
+#     def get_total_time(time_on_multivare, indices):
+#         """
+#         Считается время перенастроек между заказов для текущей очереди
+#         :param time_on_multivare: время перенастроек для каждого заказа с каждым
+#         :param indices: текущий индивид (очередь).
+#         :return: Всё время перенастроек для текущей очереди
+#         """
+#
+#         time = 0
+#
+#         # время между каждой парой заказов
+#         for i in range(len(indices) - 1):
+#             time += time_on_multivare[indices[i]][indices[i + 1]]
+#
+#         return time,
+#
+#     def setting_time_setup(self):
+#         """
+#         Определяем время настройки заказов на мультике.
+#         :return:
+#         """
+#
+#         for i in range(len(self.__queue)):
+#
+#             # пропускаем первый индекс, т.к у него нет время на перенастройку
+#             if i == 0:
+#                 continue
+#
+#             self.__queue[i].time_setup = QueueMultivare.calculate_setup_time_multivare(self.__queue[i - 1],
+#                                                                                        self.__queue[i])
+#
+#     def calculating_basket(self):
+#         """
+#         Для оптимально расставленных заказов на мультике считаются корзины. Корзина набивается заказами, которые сами по себе не формируют полноценные 8,
+#         если такие заказы есть, то заказ должен занимать нужное количество корзин в одиночку, а остаток делить с остальными заказами
+#         :return:
+#         """
+#
+#         sum_basket: int = 0
+#         temp_basket: Basket = Basket()
+#         for order in self.__queue:
+#
+#             # Если со следующим заказом получается меньше 8 корзин, но он занимает сам по себе больше 8 корзин
+#             if order.num_basket[0] > 0 and (sum_basket + order.num_basket[1]) <= 8:
+#                 rest_basket = 8 - sum_basket  # сколько нужно до 8 корзин
+#                 temp_num_basket = (order.num_basket[0] - 1, order.num_basket[1] + (8 - rest_basket))
+#                 # распределяем полные корзины -> (2 (полные корзины), 5.47 (неполные корзины) -> (1, 5.47) -> (1, 13.47 + (8 - rest_basket))
+#                 # Добавляем такой заказ последним и начинаем новые корзины, потому что после него пойдут корзины только для этого заказа
+#                 sum_basket += rest_basket
+#                 temp_basket.append(order, rest_basket)
+#                 Dragger.queue_dragger_new_dragger.append(Dragger.WireDrawingTask(temp_basket))
+#
+#                 for _ in range(temp_num_basket[0]):
+#                     Dragger.queue_dragger_new_dragger.append(Dragger.WireDrawingTask(Basket([order], 8)))
+#
+#                 sum_basket = 0
+#                 temp_basket: Basket = Basket()
+#                 sum_basket += temp_num_basket[1]
+#                 temp_basket.append(order, num_basket=temp_num_basket[1], use_time_setup=False)
+#
+#             # Если со следующим заказом получается больше 8 корзин
+#             elif (sum_basket + order.num_basket[1]) > 8:
+#                 # Прибавляем так, чтобы стало 8 и добавляем время изготовления этой части корзины
+#                 rest_basket = 8 - sum_basket  # сколько нужно до 8 корзин
+#                 temp_basket.append(order, rest_basket)
+#                 Dragger.queue_dragger_new_dragger.append(Dragger.WireDrawingTask(temp_basket))
+#
+#                 # Если заказ на больше 8 корзин, то между корзин будут корзины с 1 этим заказом
+#                 for _ in range(order.num_basket[0]):
+#                     Dragger.queue_dragger_new_dragger.append(Dragger.WireDrawingTask(Basket([order], 8)))
+#
+#                 # начинаем новую корзину и добавляем в нее остаток текущего заказа
+#                 temp_basket: Basket = Basket()
+#                 sum_basket = order.num_basket[1] - rest_basket  # сколько корзин нужно
+#                 temp_basket.append(order, sum_basket, False)
+#                 # Переходим к следующему заказу, т.к. этот полностью исчерпан
+#             else:
+#                 sum_basket += order.num_basket[1]
+#                 temp_basket.append(order)
+#         else:
+#             if len(temp_basket.orders) > 0:
+#                 # Dragger.queue_dragger.append(Dragger.TaskForDragger(temp_basket))
+#                 QueueMultivare.rest_basket += sum_basket
+#                 QueueMultivare.rest_orders = temp_basket
 
 
 class CheckListMultivare:
