@@ -1,0 +1,437 @@
+import weakref
+from gosts import Mark
+import random
+from Equipments import MultivareMachine, WireDrawingMachine, Basket
+dict_key_group = {}
+
+pi = 3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095
+operation_sequence = ["wiredrawing", "multiwire", "rigidframe"]
+
+
+class OrderMeta(type):
+    """
+    Метакласс для отслеживания всех экземпляров класса Order.
+    """
+    _instances = weakref.WeakSet()
+
+    def __call__(cls, *args, **kwargs):
+        instance = super().__call__(*args, **kwargs)
+        cls._instances.add(instance)
+        return instance
+
+    @classmethod
+    def get_all_instances(cls):
+        return list(cls._instances)
+
+
+class Order(metaclass=OrderMeta):
+    """
+    Класс содержит все не вычисляемые параметры по кабелю. По факту просто справочник содержащий все переменные по заказу.
+    Далее будет разбиваться по заданиям на оборудования, куда пойдут определенные переменные.
+    """
+
+    def __init__(self, row):
+        self.IDZak = row['IDZak']
+        self.account_number = row['Номер счета']
+        self.mark = Mark(row['Марка заказа из ЕРП'])
+        self.release_date = row['Дата выпуска по заказу']
+        self.order_length = row['Количество километров в производство']
+        self.number_of_veins = row['Количество жил']
+        self.diameter = row['Диаметр проволоки (волочение), мм']
+        self.number_of_strands = row['Количество стренг']
+        self.number_of_sliver = row['Кол-во зарядных катушек на стренге']
+        self.wires_in_sliver = row['Кол-во проволок на одной катушке']
+        self.number_of_sliver_extra = row['КоличествоЗарядныхКатушекНаСтренгеДоп']
+        self.wires_in_sliver_extra = row['КоличествоПроволокНаОднойКатушкеДоп']
+        self.number_of_veins_plus = row['Количество жил плюсовой']
+        self.diameter_plus = row['Диаметр проволоки плюсовой']
+        self.number_of_strands_plus = row['Количество стренг плюсовой']
+        self.number_of_sliver_plus = row['Количество зарядных катушек на стренге плюсовой']
+        self.wires_in_sliver_plus = row['Количество проволок на одной катушке плюсовой']
+        self.number_of_sliver_extra_plus = row['Количество зарядных катушек на стренге плюсовой доп']
+        self.wires_in_sliver_extra_plus = row['КоличествоПроволокНаОднойКатушкеПлюсовойДоп']
+        self.number_of_veins_support = row['Количество жил вспомогательный']
+        self.diameter_support = row['Диаметр проволоки вспомогательный']
+        self.number_of_strands_support = row['Количество стренг вспомогательный']
+        self.number_of_sliver_support = row['Количество зарядных катушек на стренге вспомогательный']
+        self.wires_in_sliver_support = row['Количество проволок на одной катушке вспомогательный']
+        self.number_of_sliver_extra_support = row['Количество зарядных катушек на стренге вспомогательный доп']
+        self.wires_in_sliver_extra_support = row['Количество проволок на одной катушке вспомогательный доп']
+        self.type_bobbin = row['Вид барабана']
+        self.volume_bobbin = row['Километраж масса VSДлина']
+        self.time_on_dragger = row['Время на волочилке']
+        self.time_on_multivare = row['Время на мультике']
+        self.time_on_streng = row['Время на стренге']
+        self.operation_sequence = []
+        self.current_operation_index = 0  # Указатель на текущую операцию
+        self.task = self.set_task()
+
+    def set_task(self):
+        """
+        Создаем задания на оборудования, разбивая кабель на несколько составляющих. Если в кабеле есть дополнительные жилы,
+        то каждая дополнительная жила в задании будет восприниматься как отдельный заказ с аналогичным номером с добавлением
+        +/е/s
+        :return: массив, элементы которого задания на различные оборудования по техцепочке
+        """
+        task = {}
+
+        # Если заказ пойдет на мультик, то у него не должно быть задания на волочилку, т.к. для таких заказов заданием будет являться корзина
+        if self.time_on_dragger and not self.time_on_multivare:
+            task['WireDrawing']: list = self.set_task_for_dragger()
+        if self.time_on_multivare:
+            task['Multivare']: list = self.set_task_for_multivare()
+
+        return task
+
+    def set_task_for_dragger(self):
+        """
+        Заводим Задание на волочилку и добавляем задание в очередь. Тут очередь будет еще не в оптимальном порядке
+        :return:
+        """
+        task = [WireDrawingTask(self, self.diameter, '')]
+        if self.mark.cable_parameters.get('Тип') == 'Плюсовой':
+            task.append(
+                WireDrawingTask(self, self.diameter_plus, '+')
+            )
+
+        return task
+
+
+    def set_task_for_multivare(self):
+        task = [MultivareTask(
+            self, self.diameter, self.number_of_veins, self.number_of_strands,
+            self.number_of_sliver, self.wires_in_sliver, ''
+            )]
+        if self.number_of_sliver_extra:
+            task.append(
+                MultivareTask(
+                    self, self.diameter, self.number_of_veins, self.wires_in_sliver_extra,
+                    self.number_of_sliver_extra,
+                    self.wires_in_sliver_extra, 'e'
+                )
+            )
+
+        if self.mark.cable_parameters.get('Тип') == 'Плюсовой':
+            task.append(
+                MultivareTask(
+                    self, self.diameter_plus, self.number_of_veins_plus,
+                    self.number_of_strands_plus,
+                    self.number_of_sliver_plus,
+                    self.wires_in_sliver_plus, '+'
+                    )
+                )
+
+            if self.number_of_sliver_extra_plus:
+                task.append(
+                    MultivareTask(
+                        self, self.diameter_plus, self.number_of_veins_plus,
+                        self.number_of_strands_plus,
+                        self.number_of_sliver_extra_plus,
+                        self.wires_in_sliver_extra_plus, 'e+'
+                        )
+                )
+
+        if self.mark.cable_parameters.get('Тип') == 'Вспомогательный':
+            task.append(
+                MultivareTask(
+                    self, self.diameter, self.number_of_veins_support,
+                    self.number_of_strands_support,
+                    self.number_of_sliver_support,
+                    self.wires_in_sliver_support, 's'
+                    )
+                )
+            if self.number_of_sliver_extra_support:
+                task.append(
+                    MultivareTask(
+                        self, self.diameter, self.number_of_veins_support,
+                        self.number_of_strands_support,
+                        self.number_of_sliver_extra_support,
+                        self.wires_in_sliver_extra_support, 'es'
+                        )
+                )
+
+        return task
+
+    def __repr__(self) -> str:
+        return "{} | {} | {} | {} | {}".format(
+            self.account_number, self.mark.mark, self.mark.cable_parameters, self.release_date, self.order_length
+        )
+
+
+class TaskMeta(type):
+    """Метакласс для хранения всех экземпляров заданий на волочилку."""
+    _instances = weakref.WeakSet()
+
+    def __call__(cls, *args, **kwargs):
+        instance = super().__call__(*args, **kwargs)
+        cls._instances.add(instance)
+        return instance
+
+    @classmethod
+    def get_instances_by_type(cls, equipment_type):
+        """Возвращает все экземпляры заданий определенного типа оборудования."""
+        return [instance for instance in cls._instances if instance.equipment_type == equipment_type]
+
+
+class Task(metaclass=TaskMeta):
+    """
+    Базовый класс для задания на оборудование.
+    """
+    def __init__(self, order, equipment_type=None, part_type=''):
+        self.order = order
+        self.account_number = order.account_number  # Используем номер заказа из Order
+        self.part_type = part_type  # '', '+', 'support'
+        self.equipment_type = equipment_type  # Тип оборудования, назначается в генетическом алгоритме
+        self.equipment = None  # Конкретное оборудование будет подставлено позже
+        self.current_operation_index = 0  # Индекс текущей операции в цепочке
+
+    def next_operation(self):
+        """
+        Переход к следующей операции в цепочке.
+        """
+        if self.current_operation_index < len(self.order.operation_sequence) - 1:
+            self.current_operation_index += 1
+            return self.order.operation_sequence[self.current_operation_index]
+        return None  # Завершение операций
+
+    def assign_equipment(self, equipment):
+        if equipment.equipment_type == self.equipment_type:
+            self.equipment = equipment
+
+    @staticmethod
+    def assign_tasks_to_equipment(tasks, available_equipments):
+        """
+        Назначает оборудование для всех заданий, выбирая подходящее.
+        """
+        for task in tasks:
+            suitable_equipments = [eq for eq in available_equipments if eq.is_suitable(task.material, task.diameter)]
+            if suitable_equipments:
+                equipment = random.choice(suitable_equipments)
+                task.assign_equipment(equipment)
+
+    def __str__(self):
+        return f"{self.account_number}{self.part_type} | {self.equipment_type or 'Не назначено'}"
+
+
+class WireDrawingTask(Task):
+    """
+    Класс для заказов на волочение. Тут может быть либо обычный заказ, либо корзина состоящая из заказов на мультик.
+    """
+
+    # Переменная класса для подсчета индексов
+    def __init__(self, order, diameter, equipment_type):
+        super().__init__(order, equipment_type='wiredrawing')
+        if issubclass(Order, type(order)):
+            self.time_work = order.time_on_dragger
+            self.diameter = diameter
+        elif issubclass(Basket, type(order)):
+            self.time_work = WireDrawingMachine.W
+            self.diameter = MultivareMachine.d_mult
+
+        self.time_setup = 0
+        self.spin = self.counting_spinners()
+
+    def counting_spinners(self):
+        """
+        Находим в словаре фильер ближайшие значения к диаметру.
+        Если находим в справочнике значение фильеры, тогда количество = ключ
+        Если не находим, тогда ищем после какой фильеры нужно поставить еще одну количество = ключ + 1
+        """
+
+        # Определяет стандартные фильеры или нужна дополнительная
+        extra_spin = WireDrawingMachine.new_spinner_dict.get(self.diameter, 0)
+        return extra_spin if extra_spin else self.counting_extra_spin()
+
+        # Если extra_spin == 0, значит есть доп фильера
+        # Иначе количество фильер = self.extra_spin
+
+    def counting_extra_spin(self) -> int:
+        """
+        Находим в словаре фильер ближайшие значения к диаметру.
+        Если находим в справочнике значение фильеры, тогда количество = ключ
+        Если не находим, тогда ищем после какой фильеры нужно поставить еще одну количество = ключ + 1
+        :return: количество фильер
+        """
+        for k, v in sorted(WireDrawingMachine.spinner_dict.items()):
+            if self.diameter < k:
+                #  Рассчитывает количество фильер для заказа вместе с последней нестандартной фильерой
+                return v + 1
+
+    def __repr__(self):
+        if issubclass(Order, type(self.order)):
+            return '{} IDZak {}'.format(self.account_number, self.order.IDZak)
+        elif issubclass(Basket, type(self.order)):
+            return '{}'.format(self.order.__repr__())
+
+
+class MultivareTask(Task):
+    """
+    Задание на мультик хранит в переменной класса хранит все заказы в массиве, их можно будет найти по IDZak
+    """
+
+    def __init__(self, order, diameter, number_of_veins, number_of_strands, number_of_sliver, wires_in_sliver, type):
+        super().__init__(order, equipment_type='multivare')
+        # self.volume_bobbin = order.volume_bobbin
+        # 350 - Ограничение по массе барабана для гибкой жилы на 630 барабан
+        # 8.89 - Плотность меди
+        self.volume_bobbin = 350 / (pi * 0.25 * 8.89 * order.diameter ** 2 * max(order.wires_in_sliver, order.wires_in_sliver_extra))
+        self.IDZak = order.IDZak
+        self.account_number = order.account_number + type
+        self.diameter = diameter
+        self.number_of_sliver = number_of_sliver
+        self.wires_in_sliver = wires_in_sliver
+        self.number_of_veins = number_of_veins
+        self.number_of_strands = number_of_strands
+        self.group = ()
+        self.num_group = 0
+        self.spin = 0
+        self.total_weight_delays = 0
+        self.length_piece = 0
+        self.length_strands = 0
+        self.full_bobbin = ()
+        self.time_on_multivare = order.time_on_multivare
+        self.time_on_mult_1_basket = 0
+        self.__time_setup = 0
+        self.num_basket = 0
+        self.counting_spinners()
+        self.set_group()
+        self.calculating_length()
+
+    def set_group(self) -> None:
+        """
+        Устанавливаем группу и номер группы для заказа
+        """
+        key = (self.spin, self.number_of_sliver, self.wires_in_sliver, self.order.type_bobbin)
+
+        # группы без количества жил хз как там катушки меняются
+        # key = (self.spin, self.wires_in_sliver, self.order.type_bobbin)
+
+        if dict_key_group.get(key) is None:
+            dict_key_group[key] = len(dict_key_group)
+
+        self.group = key
+        self.num_group = dict_key_group[key]
+
+    def counting_spinners(self) -> None:
+        """
+        Находим в словаре фильер ближайшие значения к диаметру.
+        """
+
+        self.spin = MultivareMachine.dictionary_spinners[
+            min(MultivareMachine.dictionary_spinners, key=lambda x: abs(self.diameter - x))]
+
+    def calculating_length(self):
+        # суммарная длина проволочек
+
+        self.total_weight_delays = ((self.number_of_sliver * self.wires_in_sliver) * self.number_of_strands *
+                                    self.number_of_veins * self.order.order_length) * pi * 8.89 * (
+                                           self.diameter ** 2) * 0.25
+        self.length_piece = round(self.total_weight_delays * (self.diameter ** 2 / MultivareMachine.d_mult ** 2), 3)
+
+        # 0 - сколько корзин по 8 штук нужно, если заказ очень большой и требуется много корзин
+        # 1 - сколько корзин еще заполнится (набирается число до 8)
+        self.num_basket = (int(self.total_weight_delays * 1 / (
+                    pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET // 8),
+                           self.total_weight_delays * 1 / (
+                                       pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET % 8)
+        self.time_on_mult_1_basket = self.time_on_multivare / (self.num_basket[0] + self.num_basket[1])
+
+        # длина заказа в расчете на одну прядь (весь заказ это length_strands *
+        # (number_of_sliver + number_of_sliver_extra))
+        self.length_strands = round((self.order.order_length * self.number_of_veins * self.number_of_strands), 2)
+
+        # подсчет барабанов
+        self.calculating_bobbin()
+
+    def calculating_bobbin(self):
+        number_full_bobbin = self.length_strands // self.volume_bobbin  # количество полных катушек в расчете на 1 прядь
+        volume_half_bobbin = round(self.length_strands % self.volume_bobbin, 2)  # меди на неполной катушки на 1 прядь
+
+        self.full_bobbin = int(number_full_bobbin), volume_half_bobbin, int(int(number_full_bobbin) > 0)
+
+    @property
+    def time_setup(self):
+        return self.__time_setup
+
+    @time_setup.setter
+    def time_setup(self, value):
+        self.__time_setup = value
+
+    def __str__(self) -> str:
+        # return "{} | {} | {} | {} | {} | {} | {} | {} | {}".format(
+        #     self.id, self.account_number, self.num_group, self.order.release_date, self.length_strands, self.group,
+        #     self.full_bobbin, self.time_on_mult, self.order.time_on_streng
+        # )
+
+        return "{} | {} | {} | {}".format(
+            self.account_number, self.order.release_date, self.group,
+            self.full_bobbin, self.time_on_mult_1_basket
+        )
+
+    def __repr__(self):
+        return "'%s'" % self.account_number
+
+    def match(self, **kwargs):
+        return all(getattr(self, key) == val for (key, val) in kwargs.items())
+
+class Basket:
+    """
+    Корзина для подачи на мультик. Класс создается когда заказы с мультика израсходуют суммарно 8 корзин.
+    Класс передается в очередь на волочилку.
+    """
+
+    def __init__(self, orders=None, sum_basket=0):
+        """
+        Создание корзины. Когда будет несколько заказов в корзинах, тогда используются значения параметров по умолчанию.
+        Если один заказ тратит 8 корзин, тогда используются переданные параметры
+        :param orders: None, если много заказов. Не None, если 1 заказ
+        :param sum_basket: 0, если много заказов. 8, если 1 заказ
+        """
+        if orders is None:
+            orders = []
+        self.time_work = 0
+        self.orders: [MultivareTask] = orders
+        self.diameter = MultivareMachine.d_mult
+        self.len_basket = MultivareMachine.KM_IN_1_BASKET * 8
+        self.sum_basket = sum_basket
+        self.set_time_work()
+
+    def set_time_work(self):
+        """
+        Устанавливается время траты 8 корзин.
+        1. Если заказов 0, значит экземпляр корзины только что создан и будет набиваться заказами
+        2. Иначе заказ полностью тратит 8 корзин и время считается из его параметров без времени перенастройки, т.к. в таком случае уже будет заказ ранее, где учтено это время
+        :return: время, за которое потратится 8 корзин, если 0, тогда время будет увеличиваться по мере добавления заказов
+        """
+        if len(self.orders) == 0:
+            self.time_work = 0
+        else:
+            self.time_work = self.orders[0].time_on_mult_1_basket * self.sum_basket
+
+    def append(self, order: MultivareTask, num_basket=None, use_time_setup=True):
+        """
+        1. Если заказ полностью подходит по вместимости корзины, то берем время и длину из заказа
+        2. Если заказ не влазит в текущую корзину, то в одну корзину добавляем, что остается до восьми целых,
+        а в следующую все что осталось от этого заказа
+        :param use_time_setup: True когда заказ сидит только в одной корзине. False, когда заказ встречается уже во второй раз, чтобы не учитывать второй раз время перенастройки
+        :param order: Заказ на мультик
+        :param num_basket: None, если заказ полностью влез в корзину. Не None, если часть заказа будет в двух разны корзинах
+        :return:
+        """
+        self.orders.append(order)
+        if num_basket is None:
+            # Тут берем траты корзины из заказа
+            self.time_work += order.time_on_mult_1_basket * order.num_basket[1] + order.time_setup
+            self.sum_basket += order.num_basket[1]
+        else:
+            # Тут берем траты корзины из параметра
+            self.time_work += order.time_on_mult_1_basket * num_basket + (order.time_setup if use_time_setup else 0)
+            self.sum_basket += num_basket
+        # queue_multivare.find_order(account_number=order.account_number)
+
+    def __repr__(self):
+        return 'Корзина (Время работы заказов = {}ч. {}мин.; Длина {}): {}'.format(str(self.time_work // 60),
+                                                                                   str(round(
+                                                                                       self.time_work % 60,
+                                                                                       2)), self.sum_basket,
+                                                                                   self.orders.__repr__())

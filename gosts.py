@@ -190,3 +190,49 @@ def cable_decryption(self, result, gosts):
     for group in name_groups:
         if result.group(group) != '' and result.group(group) is not None:
             self.cable_Parameters[name_groups[group]] = result.group(group)
+
+class Mark:
+    """
+    Класс, описывающий марку кабеля, содержит расшифровку
+    """
+
+    def __init__(self, mark):
+        self.mark: str = mark
+        self.cable_parameters = {}
+        self.type_definition(mark)
+
+    def type_definition(self, mark):
+        """
+        Берем каждый гост из справочника и проверяем марку на каждый патерн.
+        После того как найдем подходящий гост вызываем cable_decryption, передаем найденный результат и гост
+        """
+        for gosts in GOSTS.keys():
+            res = re.search(GOSTS[gosts]['pattern'], mark, flags=0)
+
+            if res is not None:
+                self.cable_decryption(res, gosts)
+                break
+        # else:
+        # print(mark, 'не определена')
+
+    def cable_decryption(self, result, gosts):
+        """
+        Забираем из справочника гостов все параметры по совпавшему госту (gosts).
+        Затем выводим все параметры по совпавшим группам и записываем в справочник класса
+        """
+        name_groups = GOSTS[gosts]['param']
+
+        for group in name_groups:
+            if result.group(group) != '' and result.group(group) is not None:
+                self.cable_parameters[name_groups[group]] = result.group(group)
+
+        self.cable_parameters['Тип'] = self.set_type(self.mark)
+
+    @staticmethod
+    def set_type(mark: str):
+        if mark.count('+') == 0:
+            return 'Не плюсовой'
+        elif mark.count('+') == 1:
+            return 'Плюсовой'
+        else:
+            return 'Вспомогательный'
