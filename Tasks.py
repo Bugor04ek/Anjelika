@@ -219,8 +219,9 @@ class WireDrawingTask(Task):
     """
 
     # Переменная класса для подсчета индексов
-    def __init__(self, order, diameter, equipment_type):
+    def __init__(self, order, diameter, machine):
         super().__init__(order, equipment_type='wiredrawing')
+        self.machine = machine  # Передаем конкретную машину для доступа к фильтрующим словарям
         if issubclass(Order, type(order)):
             self.time_work = order.time_on_dragger
             self.diameter = diameter
@@ -229,7 +230,7 @@ class WireDrawingTask(Task):
             self.diameter = MultivareMachine.d_mult
 
         self.time_setup = 0
-        self.spin = self.counting_spinners()
+        self.spin = 0
 
     def counting_spinners(self):
         """
@@ -239,7 +240,9 @@ class WireDrawingTask(Task):
         """
 
         # Определяет стандартные фильеры или нужна дополнительная
-        extra_spin = WireDrawingMachine.new_spinner_dict.get(self.diameter, 0)
+        if not self.equipment:
+            return 0  # Оборудование не назначено
+        extra_spin = self.equipment.spinner_dict.get(self.diameter, 0)
         return extra_spin if extra_spin else self.counting_extra_spin()
 
         # Если extra_spin == 0, значит есть доп фильера
@@ -252,7 +255,7 @@ class WireDrawingTask(Task):
         Если не находим, тогда ищем после какой фильеры нужно поставить еще одну количество = ключ + 1
         :return: количество фильер
         """
-        for k, v in sorted(WireDrawingMachine.spinner_dict.items()):
+        for k, v in sorted(self.machine.spinner_dict.items()):
             if self.diameter < k:
                 #  Рассчитывает количество фильер для заказа вместе с последней нестандартной фильерой
                 return v + 1
@@ -373,6 +376,7 @@ class MultivareTask(Task):
 
     def match(self, **kwargs):
         return all(getattr(self, key) == val for (key, val) in kwargs.items())
+
 
 class Basket:
     """
