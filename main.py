@@ -1,6 +1,4 @@
-import Tasks  # Базовые константы и параметры для Order и Task
-from Equipments import WireDrawingMachine, MultivareMachine
-from Tasks import WireDrawingTask, MultivareTask
+from Tasks import WireDrawingTask, MultivareTask, Order, TaskMeta, OrderMeta
 import new_genetika  # Алгоритмы для генетической оптимизации
 
 import pandas as pd
@@ -14,22 +12,25 @@ def create_orders():
                                                           format='%d.%m.%Y').dt.date
     data = pd.DataFrame(excel_data).fillna(0)
 
-    return [Tasks.Order(row) for index, row in data.iterrows()]
+    return [Order(row) for index, row in data.iterrows()]
 
 
 def main():
-    # Начальная инициализация, создание экземпляров и задание параметров
-    orders = create_orders()  # функция для создания всех заказов
-    tasks = []
-    for order in orders:
-        # Инициализация заданий для каждого заказа
-        if 'WireDrawing' in order.operation_sequence:
-            tasks.append(WireDrawingTask(order))
-        if 'Multivare' in order.operation_sequence:
-            tasks.append(MultivareTask(order))
+    # Шаг 1: Инициализация заказов
+    create_orders()  # создаем заказы, хранятся в OrderMeta
 
-    # Запуск генетического алгоритма для распределения заданий
+    # Шаг 2: Получаем все заказы с использованием метакласса OrderMeta
+    orders = OrderMeta.get_all_instances()
+    print(f"Создано {len(orders)} заказов")
+
+    # Шаг 3: Получаем задания из экземпляров Order, например:
+    # tasks = [task for order in orders for task in order.task]
+    tasks = TaskMeta.get_instances_all()
+    print(*tasks, sep='\n')
+
+    # Шаг 4: Запуск генетического алгоритма с выбранными заданиями
     new_genetika.run(tasks)
+    print("Генетический алгоритм завершен")
 
 
 if __name__ == "__main__":

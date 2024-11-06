@@ -114,6 +114,7 @@ class MultivareMachine(metaclass=MachineMeta):
     STRETCHING_WIRE = 5  # протягивание пучка проволочек после всех фильер
     KM_IN_1_BASKET = 35  # КМ в 1 корзине
     KM_IN_8_BASKET = KM_IN_1_BASKET * 8  # КМ в 8 корзинах
+    KM_IN_16_BASKET = KM_IN_1_BASKET * 16  # КМ в 8 корзинах
 
     dictionary_spinners = {
         2.28: 1,
@@ -146,6 +147,8 @@ class MultivareMachine(metaclass=MachineMeta):
         self.name = name
         self.capacity = capacity
         self.supported_materials = supported_materials
+        # self.total_baskets = MultivareMachine.KM_IN_16_BASKET  # всего корзин
+        # self.remaining_basket_length = MultivareMachine.KM_IN_8_BASKET  # начальный запас длины для 8 корзин
 
     def is_suitable(self, material, quantity):
         return material in self.supported_materials and quantity <= self.capacity

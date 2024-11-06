@@ -2,10 +2,11 @@ import weakref
 from gosts import Mark
 import random
 from Equipments import MultivareMachine, WireDrawingMachine, Basket
+
 dict_key_group = {}
 
 pi = 3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095
-operation_sequence = ["wiredrawing", "multiwire", "rigidframe"]
+operation_sequence = ["wiredrawing", "multivare", "rigidframe"]
 
 
 class OrderMeta(type):
@@ -77,9 +78,9 @@ class Order(metaclass=OrderMeta):
 
         # Если заказ пойдет на мультик, то у него не должно быть задания на волочилку, т.к. для таких заказов заданием будет являться корзина
         if self.time_on_dragger and not self.time_on_multivare:
-            task['WireDrawing']: list = self.set_task_for_dragger()
+            task['wiredrawing']: list = self.set_task_for_dragger()
         if self.time_on_multivare:
-            task['Multivare']: list = self.set_task_for_multivare()
+            task['multivare']: list = self.set_task_for_multivare()
 
         return task
 
@@ -96,12 +97,11 @@ class Order(metaclass=OrderMeta):
 
         return task
 
-
     def set_task_for_multivare(self):
         task = [MultivareTask(
             self, self.diameter, self.number_of_veins, self.number_of_strands,
             self.number_of_sliver, self.wires_in_sliver, ''
-            )]
+        )]
         if self.number_of_sliver_extra:
             task.append(
                 MultivareTask(
@@ -118,8 +118,8 @@ class Order(metaclass=OrderMeta):
                     self.number_of_strands_plus,
                     self.number_of_sliver_plus,
                     self.wires_in_sliver_plus, '+'
-                    )
                 )
+            )
 
             if self.number_of_sliver_extra_plus:
                 task.append(
@@ -128,7 +128,7 @@ class Order(metaclass=OrderMeta):
                         self.number_of_strands_plus,
                         self.number_of_sliver_extra_plus,
                         self.wires_in_sliver_extra_plus, 'e+'
-                        )
+                    )
                 )
 
         if self.mark.cable_parameters.get('Тип') == 'Вспомогательный':
@@ -138,8 +138,8 @@ class Order(metaclass=OrderMeta):
                     self.number_of_strands_support,
                     self.number_of_sliver_support,
                     self.wires_in_sliver_support, 's'
-                    )
                 )
+            )
             if self.number_of_sliver_extra_support:
                 task.append(
                     MultivareTask(
@@ -147,7 +147,7 @@ class Order(metaclass=OrderMeta):
                         self.number_of_strands_support,
                         self.number_of_sliver_extra_support,
                         self.wires_in_sliver_extra_support, 'es'
-                        )
+                    )
                 )
 
         return task
@@ -172,17 +172,23 @@ class TaskMeta(type):
         """Возвращает все экземпляры заданий определенного типа оборудования."""
         return [instance for instance in cls._instances if instance.equipment_type == equipment_type]
 
+    @classmethod
+    def get_instances_all(cls):
+        """Возвращает все экземпляры заданий определенного типа оборудования."""
+        return [instance for instance in cls._instances]
+
 
 class Task(metaclass=TaskMeta):
     """
     Базовый класс для задания на оборудование.
     """
+
     def __init__(self, order, equipment_type=None, part_type=''):
         self.order = order
         self.account_number = order.account_number  # Используем номер заказа из Order
         self.part_type = part_type  # '', '+', 'support'
-        self.equipment_type = equipment_type  # Тип оборудования, назначается в генетическом алгоритме
-        self.equipment = None  # Конкретное оборудование будет подставлено позже
+        self.equipment_type = equipment_type  # Тип оборудования
+        self.equipment = None  # Конкретное оборудование, назначается в генетическом алгоритме
         self.current_operation_index = 0  # Индекс текущей операции в цепочке
 
     def next_operation(self):
@@ -219,9 +225,8 @@ class WireDrawingTask(Task):
     """
 
     # Переменная класса для подсчета индексов
-    def __init__(self, order, diameter, machine):
-        super().__init__(order, equipment_type='wiredrawing')
-        self.machine = machine  # Передаем конкретную машину для доступа к фильтрующим словарям
+    def __init__(self, order, diameter, part_type):
+        super().__init__(order, equipment_type='wiredrawing', part_type=part_type)
         if issubclass(Order, type(order)):
             self.time_work = order.time_on_dragger
             self.diameter = diameter
@@ -255,14 +260,14 @@ class WireDrawingTask(Task):
         Если не находим, тогда ищем после какой фильеры нужно поставить еще одну количество = ключ + 1
         :return: количество фильер
         """
-        for k, v in sorted(self.machine.spinner_dict.items()):
+        for k, v in sorted(self.equipment.spinner_dict.items()):
             if self.diameter < k:
                 #  Рассчитывает количество фильер для заказа вместе с последней нестандартной фильерой
                 return v + 1
 
     def __repr__(self):
         if issubclass(Order, type(self.order)):
-            return '{} IDZak {}'.format(self.account_number, self.order.IDZak)
+            return '{} IDZak {} -- {}'.format(self.account_number, self.order.IDZak, self.equipment_type)
         elif issubclass(Basket, type(self.order)):
             return '{}'.format(self.order.__repr__())
 
@@ -273,11 +278,12 @@ class MultivareTask(Task):
     """
 
     def __init__(self, order, diameter, number_of_veins, number_of_strands, number_of_sliver, wires_in_sliver, type):
-        super().__init__(order, equipment_type='multivare')
+        super().__init__(order, equipment_type='multivare', part_type=type)
         # self.volume_bobbin = order.volume_bobbin
         # 350 - Ограничение по массе барабана для гибкой жилы на 630 барабан
         # 8.89 - Плотность меди
-        self.volume_bobbin = 350 / (pi * 0.25 * 8.89 * order.diameter ** 2 * max(order.wires_in_sliver, order.wires_in_sliver_extra))
+        self.volume_bobbin = 350 / (
+                    pi * 0.25 * 8.89 * order.diameter ** 2 * max(order.wires_in_sliver, order.wires_in_sliver_extra))
         self.IDZak = order.IDZak
         self.account_number = order.account_number + type
         self.diameter = diameter
@@ -299,6 +305,7 @@ class MultivareTask(Task):
         self.counting_spinners()
         self.set_group()
         self.calculating_length()
+        self.use_basket_length()
 
     def set_group(self) -> None:
         """
@@ -333,11 +340,12 @@ class MultivareTask(Task):
 
         # 0 - сколько корзин по 8 штук нужно, если заказ очень большой и требуется много корзин
         # 1 - сколько корзин еще заполнится (набирается число до 8)
-        self.num_basket = (int(self.total_weight_delays * 1 / (
-                    pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET // 8),
-                           self.total_weight_delays * 1 / (
-                                       pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET % 8)
-        self.time_on_mult_1_basket = self.time_on_multivare / (self.num_basket[0] + self.num_basket[1])
+        # self.num_basket = (
+        #     int(self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET // 8),
+        #     self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET % 8
+        # )
+        self.num_basket = self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2)
+        self.time_on_mult_1_basket = self.time_on_multivare / self.num_basket#(self.num_basket[0] + self.num_basket[1])
 
         # длина заказа в расчете на одну прядь (весь заказ это length_strands *
         # (number_of_sliver + number_of_sliver_extra))
@@ -345,6 +353,32 @@ class MultivareTask(Task):
 
         # подсчет барабанов
         self.calculating_bobbin()
+
+    def use_basket_length(self):
+        """
+        Уменьшает текущий запас длины проволоки в корзинах на длину задания.
+        Создаёт задание на волочилку при необходимости пополнения корзин.
+        """
+        task_length = self.num_basket
+
+        if MultivareTask.remaining_basket_length < task_length:
+            # Рассчитываем необходимое пополнение корзин
+            needed_baskets = 8  # Заполняем на 8 корзин
+            self.create_wiredrawing_task_for_baskets(needed_baskets)
+
+            # Обновляем запас длины в корзинах
+            MultivareTask.remaining_basket_length = 8 * MultivareMachine.KM_IN_1_BASKET
+
+        # Уменьшаем оставшуюся длину на длину текущего задания
+        MultivareTask.remaining_basket_length -= task_length
+
+    @staticmethod
+    def create_wiredrawing_task_for_baskets(num_baskets):
+        """Создаёт задание на волочилку для пополнения заданного количества корзин."""
+        # Создаем заказ-заглушку для пополнения корзин
+        order = Order(IDZak="basket_refill", account_number="N/A", ...)
+        task = WireDrawingTask(order, basket_count=num_baskets)
+        print(f"Создано задание на пополнение {num_baskets} корзин для мультивайера.")
 
     def calculating_bobbin(self):
         number_full_bobbin = self.length_strands // self.volume_bobbin  # количество полных катушек в расчете на 1 прядь
@@ -360,16 +394,16 @@ class MultivareTask(Task):
     def time_setup(self, value):
         self.__time_setup = value
 
-    def __str__(self) -> str:
-        # return "{} | {} | {} | {} | {} | {} | {} | {} | {}".format(
-        #     self.id, self.account_number, self.num_group, self.order.release_date, self.length_strands, self.group,
-        #     self.full_bobbin, self.time_on_mult, self.order.time_on_streng
-        # )
-
-        return "{} | {} | {} | {}".format(
-            self.account_number, self.order.release_date, self.group,
-            self.full_bobbin, self.time_on_mult_1_basket
-        )
+    # def __str__(self) -> str:
+    #     # return "{} | {} | {} | {} | {} | {} | {} | {} | {}".format(
+    #     #     self.id, self.account_number, self.num_group, self.order.release_date, self.length_strands, self.group,
+    #     #     self.full_bobbin, self.time_on_mult, self.order.time_on_streng
+    #     # )
+    #
+    #     return "{} | {} | {} | {}".format(
+    #         self.account_number, self.order.release_date, self.group,
+    #         self.full_bobbin, self.time_on_mult_1_basket
+    #     )
 
     def __repr__(self):
         return "'%s'" % self.account_number

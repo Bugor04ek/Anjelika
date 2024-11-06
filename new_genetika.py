@@ -9,15 +9,16 @@ creator.create("Individual", dict, fitness=creator.FitnessMin)
 
 # Создание начальной популяции на основе заданий
 def generate_individual(tasks):
-    # Каждый индивид представляет собой распределение заданий на оборудование
+    """Создает индивида с распределением задач по оборудованию."""
     individual = {
         'multivare': [task for task in tasks if isinstance(task, Tasks.MultivareTask)],
-        'withdrawing': [task for task in tasks if isinstance(task, Tasks.WireDrawingTask)]
+        'wiredrawing': [task for task in tasks if isinstance(task, Tasks.WireDrawingTask)]
     }
-    return individual
+    return creator.Individual(individual)
 
 
 def initialize_population(toolbox, tasks, pop_size):
+    """Инициализирует популяцию на основе заданий."""
     toolbox.register("individual", tools.initIterate, creator.Individual, lambda: generate_individual(tasks))
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
     return toolbox.population(n=pop_size)
@@ -45,3 +46,7 @@ def evaluate_fitness(individual):
     multivare_time = sum(task.time_on_multivare for task in individual['multivare'])
     wiredrawing_time = sum(task.time_on_wiredrawing for task in individual['wiredrawing'])
     return multivare_time + wiredrawing_time,
+
+
+def run(tasks):
+    return None
