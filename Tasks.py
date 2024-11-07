@@ -89,10 +89,10 @@ class Order(metaclass=OrderMeta):
         Заводим Задание на волочилку и добавляем задание в очередь. Тут очередь будет еще не в оптимальном порядке
         :return:
         """
-        task = [WireDrawingTask(self, self.diameter, '')]
+        task = [WireDrawingTask(self, self.account_number, self.diameter, '')]
         if self.mark.cable_parameters.get('Тип') == 'Плюсовой':
             task.append(
-                WireDrawingTask(self, self.diameter_plus, '+')
+                WireDrawingTask(self, self.account_number, self.diameter_plus, '+')
             )
 
         return task
@@ -183,9 +183,9 @@ class Task(metaclass=TaskMeta):
     Базовый класс для задания на оборудование.
     """
 
-    def __init__(self, order, equipment_type=None, part_type=''):
+    def __init__(self, order, account_number, equipment_type=None, part_type=''):
         self.order = order
-        self.account_number = order.account_number  # Используем номер заказа из Order
+        self.account_number = account_number  # Используем номер заказа из Order
         self.part_type = part_type  # '', '+', 'support'
         self.equipment_type = equipment_type  # Тип оборудования
         self.equipment = None  # Конкретное оборудование, назначается в генетическом алгоритме
@@ -225,8 +225,8 @@ class WireDrawingTask(Task):
     """
 
     # Переменная класса для подсчета индексов
-    def __init__(self, order, diameter, part_type):
-        super().__init__(order, equipment_type='wiredrawing', part_type=part_type)
+    def __init__(self, order, account_number, diameter, part_type):
+        super().__init__(order, account_number=account_number, equipment_type='wiredrawing', part_type=part_type)
         if issubclass(Order, type(order)):
             self.time_work = order.time_on_dragger
             self.diameter = diameter
@@ -264,6 +264,14 @@ class WireDrawingTask(Task):
             if self.diameter < k:
                 #  Рассчитывает количество фильер для заказа вместе с последней нестандартной фильерой
                 return v + 1
+
+    @staticmethod
+    def create_basket_refill_task(num_baskets, equipment):
+        """Создаёт задание на пополнение корзин на волочилке для конкретного оборудования."""
+        refill_task = WireDrawingTask(order=None, account_number=None,  diameter=None, part_type=None)
+        refill_task.equipment = equipment
+
+        print(f"Создано задание на пополнение {num_baskets} корзин для {equipment.name}.")
 
     def __repr__(self):
         if issubclass(Order, type(self.order)):
@@ -305,7 +313,6 @@ class MultivareTask(Task):
         self.counting_spinners()
         self.set_group()
         self.calculating_length()
-        self.use_basket_length()
 
     def set_group(self) -> None:
         """
@@ -354,31 +361,12 @@ class MultivareTask(Task):
         # подсчет барабанов
         self.calculating_bobbin()
 
-    def use_basket_length(self):
-        """
-        Уменьшает текущий запас длины проволоки в корзинах на длину задания.
-        Создаёт задание на волочилку при необходимости пополнения корзин.
-        """
-        task_length = self.num_basket
-
-        if MultivareTask.remaining_basket_length < task_length:
-            # Рассчитываем необходимое пополнение корзин
-            needed_baskets = 8  # Заполняем на 8 корзин
-            self.create_wiredrawing_task_for_baskets(needed_baskets)
-
-            # Обновляем запас длины в корзинах
-            MultivareTask.remaining_basket_length = 8 * MultivareMachine.KM_IN_1_BASKET
-
-        # Уменьшаем оставшуюся длину на длину текущего задания
-        MultivareTask.remaining_basket_length -= task_length
-
-    @staticmethod
-    def create_wiredrawing_task_for_baskets(num_baskets):
-        """Создаёт задание на волочилку для пополнения заданного количества корзин."""
-        # Создаем заказ-заглушку для пополнения корзин
-        order = Order(IDZak="basket_refill", account_number="N/A", ...)
-        task = WireDrawingTask(order, basket_count=num_baskets)
-        print(f"Создано задание на пополнение {num_baskets} корзин для мультивайера.")
+    def update_basket_status(self, current_basket_count, equipment):
+        """Обновляет количество оставшихся корзин для мультика."""
+        if current_basket_count < self.num_basket:
+            # Подсчитываем, сколько еще корзин необходимо заполнить
+            needed_baskets = 8
+            WireDrawingTask.create_basket_refill_task(needed_baskets, equipment)
 
     def calculating_bobbin(self):
         number_full_bobbin = self.length_strands // self.volume_bobbin  # количество полных катушек в расчете на 1 прядь

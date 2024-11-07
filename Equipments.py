@@ -147,8 +147,8 @@ class MultivareMachine(metaclass=MachineMeta):
         self.name = name
         self.capacity = capacity
         self.supported_materials = supported_materials
-        # self.total_baskets = MultivareMachine.KM_IN_16_BASKET  # всего корзин
-        # self.remaining_basket_length = MultivareMachine.KM_IN_8_BASKET  # начальный запас длины для 8 корзин
+        self.total_baskets = MultivareMachine.KM_IN_16_BASKET  # всего корзин
+        self.remaining_basket_length = MultivareMachine.KM_IN_8_BASKET  # начальный запас длины для 8 корзин
 
     def is_suitable(self, material, quantity):
         return material in self.supported_materials and quantity <= self.capacity
