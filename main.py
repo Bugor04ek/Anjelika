@@ -1,3 +1,5 @@
+import json
+from datetime import datetime
 from Tasks import WireDrawingTask, MultivareTask, Order, TaskMeta, OrderMeta
 import new_genetika  # Алгоритмы для генетической оптимизации
 
@@ -6,13 +8,33 @@ import pandas as pd
 
 def create_orders():
 
-    file_name = 'excel/Заказы.xlsx'
-    excel_data = pd.read_excel(file_name, sheet_name="Лист5")
-    excel_data['Дата выпуска по заказу'] = pd.to_datetime(excel_data['Дата выпуска по заказу'],
-                                                          format='%d.%m.%Y').dt.date
-    data = pd.DataFrame(excel_data).fillna(0)
+    file_name = 'excel/Заказы.json'
 
-    return [Order(row) for index, row in data.iterrows()]
+    with open(file_name, 'r', encoding='utf-8') as file:
+        json_data = json.load(file)
+
+    orders = []
+    for item in json_data:
+        # Преобразование даты в формат datetime.date, если требуется
+        if 'ВремяНаВолочение' not in item:
+            continue
+
+        if 'ДатаВыпускаПоЗаказу' in item and item['ДатаВыпускаПоЗаказу']:
+            item['ДатаВыпускаПоЗаказу'] = datetime.strptime(item['ДатаВыпускаПоЗаказу'], '%d.%m.%Y %H:%M:%S').date()
+
+        # Создаем экземпляр Order для каждого заказа
+        orders.append(Order(item))
+
+    return orders
+    # file_name = 'excel/Заказы.xlsx'
+    # excel_data = pd.read_excel(file_name, sheet_name="Лист5")
+    # excel_data['Дата выпуска по заказу'] = pd.to_datetime(
+    #     excel_data['Дата выпуска по заказу'],
+    #     format='%d.%m.%Y'
+    #     ).dt.date
+    # data = pd.DataFrame(excel_data).fillna(0)
+    #
+    # return [Order(row) for index, row in data.iterrows()]
 
 
 def main():

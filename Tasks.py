@@ -32,42 +32,76 @@ class Order(metaclass=OrderMeta):
     """
 
     def __init__(self, row):
+        # self.IDZak = row['IDZak']
+        # self.account_number = row['Номер счета']
+        # self.mark = Mark(row['Марка заказа из ЕРП'])
+        # self.release_date = row['Дата выпуска по заказу']
+        # self.order_length = row['Количество километров в производство']
+        # self.number_of_veins = row['Количество жил']
+        # self.diameter = row['Диаметр проволоки (волочение), мм']
+        # self.number_of_strands = row['Количество стренг']
+        # self.number_of_sliver = row['Кол-во зарядных катушек на стренге']
+        # self.wires_in_sliver = row['Кол-во проволок на одной катушке']
+        # self.number_of_sliver_extra = row['КоличествоЗарядныхКатушекНаСтренгеДоп']
+        # self.wires_in_sliver_extra = row['КоличествоПроволокНаОднойКатушкеДоп']
+        # self.number_of_veins_plus = row['Количество жил плюсовой']
+        # self.diameter_plus = row['Диаметр проволоки плюсовой']
+        # self.number_of_strands_plus = row['Количество стренг плюсовой']
+        # self.number_of_sliver_plus = row['Количество зарядных катушек на стренге плюсовой']
+        # self.wires_in_sliver_plus = row['Количество проволок на одной катушке плюсовой']
+        # self.number_of_sliver_extra_plus = row['Количество зарядных катушек на стренге плюсовой доп']
+        # self.wires_in_sliver_extra_plus = row['КоличествоПроволокНаОднойКатушкеПлюсовойДоп']
+        # self.number_of_veins_support = row['Количество жил вспомогательный']
+        # self.diameter_support = row['Диаметр проволоки вспомогательный']
+        # self.number_of_strands_support = row['Количество стренг вспомогательный']
+        # self.number_of_sliver_support = row['Количество зарядных катушек на стренге вспомогательный']
+        # self.wires_in_sliver_support = row['Количество проволок на одной катушке вспомогательный']
+        # self.number_of_sliver_extra_support = row['Количество зарядных катушек на стренге вспомогательный доп']
+        # self.wires_in_sliver_extra_support = row['Количество проволок на одной катушке вспомогательный доп']
+        # self.type_bobbin = row['Вид барабана']
+        # self.volume_bobbin = row['Километраж масса VSДлина']
+        # self.time_on_dragger = row['Время на волочилке']
+        # self.time_on_multivare = row['Время на мультике']
+        # self.time_on_streng = row['Время на стренге']
+        # self.operation_sequence = []
+        # self.current_operation_index = 0  # Указатель на текущую операцию
+        # self.task = self.set_task()
+        self.time_on_multivare = None
+        self.time_on_dragger = None
         self.IDZak = row['IDZak']
-        self.account_number = row['Номер счета']
-        self.mark = Mark(row['Марка заказа из ЕРП'])
-        self.release_date = row['Дата выпуска по заказу']
-        self.order_length = row['Количество километров в производство']
-        self.number_of_veins = row['Количество жил']
-        self.diameter = row['Диаметр проволоки (волочение), мм']
-        self.number_of_strands = row['Количество стренг']
-        self.number_of_sliver = row['Кол-во зарядных катушек на стренге']
-        self.wires_in_sliver = row['Кол-во проволок на одной катушке']
+        self.account_number = row['НомерСчета']
+        self.mark = Mark(row['МаркаЗаказаИзЕРП'])
+        self.release_date = row['ДатаВыпускаПоЗаказу']
+        self.order_length = row['КоличествоКилометровВПроизводство']
+        self.number_of_veins = row['КоличествоЖил']
+        self.diameter = row['ДиаметрПроволоки']
+        self.number_of_strands = row['КоличествоСтренг']
+        self.number_of_sliver = row['КоличествоЗарядныхКатушекНаСтренге']
+        self.wires_in_sliver = row['КоличествоПроволокНаОднойКатушке']
         self.number_of_sliver_extra = row['КоличествоЗарядныхКатушекНаСтренгеДоп']
         self.wires_in_sliver_extra = row['КоличествоПроволокНаОднойКатушкеДоп']
-        self.number_of_veins_plus = row['Количество жил плюсовой']
-        self.diameter_plus = row['Диаметр проволоки плюсовой']
-        self.number_of_strands_plus = row['Количество стренг плюсовой']
-        self.number_of_sliver_plus = row['Количество зарядных катушек на стренге плюсовой']
-        self.wires_in_sliver_plus = row['Количество проволок на одной катушке плюсовой']
-        self.number_of_sliver_extra_plus = row['Количество зарядных катушек на стренге плюсовой доп']
+        self.number_of_veins_plus = row['КоличествоЖилПлюсовой']
+        self.diameter_plus = row['ДиаметрПроволокиПлюсовой']
+        self.number_of_strands_plus = row['КоличествоСтренгПлюсовой']
+        self.number_of_sliver_plus = row['КоличествоЗарядныхКатушекНаСтренгеПлюсовой']
+        self.wires_in_sliver_plus = row['КоличествоПроволокНаОднойКатушкеПлюсовой']
+        self.number_of_sliver_extra_plus = row['КоличествоЗарядныхКатушекНаСтренгеПлюсовойДоп']
         self.wires_in_sliver_extra_plus = row['КоличествоПроволокНаОднойКатушкеПлюсовойДоп']
-        self.number_of_veins_support = row['Количество жил вспомогательный']
-        self.diameter_support = row['Диаметр проволоки вспомогательный']
-        self.number_of_strands_support = row['Количество стренг вспомогательный']
-        self.number_of_sliver_support = row['Количество зарядных катушек на стренге вспомогательный']
-        self.wires_in_sliver_support = row['Количество проволок на одной катушке вспомогательный']
-        self.number_of_sliver_extra_support = row['Количество зарядных катушек на стренге вспомогательный доп']
-        self.wires_in_sliver_extra_support = row['Количество проволок на одной катушке вспомогательный доп']
-        self.type_bobbin = row['Вид барабана']
-        self.volume_bobbin = row['Километраж масса VSДлина']
-        self.time_on_dragger = row['Время на волочилке']
-        self.time_on_multivare = row['Время на мультике']
-        self.time_on_streng = row['Время на стренге']
-        self.operation_sequence = []
-        self.current_operation_index = 0  # Указатель на текущую операцию
-        self.task = self.set_task()
+        self.number_of_veins_support = row['КоличествоЖилВспомогательный']
+        self.diameter_support = row['ДиаметрПроволокиВспомогательный']
+        self.number_of_strands_support = row['КоличествоСтренгВспомогательный']
+        self.number_of_sliver_support = row['КоличествоЗарядныхКатушекНаСтренгеВспомогательный']
+        self.wires_in_sliver_support = row['КоличествоПроволокНаОднойКатушкеВспомогательный']
+        self.number_of_sliver_extra_support = row['КоличествоЗарядныхКатушекНаСтренгеВспомогательныйДоп']
+        self.wires_in_sliver_extra_support = row['КоличествоПроволокНаОднойКатушкеВспомогательныйДоп']
+        # self.type_bobbin = row['Вид барабана']
+        self.volume_bobbin = row['КилометражМассаVSДлина']
 
-    def set_task(self):
+        self.operation_sequence = row['ОперацииПоЗаказу']
+        self.current_operation_index = 0  # Указатель на текущую операцию
+        self.task = self.set_task(row)
+
+    def set_task(self, row):
         """
         Создаем задания на оборудования, разбивая кабель на несколько составляющих. Если в кабеле есть дополнительные жилы,
         то каждая дополнительная жила в задании будет восприниматься как отдельный заказ с аналогичным номером с добавлением
@@ -77,10 +111,21 @@ class Order(metaclass=OrderMeta):
         task = {}
 
         # Если заказ пойдет на мультик, то у него не должно быть задания на волочилку, т.к. для таких заказов заданием будет являться корзина
-        if self.time_on_dragger and not self.time_on_multivare:
+        if 'Волочение' in self.operation_sequence and not 'Волочение (мультивайер)' in self.operation_sequence:
+            self.time_on_dragger = row['ВремяНаВолочение']
             task['wiredrawing']: list = self.set_task_for_dragger()
-        if self.time_on_multivare:
+        if 'Волочение (мультивайер)' in self.operation_sequence:
+            self.time_on_multivare = row['ВремяНаВолочениемультивайер']
             task['multivare']: list = self.set_task_for_multivare()
+
+
+        # self.time_on_streng = row['ВремяНаСкруткастренги']
+
+
+        # if self.time_on_dragger and not self.time_on_multivare:
+        #     task['wiredrawing']: list = self.set_task_for_dragger()
+        # if self.time_on_multivare:
+        #     task['multivare']: list = self.set_task_for_multivare()
 
         return task
 
@@ -286,7 +331,7 @@ class MultivareTask(Task):
     """
 
     def __init__(self, order, diameter, number_of_veins, number_of_strands, number_of_sliver, wires_in_sliver, type):
-        super().__init__(order, equipment_type='multivare', part_type=type)
+        super().__init__(order, account_number=order.account_number, equipment_type='multivare', part_type=type)
         # self.volume_bobbin = order.volume_bobbin
         # 350 - Ограничение по массе барабана для гибкой жилы на 630 барабан
         # 8.89 - Плотность меди
@@ -311,7 +356,7 @@ class MultivareTask(Task):
         self.__time_setup = 0
         self.num_basket = 0
         self.counting_spinners()
-        self.set_group()
+        # self.set_group()
         self.calculating_length()
 
     def set_group(self) -> None:

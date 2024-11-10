@@ -41,11 +41,12 @@ class WireDrawingMachine(metaclass=MachineMeta):
         }
     }
 
-    def __init__(self, name, machine_type, supported_materials):
+    def __init__(self, name, machine_type, supported_materials, basket):
         self.name = name
         self.machine_type = machine_type.lower()
         self.supported_materials = supported_materials
         self.spinner_dict = WireDrawingMachine.get_spinner_dict(self.machine_type)
+        self.basket = basket
         self.spinner_dict = getattr(self, f"{self.machine_type}_spinner_dict")
         self.min_diameter = min(self.spinner_dict.keys())
         self.max_diameter = max(self.spinner_dict.keys())
