@@ -248,6 +248,9 @@ class Task(metaclass=TaskMeta):
     def assign_equipment(self, equipment):
         if equipment.equipment_type == self.equipment_type:
             self.equipment = equipment
+            # установить маршрут фильер
+            # если старая волочилка, то берем много маршрутов, если другая, то 1
+
 
     @staticmethod
     def assign_tasks_to_equipment(tasks, available_equipments):
@@ -280,7 +283,7 @@ class WireDrawingTask(Task):
             self.diameter = MultivareMachine.d_mult
 
         self.time_setup = 0
-        self.spin = 0
+        self.spin_roads = 0
 
     def counting_spinners(self):
         """
