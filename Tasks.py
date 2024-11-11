@@ -400,7 +400,7 @@ class MultivareTask(Task):
         #     self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET % 8
         # )
         self.num_basket = self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2)
-        self.time_on_mult_1_basket = self.time_on_multivare / self.num_basket#(self.num_basket[0] + self.num_basket[1])
+        self.time_on_mult_1_basket = self.time_on_multivare / self.num_basket  #(self.num_basket[0] + self.num_basket[1])
 
         # длина заказа в расчете на одну прядь (весь заказ это length_strands *
         # (number_of_sliver + number_of_sliver_extra))
