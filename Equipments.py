@@ -1,11 +1,19 @@
-import weakref
-import Tasks
+import json
 
+import weakref
+
+# Equipments.py
+from typing import List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from Tasks import MultivareTask
 
 class MachineMeta(type):
     """
     Метакласс для отслеживания всех созданных экземпляров.
     """
+    _instances: weakref.WeakSet
+
     def __init__(cls, name, bases, dct):
         super().__init__(name, bases, dct)
         cls._instances = weakref.WeakSet()
@@ -41,15 +49,17 @@ class WireDrawingMachine(metaclass=MachineMeta):
         }
     }
 
-    def __init__(self, name, machine_type, supported_materials, basket):
+    def __init__(self, name: str, machine_type: [''], supported_materials: [''], basket: bool, spinners_road: [], facts_diameter: []):
         self.name = name
-        self.machine_type = machine_type.lower()
+        self.machine_type = machine_type
         self.supported_materials = supported_materials
-        self.spinner_dict = WireDrawingMachine.get_spinner_dict(self.machine_type)
+        # self.spinner_dict = WireDrawingMachine.get_spinner_dict(self.machine_type)
         self.basket = basket
-        self.spinner_dict = getattr(self, f"{self.machine_type}_spinner_dict")
-        self.min_diameter = min(self.spinner_dict.keys())
-        self.max_diameter = max(self.spinner_dict.keys())
+        self.spinners_road = spinners_road
+        self.facts_diameter = facts_diameter
+        # self.spinner_dict = getattr(self, f"{self.machine_type}_spinner_dict")
+        # self.min_diameter = min(self.spinner_dict.keys())
+        # self.max_diameter = max(self.spinner_dict.keys())
 
     new_spinner_dict = {
         7: 1,
@@ -107,7 +117,6 @@ class WireDrawingMachine(metaclass=MachineMeta):
     def is_suitable(self, material, diameter):
         return material in self.supported_materials and self.min_diameter <= diameter <= self.max_diameter
 
-
     def calculate_setup_time(self, current_task, previous_task):
         """Расчет времени перенастройки между заданиями."""
         if not previous_task:
@@ -137,6 +146,9 @@ class WireDrawingMachine(metaclass=MachineMeta):
         if names is None:
             return list(cls._instances)
         return [instance for instance in cls._instances if instance.name in names]
+
+    def __repr__(self):
+        return f"WireDrawingMachine(name={self.name}, machine_type={self.machine_type})"
 
 
 class MultivareMachine(metaclass=MachineMeta):
@@ -177,12 +189,14 @@ class MultivareMachine(metaclass=MachineMeta):
     d_mult = 2.08
     pi = 3.141592653589793
 
-    def __init__(self, name, capacity, supported_materials):
+    def __init__(self, name, machine_type, supported_materials, total_baskets, remaining_basket_length, spinners_road):
         self.name = name
-        self.capacity = capacity
+        self.machine_type = machine_type
         self.supported_materials = supported_materials
-        self.total_baskets = MultivareMachine.KM_IN_16_BASKET  # всего корзин
-        self.remaining_basket_length = MultivareMachine.KM_IN_8_BASKET  # начальный запас длины для 8 корзин
+        self.total_baskets = total_baskets  # MultivareMachine.KM_IN_16_BASKET всего корзин
+        self.remaining_basket_length = remaining_basket_length  # MultivareMachine.KM_IN_8_BASKET  # начальный запас длины для 8 корзин
+        self.capacity = self.remaining_basket_length
+        self.spinners_road = spinners_road
 
     def is_suitable(self, material, quantity):
         return material in self.supported_materials and quantity <= self.capacity
@@ -192,6 +206,9 @@ class MultivareMachine(metaclass=MachineMeta):
         if names is None:
             return list(cls._instances)
         return [instance for instance in cls._instances if instance.name in names]
+
+    def __repr__(self):
+        return f"MultivareMachine(name={self.name}, machine_type={self.machine_type})"
 
 
 class Basket:
@@ -210,7 +227,7 @@ class Basket:
         if orders is None:
             orders = []
         self.time_work = 0
-        self.orders: ['Tasks.MultivareTask'] = orders
+        self.orders: ["Tasks.MultivareTask"] = orders
         self.diameter = MultivareMachine.d_mult
         self.len_basket = MultivareMachine.KM_IN_1_BASKET * 8
         self.sum_basket = sum_basket
@@ -228,7 +245,7 @@ class Basket:
         else:
             self.time_work = self.orders[0].time_on_mult_1_basket * self.sum_basket
 
-    def append(self, order: 'Tasks.MultivareTask', num_basket=None, use_time_setup=True):
+    def append(self, order: "Tasks.MultivareTask", num_basket=None, use_time_setup=True):
         """
         1. Если заказ полностью подходит по вместимости корзины, то берем время и длину из заказа
         2. Если заказ не влазит в текущую корзину, то в одну корзину добавляем, что остается до восьми целых,
@@ -250,8 +267,38 @@ class Basket:
         # queue_multivare.find_order(account_number=order.account_number)
 
     def __repr__(self):
-        return 'Корзина (Время работы заказов = {}ч. {}мин.; Длина {}): {}'.format(str(self.time_work // 60),
-                                                                                   str(round(
-                                                                                       self.time_work % 60,
-                                                                                       2)), self.sum_basket,
-                                                                                   self.orders.__repr__())
+        return 'Корзина (Время работы заказов = {}ч. {}мин.; Длина {}): {}'.format(
+            str(self.time_work // 60),
+            str(
+                round(
+                    self.time_work % 60,
+                    2
+                )
+            ), self.sum_basket,
+            self.orders.__repr__()
+            )
+
+
+# Функция для инициализации оборудования из JSON файлов
+def initialize_equipments():
+    equipments = []
+
+    # Загрузка данных из Draggers.json
+    with open("Оборудование/Draggers.json", "r", encoding="utf-8") as dragger_file:
+        dragger_data = json.load(dragger_file)
+        for name, data in dragger_data.items():
+            equipments.append(WireDrawingMachine(name, data['machine_type'], data['supported_materials'], data['basket'], data['spinners_road'], data.get('facts_diameter', [])))
+
+    # Загрузка данных из Multivare.json
+    with open("Оборудование/Multivare.json", "r", encoding="utf-8") as multivare_file:
+        multivare_data = json.load(multivare_file)
+        for name, data in multivare_data.items():
+            equipments.append(MultivareMachine(name, data['machine_type'], data['supported_materials'], data['total_baskets'], data['remaining_basket_length'], data['spinners_road']))
+
+    print(WireDrawingMachine.get_all_instances())
+    print(MultivareMachine.get_all_instances())
+
+
+if __name__ == "__main__":
+# Инициализация оборудования
+    initialize_equipments()

@@ -1,6 +1,8 @@
 import json
 from datetime import datetime
-from Tasks import WireDrawingTask, MultivareTask, Order, TaskMeta, OrderMeta
+
+from Equipments import initialize_equipments
+from Tasks import Order, TaskMeta, OrderMeta
 import new_genetika  # Алгоритмы для генетической оптимизации
 
 import pandas as pd
@@ -38,6 +40,9 @@ def create_orders():
 
 
 def main():
+    # Шаг 0: Заведение оборудований
+    initialize_equipments()
+
     # Шаг 1: Инициализация заказов
     create_orders()  # создаем заказы, хранятся в OrderMeta
 

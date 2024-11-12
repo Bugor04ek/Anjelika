@@ -252,7 +252,6 @@ class Task(metaclass=TaskMeta):
             # spin_road(self)
             # если старая волочилка, то берем много маршрутов, если другая, то 1
 
-
     @staticmethod
     def assign_tasks_to_equipment(tasks, available_equipments):
         """
