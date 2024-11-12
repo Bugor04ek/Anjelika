@@ -107,6 +107,7 @@ class WireDrawingMachine(metaclass=MachineMeta):
     def is_suitable(self, material, diameter):
         return material in self.supported_materials and self.min_diameter <= diameter <= self.max_diameter
 
+
     def calculate_setup_time(self, current_task, previous_task):
         """Расчет времени перенастройки между заданиями."""
         if not previous_task:

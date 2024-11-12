@@ -144,46 +144,46 @@
 #
 #         return routes
 #
-#     @staticmethod
-#     def calculate_setup_time_dragger(previous_order: TaskForDragger, order: TaskForDragger) -> float:
-#         """
-#         Создается матрица "расстояний"
-#         Считается время перенастройки оборудования для пары заказов и смены катушки
-#         Не учитывается добавление катушки, если она заполнена
-#         :param previous_order: предыдущий заказ
-#         :param order: текущий заказ
-#         :return: время настройки между двумя заказами
-#         """
-#
-#         total_setup_time = 0
-#
-#         if previous_order is not None:
-#
-#             change = False
-#
-#             """
-#                 1 ПРОВЕРКА -- Разность диаметров
-#             """
-#
-#             # больше фильер -> меньше диаметр
-#             if previous_order.spin > order.spin:
-#                 removed_spin = previous_order.spin - order.spin + 1  # снимаем фильеры +1, чтобы переставить ее в конец
-#                 total_setup_time += removed_spin * REMOVED_SPIN  # Время на снятие фильер
-#                 total_setup_time += INSERT_SPIN * 1  # Время на установку фильер
-#                 change = True
-#             # меньше фильер -> больше диаметр
-#             elif previous_order.spin < order.spin:
-#                 removed_spin = 1  # Всегда снимаем фильеру с конца волочилки, т.к. если фильер меньше, тогда последняя ставится всегда в конец волочилки
-#                 total_setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
-#                 total_setup_time += INSERT_SPIN * (order.spin - (
-#                         previous_order.spin - 1))  # время на установку фильер -1, потому что 1 уже снята
-#                 change = True
-#
-#             if change:
-#                 # Если было любое изменение, то надо сменить катушку
-#                 total_setup_time += CHANGE_BOBBIN  # Время на смену катушки
-#
-#         return total_setup_time
+    @staticmethod
+    def calculate_setup_time_dragger(previous_order: TaskForDragger, order: TaskForDragger) -> float:
+        """
+        Создается матрица "расстояний"
+        Считается время перенастройки оборудования для пары заказов и смены катушки
+        Не учитывается добавление катушки, если она заполнена
+        :param previous_order: предыдущий заказ
+        :param order: текущий заказ
+        :return: время настройки между двумя заказами
+        """
+
+        total_setup_time = 0
+
+        if previous_order is not None:
+
+            change = False
+
+            """
+                1 ПРОВЕРКА -- Разность диаметров
+            """
+
+            # больше фильер -> меньше диаметр
+            if previous_order.spin > order.spin:
+                removed_spin = previous_order.spin - order.spin + 1  # снимаем фильеры +1, чтобы переставить ее в конец
+                total_setup_time += removed_spin * REMOVED_SPIN  # Время на снятие фильер
+                total_setup_time += INSERT_SPIN * 1  # Время на установку фильер
+                change = True
+            # меньше фильер -> больше диаметр
+            elif previous_order.spin < order.spin:
+                removed_spin = 1  # Всегда снимаем фильеру с конца волочилки, т.к. если фильер меньше, тогда последняя ставится всегда в конец волочилки
+                total_setup_time += removed_spin * REMOVED_SPIN  # время на снятие фильер
+                total_setup_time += INSERT_SPIN * (order.spin - (
+                        previous_order.spin - 1))  # время на установку фильер -1, потому что 1 уже снята
+                change = True
+
+            if change:
+                # Если было любое изменение, то надо сменить катушку
+                total_setup_time += CHANGE_BOBBIN  # Время на смену катушки
+
+        return total_setup_time
 #
 #     @staticmethod
 #     def form_matrix_dragger(orders):

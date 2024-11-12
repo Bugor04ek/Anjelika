@@ -249,6 +249,7 @@ class Task(metaclass=TaskMeta):
         if equipment.equipment_type == self.equipment_type:
             self.equipment = equipment
             # установить маршрут фильер
+            # spin_road(self)
             # если старая волочилка, то берем много маршрутов, если другая, то 1
 
 
@@ -312,6 +313,13 @@ class WireDrawingTask(Task):
             if self.diameter < k:
                 #  Рассчитывает количество фильер для заказа вместе с последней нестандартной фильерой
                 return v + 1
+
+    def spin_road(self):
+        """
+        Находим в словаре фильер ближайшие значения к диаметру.
+        """
+        self.spin = self.equipment.spinner_dict[
+            min(self.equipment.spinner_dict, key=lambda x: abs(self.order.diameter - x))]
 
     @staticmethod
     def create_basket_refill_task(num_baskets, equipment):
