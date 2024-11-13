@@ -6,7 +6,7 @@ import weakref
 from typing import List, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from Tasks import MultivareTask, WireDrawingTask
+    from Tasks import MultivareTask, WireDrawingTask, Order
 
 
 class MachineMeta(type):
@@ -44,8 +44,10 @@ class WireDrawingMachine(metaclass=MachineMeta):
         self.min_diameter = min_diameter
         self.max_diameter = max_diameter
 
-    def is_suitable(self, task: WireDrawingTask):
-        return task.material in self.supported_materials and self.min_diameter <= task.diameter <= self.max_diameter
+    def is_suitable(self, task: "WireDrawingTask"):
+        return (task.material in self.supported_materials and
+                self.min_diameter <= task.diameter <= self.max_diameter and
+                (not isinstance(task.order, Basket) or (isinstance(task.order, Basket) and self.basket)))
 
     def calculate_setup_time(self, current_task, previous_task):
         """Расчет времени перенастройки между заданиями."""
@@ -128,8 +130,9 @@ class MultivareMachine(metaclass=MachineMeta):
         self.capacity = self.remaining_basket_length
         self.spinners_road = spinners_road
 
-    def is_suitable(self, material, quantity):
-        return material in self.supported_materials and quantity <= self.capacity
+    def is_suitable(self, task):
+        return True
+        # return material in self.supported_materials and quantity <= self.capacity
 
     @classmethod
     def get_all_instances(cls, names=None):
@@ -217,7 +220,8 @@ def initialize_equipments():
     with open("Оборудование/Draggers.json", "r", encoding="utf-8") as dragger_file:
         dragger_data = json.load(dragger_file)
         for name, data in dragger_data.items():
-            equipments.append(WireDrawingMachine(name, data['machine_type'], data['supported_materials'], data['basket'], data['spinners_road'], data.get('facts_diameter', [])))
+            equipments.append(WireDrawingMachine(name, data['machine_type'], data['supported_materials'], data['basket'],
+                                                 data['spinners_road'], data.get('facts_diameter', []), data['min_diameter'], data['max_diameter']))
 
     # Загрузка данных из Multivare.json
     with open("Оборудование/Multivare.json", "r", encoding="utf-8") as multivare_file:
@@ -225,8 +229,9 @@ def initialize_equipments():
         for name, data in multivare_data.items():
             equipments.append(MultivareMachine(name, data['machine_type'], data['supported_materials'], data['total_baskets'], data['remaining_basket_length'], data['spinners_road']))
 
-    print(WireDrawingMachine.get_all_instances())
-    print(MultivareMachine.get_all_instances())
+    return equipments
+    # print(WireDrawingMachine.get_all_instances())
+    # print(MultivareMachine.get_all_instances())
 
 
 if __name__ == "__main__":

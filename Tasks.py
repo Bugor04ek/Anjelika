@@ -34,14 +34,14 @@ class Order(metaclass=OrderMeta):
     def __init__(self, row):
         self.time_on_multivare = None
         self.time_on_dragger = None
-        self.IDZak = row['IDZak']
+        self.IDZak = row['IDZakaza']
         self.account_number = row['НомерСчета']
         self.mark = Mark(row['МаркаЗаказаИзЕРП'])
         self.release_date = row['ДатаВыпускаПоЗаказу']
         self.order_length = row['КоличествоКилометровВПроизводство']
         self.number_of_veins = row['КоличествоЖил']
         self.diameter = row['ДиаметрПроволоки']
-        self.diameter = row['Волока']
+        self.voloka = row['Волока']
         self.number_of_strands = row['КоличествоСтренг']
         self.number_of_sliver = row['КоличествоЗарядныхКатушекНаСтренге']
         self.wires_in_sliver = row['КоличествоПроволокНаОднойКатушке']
@@ -63,7 +63,7 @@ class Order(metaclass=OrderMeta):
         self.wires_in_sliver_extra_support = row['КоличествоПроволокНаОднойКатушкеВспомогательныйДоп']
         # self.type_bobbin = row['Вид барабана']
         self.volume_bobbin = row['КилометражМассаVSДлина']
-        self.material = 'al' if self.mark.mark[0] == 'A' else 'cu'
+        self.material = 'al' if self.mark.mark[0] in ['А', 'A'] else 'cu'
         self.operation_sequence = row['ОперацииПоЗаказу']
         self.current_operation_index = 0  # Указатель на текущую операцию
         self.task = self.set_task(row)
@@ -85,9 +85,7 @@ class Order(metaclass=OrderMeta):
             self.time_on_multivare = row['ВремяНаВолочениемультивайер']
             task['multivare']: list = self.set_task_for_multivare()
 
-
         # self.time_on_streng = row['ВремяНаСкруткастренги']
-
 
         # if self.time_on_dragger and not self.time_on_multivare:
         #     task['wiredrawing']: list = self.set_task_for_dragger()
@@ -101,7 +99,7 @@ class Order(metaclass=OrderMeta):
         Заводим Задание на волочилку и добавляем задание в очередь. Тут очередь будет еще не в оптимальном порядке
         :return:
         """
-        task = [WireDrawingTask(self, self.account_number, self.diameter, '')]
+        task = [WireDrawingTask(self, self.account_number, self.voloka, '')]
         if self.mark.cable_parameters.get('Тип') == 'Плюсовой':
             task.append(
                 WireDrawingTask(self, self.account_number, self.diameter_plus, '+')
@@ -213,7 +211,7 @@ class Task(metaclass=TaskMeta):
         return None  # Завершение операций
 
     def assign_equipment(self, equipment):
-        if equipment.equipment_type == self.equipment_type:
+        if self.equipment_type in equipment.machine_type:
             self.equipment = equipment
             # установить маршрут фильер
             # spin_road(self)
@@ -299,9 +297,9 @@ class WireDrawingTask(Task):
 
     def __repr__(self):
         if issubclass(Order, type(self.order)):
-            return '{} IDZak {} -- {}'.format(self.account_number, self.order.IDZak, self.equipment_type)
+            return '{} {} -- {} \n'.format(self.account_number, self.order.mark.mark, self.equipment)
         elif issubclass(Basket, type(self.order)):
-            return '{}'.format(self.order.__repr__())
+            return '{}\n'.format(self.order.__repr__())
 
 
 class MultivareTask(Task):
@@ -418,7 +416,7 @@ class MultivareTask(Task):
     #     )
 
     def __repr__(self):
-        return "'%s'" % self.account_number
+        return '{} {} -- {} \n'.format(self.account_number, self.order.mark.mark, self.equipment)
 
     def match(self, **kwargs):
         return all(getattr(self, key) == val for (key, val) in kwargs.items())

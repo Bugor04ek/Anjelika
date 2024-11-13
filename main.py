@@ -2,11 +2,13 @@ import json
 from datetime import datetime
 
 import Equipments
-from Equipments import initialize_equipments
-from Tasks import Order, TaskMeta, OrderMeta, Task
+from Equipments import initialize_equipments, MultivareMachine
+from Tasks import Order, TaskMeta, OrderMeta, Task, WireDrawingMachine
 import new_genetika  # Алгоритмы для генетической оптимизации
 
 import pandas as pd
+
+equipments = []
 
 
 def create_orders():
@@ -42,7 +44,8 @@ def create_orders():
 
 def main():
     # Шаг 0: Заведение оборудований
-    initialize_equipments()
+    global equipments
+    equipments = initialize_equipments()
 
     # Шаг 1: Инициализация заказов
     create_orders()  # создаем заказы, хранятся в OrderMeta
@@ -53,11 +56,14 @@ def main():
 
     # Шаг 3: Получаем задания из экземпляров Order, например:
     # tasks = [task for order in orders for task in order.task]
-    tasks_draggers = TaskMeta.get_instances_by_type('wiredrawing')
+    tasks_drawing = TaskMeta.get_instances_by_type('wiredrawing')
+    tasks_multivare = TaskMeta.get_instances_by_type('multivare')
     # print(*tasks_draggers, sep='\n')
 
-    Task.assign_tasks_to_equipment(tasks_draggers, available_equipments=Equipments.MachineMeta)
-
+    Task.assign_tasks_to_equipment(tasks_drawing, available_equipments=WireDrawingMachine.get_all_instances())
+    Task.assign_tasks_to_equipment(tasks_multivare, available_equipments=MultivareMachine.get_all_instances())
+    print(TaskMeta.get_instances_all())
+    # print(TaskMeta.get_instances_by_type('multivare'))
     # Шаг 4: Запуск генетического алгоритма с выбранными заданиями
     # new_genetika.run(tasks)
     # print("Генетический алгоритм завершен")

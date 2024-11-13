@@ -10,7 +10,7 @@ df = pd.read_excel(file_path, sheet_name=sheet_name, engine="openpyxl")
 routes = {}
 
 for _, row in df.iterrows():
-    final_diameter = str(row["Фактический диаметр"]).replace(",", ".")  # Итоговый диаметр как ключ
+    final_diameter = str(row["13"]).replace(",", ".")  # Итоговый диаметр как ключ
     filter_chain = []
 
     # Создаем маршрут с фильерами, пропуская пустые значения и заменяя запятые на точки
