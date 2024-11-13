@@ -32,40 +32,6 @@ class Order(metaclass=OrderMeta):
     """
 
     def __init__(self, row):
-        # self.IDZak = row['IDZak']
-        # self.account_number = row['Номер счета']
-        # self.mark = Mark(row['Марка заказа из ЕРП'])
-        # self.release_date = row['Дата выпуска по заказу']
-        # self.order_length = row['Количество километров в производство']
-        # self.number_of_veins = row['Количество жил']
-        # self.diameter = row['Диаметр проволоки (волочение), мм']
-        # self.number_of_strands = row['Количество стренг']
-        # self.number_of_sliver = row['Кол-во зарядных катушек на стренге']
-        # self.wires_in_sliver = row['Кол-во проволок на одной катушке']
-        # self.number_of_sliver_extra = row['КоличествоЗарядныхКатушекНаСтренгеДоп']
-        # self.wires_in_sliver_extra = row['КоличествоПроволокНаОднойКатушкеДоп']
-        # self.number_of_veins_plus = row['Количество жил плюсовой']
-        # self.diameter_plus = row['Диаметр проволоки плюсовой']
-        # self.number_of_strands_plus = row['Количество стренг плюсовой']
-        # self.number_of_sliver_plus = row['Количество зарядных катушек на стренге плюсовой']
-        # self.wires_in_sliver_plus = row['Количество проволок на одной катушке плюсовой']
-        # self.number_of_sliver_extra_plus = row['Количество зарядных катушек на стренге плюсовой доп']
-        # self.wires_in_sliver_extra_plus = row['КоличествоПроволокНаОднойКатушкеПлюсовойДоп']
-        # self.number_of_veins_support = row['Количество жил вспомогательный']
-        # self.diameter_support = row['Диаметр проволоки вспомогательный']
-        # self.number_of_strands_support = row['Количество стренг вспомогательный']
-        # self.number_of_sliver_support = row['Количество зарядных катушек на стренге вспомогательный']
-        # self.wires_in_sliver_support = row['Количество проволок на одной катушке вспомогательный']
-        # self.number_of_sliver_extra_support = row['Количество зарядных катушек на стренге вспомогательный доп']
-        # self.wires_in_sliver_extra_support = row['Количество проволок на одной катушке вспомогательный доп']
-        # self.type_bobbin = row['Вид барабана']
-        # self.volume_bobbin = row['Километраж масса VSДлина']
-        # self.time_on_dragger = row['Время на волочилке']
-        # self.time_on_multivare = row['Время на мультике']
-        # self.time_on_streng = row['Время на стренге']
-        # self.operation_sequence = []
-        # self.current_operation_index = 0  # Указатель на текущую операцию
-        # self.task = self.set_task()
         self.time_on_multivare = None
         self.time_on_dragger = None
         self.IDZak = row['IDZak']
@@ -75,6 +41,7 @@ class Order(metaclass=OrderMeta):
         self.order_length = row['КоличествоКилометровВПроизводство']
         self.number_of_veins = row['КоличествоЖил']
         self.diameter = row['ДиаметрПроволоки']
+        self.diameter = row['Волока']
         self.number_of_strands = row['КоличествоСтренг']
         self.number_of_sliver = row['КоличествоЗарядныхКатушекНаСтренге']
         self.wires_in_sliver = row['КоличествоПроволокНаОднойКатушке']
@@ -96,7 +63,7 @@ class Order(metaclass=OrderMeta):
         self.wires_in_sliver_extra_support = row['КоличествоПроволокНаОднойКатушкеВспомогательныйДоп']
         # self.type_bobbin = row['Вид барабана']
         self.volume_bobbin = row['КилометражМассаVSДлина']
-
+        self.material = 'al' if self.mark.mark[0] == 'A' else 'cu'
         self.operation_sequence = row['ОперацииПоЗаказу']
         self.current_operation_index = 0  # Указатель на текущую операцию
         self.task = self.set_task(row)
@@ -258,7 +225,7 @@ class Task(metaclass=TaskMeta):
         Назначает оборудование для всех заданий, выбирая подходящее.
         """
         for task in tasks:
-            suitable_equipments = [eq for eq in available_equipments if eq.is_suitable(task.material, task.diameter)]
+            suitable_equipments = [eq for eq in available_equipments if eq.is_suitable(task)]
             if suitable_equipments:
                 equipment = random.choice(suitable_equipments)
                 task.assign_equipment(equipment)
@@ -276,11 +243,13 @@ class WireDrawingTask(Task):
     def __init__(self, order, account_number, diameter, part_type):
         super().__init__(order, account_number=account_number, equipment_type='wiredrawing', part_type=part_type)
         if issubclass(Order, type(order)):
+            self.material = order.material
             self.time_work = order.time_on_dragger
             self.diameter = diameter
         elif issubclass(Basket, type(order)):
             self.time_work = WireDrawingMachine.W
             self.diameter = MultivareMachine.d_mult
+            self.material = 'cu'
 
         self.time_setup = 0
         self.spin_roads = 0

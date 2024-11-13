@@ -3,13 +3,17 @@
         "supported_materials": ["al"],
         "machine_type": ["wiredrawing"],
         "basket": false,
-        "spinners_road": [9, 8.15, 7.05, 6.15, 5.39, 4.72, 4.14, 3.64, 3.20, 2.80, 2.48, 2.20, 1.93, 1.70]
+        "spinners_road": [9, 8.15, 7.05, 6.15, 5.39, 4.72, 4.14, 3.64, 3.20, 2.80, 2.48, 2.20, 1.93, 1.70],
+        "min_diameter": 1.70,
+        "max_diameter": 4.54
     },
     "new": {
         "supported_materials": ["cu"],
         "machine_type": ["wiredrawing"],
         "basket": true,
-        "spinners_road": [7, 5.75, 4.8, 4.03, 3.43, 2.95, 2.56, 2.25, 1.99, 1.78, 1.58, 1.41, 1.35, 1.25]
+        "spinners_road": [7, 5.75, 4.8, 4.03, 3.43, 2.95, 2.56, 2.25, 1.99, 1.78, 1.58, 1.41, 1.35, 1.25],
+        "min_diameter": 1.37,
+        "max_diameter": 4.54
     },
     "old": {
         "supported_materials": ["cu"],
@@ -1290,8 +1294,8 @@
             5.86,
             5.15,
             4.5,
-            2.0,
-            3.4,
+            3.96,
+            3.36,
             2.95,
             2.55,
             2.2
@@ -1782,6 +1786,8 @@
             2.89
             ]
             ]
-            ]
+            ],
+        "min_diameter": 1.15,
+        "max_diameter": 2.89
     }
 }

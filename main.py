@@ -1,8 +1,9 @@
 import json
 from datetime import datetime
 
+import Equipments
 from Equipments import initialize_equipments
-from Tasks import Order, TaskMeta, OrderMeta
+from Tasks import Order, TaskMeta, OrderMeta, Task
 import new_genetika  # Алгоритмы для генетической оптимизации
 
 import pandas as pd
@@ -17,10 +18,10 @@ def create_orders():
 
     orders = []
     for item in json_data:
-        # Преобразование даты в формат datetime.date, если требуется
         if 'ВремяНаВолочение' not in item:
             continue
 
+        # Преобразование даты в формат datetime.date, если требуется
         if 'ДатаВыпускаПоЗаказу' in item and item['ДатаВыпускаПоЗаказу']:
             item['ДатаВыпускаПоЗаказу'] = datetime.strptime(item['ДатаВыпускаПоЗаказу'], '%d.%m.%Y %H:%M:%S').date()
 
@@ -52,12 +53,14 @@ def main():
 
     # Шаг 3: Получаем задания из экземпляров Order, например:
     # tasks = [task for order in orders for task in order.task]
-    tasks = TaskMeta.get_instances_all()
-    print(*tasks, sep='\n')
+    tasks_draggers = TaskMeta.get_instances_by_type('wiredrawing')
+    # print(*tasks_draggers, sep='\n')
+
+    Task.assign_tasks_to_equipment(tasks_draggers, available_equipments=Equipments.MachineMeta)
 
     # Шаг 4: Запуск генетического алгоритма с выбранными заданиями
-    new_genetika.run(tasks)
-    print("Генетический алгоритм завершен")
+    # new_genetika.run(tasks)
+    # print("Генетический алгоритм завершен")
 
 
 if __name__ == "__main__":
