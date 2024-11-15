@@ -46,32 +46,8 @@ class WireDrawingMachine(metaclass=MachineMeta):
 
     def is_suitable(self, task: "WireDrawingTask"):
         return (task.material in self.supported_materials and
-                self.min_diameter <= task.diameter <= self.max_diameter and
+                self.min_diameter <= task.voloka <= self.max_diameter and
                 (not isinstance(task.order, Basket) or (isinstance(task.order, Basket) and self.basket)))
-
-    def calculate_setup_time(self, current_task, previous_task):
-        """Расчет времени перенастройки между заданиями."""
-        if not previous_task:
-            return 0
-
-        setup_time = 0
-        change = False
-
-        if previous_task.spinner_count > current_task.spinner_count:
-            removed_spin = previous_task.spinner_count - current_task.spinner_count + 1
-            setup_time += removed_spin * self.REMOVED_SPIN
-            setup_time += self.INSERT_SPIN
-            change = True
-        elif previous_task.spinner_count < current_task.spinner_count:
-            removed_spin = 1
-            setup_time += removed_spin * self.REMOVED_SPIN
-            setup_time += self.INSERT_SPIN * (current_task.spinner_count - (previous_task.spinner_count - 1))
-            change = True
-
-        if change:
-            setup_time += self.CHANGE_BOBBIN
-
-        return setup_time
 
     @classmethod
     def get_all_instances(cls, names=None):
