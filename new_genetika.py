@@ -49,4 +49,4 @@ def evaluate_fitness(individual):
 
 
 def run(tasks):
-    return None
+    run_genetic_algorithm(tasks)

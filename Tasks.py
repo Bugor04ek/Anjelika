@@ -230,6 +230,21 @@ class Task(metaclass=TaskMeta):
                 equipment = random.choice(suitable_equipments)
                 task.assign_equipment(equipment)
 
+    @staticmethod
+    def form_matrix_multivare(tasks):
+        """
+        Функция для создания матрицы времени перенастроек мультика
+        :param orders: неупорядоченный список заказов на мультик
+        :return: матрица времени перенастроек
+        """
+        temp_matrix1 = []
+        for order1 in tasks:
+            temp_matrix2 = []
+            for order2 in tasks:
+                temp_matrix2.append(order1.calculate_setup_time(order1, order2))
+            temp_matrix1.append(temp_matrix2)
+        return temp_matrix1
+
     def __str__(self):
         return f"{self.account_number}{self.part_type} | {self.equipment_type or 'Не назначено'}"
 
@@ -255,28 +270,13 @@ class WireDrawingTask(Task):
         self.time_setup = 0
         self.spin_road = []
 
-    def counting_spinners(self):
-        """
-        Находим в словаре фильер ближайшие значения к диаметру.
-        Если находим в справочнике значение фильеры, тогда количество = ключ
-        Если не находим, тогда ищем после какой фильеры нужно поставить еще одну количество = ключ + 1
-        """
-
-        # Определяет стандартные фильеры или нужна дополнительная
-        if not self.equipment:
-            return 0  # Оборудование не назначено
-        extra_spin = self.equipment.spinner_dict.get(self.diameter, 0)
-        return extra_spin if extra_spin else self.counting_extra_spin()
-
-        # Если extra_spin == 0, значит есть доп фильера
-        # Иначе количество фильер = self.extra_spin
 
     def assign_equipment(self, equipment):
         if self.equipment_type in equipment.machine_type:
             self.equipment = equipment
             self.set_spin_road()
 
-    def set_spin_road(self) -> int:
+    def set_spin_road(self):
         """
         Находим в словаре фильер ближайшие значения к диаметру.
         Если находим в справочнике значение фильеры, тогда количество = ключ
@@ -330,7 +330,7 @@ class WireDrawingTask(Task):
 
             # вставляем волоки с текущего задания
             spin_in = len(current_task.spin_road) - diff_spin
-            self.comment_setup = 'вставить {} волок ({});'.format(spin_in, current_task.spin_road[-spin_in:])
+            self.comment_setup += 'вставить {} волок ({});'.format(spin_in, current_task.spin_road[-spin_in:])
             setup_time = spin_in * MultivareMachine.CHANGE_WIRE + spin_out * MultivareMachine.INSERT_SPIN
 
             setup_time += MultivareMachine.CHANGE_BOBBIN
@@ -356,18 +356,18 @@ class WireDrawingTask(Task):
 
                     # вставляем волоки с текущего задания
                     spin_in = len(road1) - diff_spin
-                    self.comment_setup = 'вставить {} волок ({});'.format(len(road1), road1)
+                    self.comment_setup += 'вставить {} волок ({});'.format(len(road1), road1)
                     setup_time = spin_in * MultivareMachine.CHANGE_WIRE + len(road1) * MultivareMachine.INSERT_SPIN
 
                     best_road[tuple(road1)] = setup_time
                 else:
                     spin_out = len(road2) - diff_spin
-                    self.comment_setup = 'снять {} волок ({});'.format(spin_out, road2[-spin_out:])
+                    self.comment_setup += 'снять {} волок ({});'.format(spin_out, road2[-spin_out:])
                     setup_time = spin_out * MultivareMachine.CHANGE_WIRE + spin_out * MultivareMachine.REMOVED_SPIN
 
                     # вставляем волоки с текущего задания
                     spin_in = len(road1) - diff_spin
-                    self.comment_setup = 'вставить {} волок ({});'.format(spin_in, road1[-spin_in:])
+                    self.comment_setup += 'вставить {} волок ({});'.format(spin_in, road1[-spin_in:])
                     setup_time = spin_in * MultivareMachine.CHANGE_WIRE + spin_in * MultivareMachine.INSERT_SPIN
 
                     best_road[tuple(road1)] = setup_time
@@ -417,7 +417,7 @@ class MultivareTask(Task):
         self.number_of_strands = number_of_strands
         self.group = ()
         self.num_group = 0
-        self.spin = 0
+        self.spin_road = []
         self.total_weight_delays = 0
         self.length_piece = 0
         self.length_strands = 0
@@ -469,7 +469,7 @@ class MultivareTask(Task):
         # )
         self.num_basket = self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2)
         self.time_on_mult_1_basket = self.time_on_multivare / self.num_basket  #(self.num_basket[0] + self.num_basket[1])
-
+        self.update_basket_status()
         # длина заказа в расчете на одну прядь (весь заказ это length_strands *
         # (number_of_sliver + number_of_sliver_extra))
         self.length_strands = round((self.order.order_length * self.number_of_veins * self.number_of_strands), 2)
@@ -489,6 +489,55 @@ class MultivareTask(Task):
         volume_half_bobbin = round(self.length_strands % self.volume_bobbin, 2)  # меди на неполной катушки на 1 прядь
 
         self.full_bobbin = int(number_full_bobbin), volume_half_bobbin, int(int(number_full_bobbin) > 0)
+
+    def calculate_setup_time(self, current_task: "MultivareTask", previous_task: "MultivareTask"):
+        """
+        Функция для расчета времени перенастройки между заказами мультика.
+        Считается время перенастройки и смены катушки между заказами
+        Не учитывается добавление катушки, если она заполнена
+        ??? После определения оптимального варианта будет пересчет через чеклист мультика
+        :param current_task:
+        :param previous_task:
+        :return:
+        """
+
+        total_setup_time = 0
+
+        if previous_task is not None:
+            """
+                1 ПРОВЕРКА -- Разность диаметров
+            """
+
+            # меньше диаметр - больше фильер
+            if previous_task.spin_road > previous_task.spin:
+                removed_spin = previous_task.spin - current_task.spin + 1  # снимаем фильеры +1, чтобы переставить ее в конец
+                total_setup_time += removed_spin * MultivareMachine.REMOVED_SPIN  # Время на снятие фильер
+                total_setup_time += MultivareMachine.INSERT_SPIN * current_task.wires_in_sliver  # Время на установку фильер
+            # больше диаметр - меньше фильер
+            elif previous_task.spin < current_task.spin:
+                removed_spin = 1  # снимаем последнюю
+                total_setup_time += removed_spin * MultivareMachine.REMOVED_SPIN  # время на снятие фильер
+                total_setup_time += MultivareMachine.INSERT_SPIN * (
+                        current_task.spin - (
+                        previous_task.spin - 1)) * current_task.wires_in_sliver  # время на установку фильер +1, потому 1 уже снята tt
+
+            """
+                2 ПРОВЕРКА -- Разность проволочек
+            """
+
+            dif_wire = abs(current_task.wires_in_sliver - previous_task.wires_in_sliver)
+
+            if previous_task.wires_in_sliver < current_task.wires_in_sliver:
+                # Надо протянуть новые проволочки через все фильеры на новом заказе
+                total_setup_time += dif_wire * current_task.spin * MultivareMachine.CHANGE_WIRE + MultivareMachine.STRETCHING_WIRE
+            elif previous_task.wires_in_sliver > current_task.wires_in_sliver:
+                # Надо снять проволочки со всех фильер previous_order
+                total_setup_time += dif_wire * previous_task.spin * MultivareMachine.CHANGE_WIRE
+
+            #после каждого заказа будет смена заказа
+            total_setup_time += MultivareMachine.CHANGE_BOBBIN  # Время на смену катушки
+
+        return total_setup_time
 
     @property
     def time_setup(self):

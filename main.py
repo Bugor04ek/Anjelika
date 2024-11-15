@@ -65,8 +65,8 @@ def main():
     print(TaskMeta.get_instances_all())
     # print(TaskMeta.get_instances_by_type('multivare'))
     # Шаг 4: Запуск генетического алгоритма с выбранными заданиями
-    # new_genetika.run(tasks)
-    # print("Генетический алгоритм завершен")
+    new_genetika.run(Task.get_instances_all())
+    print("Генетический алгоритм завершен")
 
 
 if __name__ == "__main__":
