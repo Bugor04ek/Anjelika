@@ -1,4 +1,6 @@
 import weakref
+from typing import Any
+
 from gosts import Mark
 import random
 from Equipments import MultivareMachine, WireDrawingMachine, Basket
@@ -214,7 +216,7 @@ class Task(metaclass=TaskMeta):
         if self.equipment_type in equipment.machine_type:
             self.equipment = equipment
             # установить маршрут фильер
-            # spin_road(self)
+            # self.spin_road(self)
             # если старая волочилка, то берем много маршрутов, если другая, то 1
 
     @staticmethod
@@ -243,14 +245,15 @@ class WireDrawingTask(Task):
         if issubclass(Order, type(order)):
             self.material = order.material
             self.time_work = order.time_on_dragger
-            self.diameter = diameter
+            self.voloka = diameter
         elif issubclass(Basket, type(order)):
             self.time_work = WireDrawingMachine.W
-            self.diameter = MultivareMachine.d_mult
+            self.voloka = MultivareMachine.d_mult
             self.material = 'cu'
 
+        self.comment_setup = ''
         self.time_setup = 0
-        self.spin_roads = 0
+        self.spin_road = []
 
     def counting_spinners(self):
         """
@@ -268,29 +271,120 @@ class WireDrawingTask(Task):
         # Если extra_spin == 0, значит есть доп фильера
         # Иначе количество фильер = self.extra_spin
 
-    def counting_extra_spin(self) -> int:
+    def assign_equipment(self, equipment):
+        if self.equipment_type in equipment.machine_type:
+            self.equipment = equipment
+            self.set_spin_road()
+
+    def set_spin_road(self) -> int:
         """
         Находим в словаре фильер ближайшие значения к диаметру.
         Если находим в справочнике значение фильеры, тогда количество = ключ
         Если не находим, тогда ищем после какой фильеры нужно поставить еще одну количество = ключ + 1
         :return: количество фильер
         """
-        for k, v in sorted(self.equipment.spinner_dict.items()):
-            if self.diameter < k:
-                #  Рассчитывает количество фильер для заказа вместе с последней нестандартной фильерой
-                return v + 1
+        # маршрут записанный из ключевых волок, последняя волока -- минимально возможный диаметр
+        roads = self.equipment.spinners_road
+        if self.equipment.name != 'old':
+            # на новой и алюминиевой волочилке будет один маршрут
+            for i, voloka in enumerate(roads):
+                if self.voloka >= voloka:
+                    # меняем волоку на большую и меняем маршрут
+                    self.spin_road = self.equipment.spinners_road[:i]
+                    while i != len(roads) - 1:
+                        self.spin_road.append(0)
+                        i += 1
+                    self.spin_road.append(self.voloka)
+                    break
+        else:
+            # на старой волочилке может быть много маршрутов
+            for road in roads:
+                if self.voloka == road[0][-1]:
+                    self.spin_road = road
 
-    def spin_road(self):
-        """
-        Находим в словаре фильер ближайшие значения к диаметру.
-        """
-        self.spin = self.equipment.spinner_dict[
-            min(self.equipment.spinner_dict, key=lambda x: abs(self.order.diameter - x))]
+    def calculate_setup_time(self, current_task: "WireDrawingTask", previous_task: "WireDrawingTask"):
+        """Расчет времени перенастройки между заданиями."""
+        if not previous_task and self.equipment.name != 'old':
+            return 0
+        else:
+            # заглушка, чтобы был маршрут на первом задание, чтобы можно было считать время
+            self.spin_road = random.choice(self.spin_road)
+
+        setup_time = 0
+
+        if self.equipment.name != 'old':
+            # проходим по маршрутам и ищем, где начинается расхождение, чтобы после этой фильеры обрезать проволочку и снять все фильеры
+            for i in range(min(len(current_task.spin_road), len(previous_task.spin_road))):
+                if current_task.spin_road[i] != previous_task.spin_road[i]:
+                    # разница уникальных волок в маршруте
+                    diff_spin = i
+                    break
+            else:
+                # если одинаковые волоки
+                return setup_time
+
+            # снимаем фильеры с предыдущего задания
+            spin_out = len(previous_task.spin_road) - diff_spin  # это всегда будет 1 волока
+            self.comment_setup = 'снять {} волок ({});'.format(spin_out, previous_task.spin_road[-spin_out:])
+            setup_time = spin_out * MultivareMachine.CHANGE_WIRE + spin_out * MultivareMachine.REMOVED_SPIN
+
+            # вставляем волоки с текущего задания
+            spin_in = len(current_task.spin_road) - diff_spin
+            self.comment_setup = 'вставить {} волок ({});'.format(spin_in, current_task.spin_road[-spin_in:])
+            setup_time = spin_in * MultivareMachine.CHANGE_WIRE + spin_out * MultivareMachine.INSERT_SPIN
+
+            setup_time += MultivareMachine.CHANGE_BOBBIN
+
+        else:
+            best_road = {}
+            best_time = 0
+            for road1 in current_task.spin_road:
+                road2 = previous_task.spin_road
+                for i in range(min(len(road1), len(road2))):
+                    if current_task.spin_road[i] != previous_task.spin_road[i]:
+                        # разница уникальных волок в маршруте
+                        diff_spin = i
+                        break
+                    else:
+                        continue
+
+                # снимаем фильеры с предыдущего задания
+                if len(road1) != len(road2):
+                    spin_out = len(road2) - diff_spin
+                    self.comment_setup = 'снять {} волок ({});'.format(len(road2), road2)
+                    setup_time = spin_out * MultivareMachine.CHANGE_WIRE + len(road2) * MultivareMachine.REMOVED_SPIN
+
+                    # вставляем волоки с текущего задания
+                    spin_in = len(road1) - diff_spin
+                    self.comment_setup = 'вставить {} волок ({});'.format(len(road1), road1)
+                    setup_time = spin_in * MultivareMachine.CHANGE_WIRE + len(road1) * MultivareMachine.INSERT_SPIN
+
+                    best_road[tuple(road1)] = setup_time
+                else:
+                    spin_out = len(road2) - diff_spin
+                    self.comment_setup = 'снять {} волок ({});'.format(spin_out, road2[-spin_out:])
+                    setup_time = spin_out * MultivareMachine.CHANGE_WIRE + spin_out * MultivareMachine.REMOVED_SPIN
+
+                    # вставляем волоки с текущего задания
+                    spin_in = len(road1) - diff_spin
+                    self.comment_setup = 'вставить {} волок ({});'.format(spin_in, road1[-spin_in:])
+                    setup_time = spin_in * MultivareMachine.CHANGE_WIRE + spin_in * MultivareMachine.INSERT_SPIN
+
+                    best_road[tuple(road1)] = setup_time
+
+                setup_time = 0
+            else:
+                self.spin_road = sorted(best_road.items(), key=lambda x: x[1])[0][0]
+                setup_time = sorted(best_road.items(), key=lambda x: x[1])[0][1]
+
+        self.time_setup = setup_time
+
+        return setup_time
 
     @staticmethod
     def create_basket_refill_task(num_baskets, equipment):
         """Создаёт задание на пополнение корзин на волочилке для конкретного оборудования."""
-        refill_task = WireDrawingTask(order=None, account_number=None,  diameter=None, part_type=None)
+        refill_task = WireDrawingTask(order=None, account_number=None, diameter=None, part_type=None)
         refill_task.equipment = equipment
 
         print(f"Создано задание на пополнение {num_baskets} корзин для {equipment.name}.")
@@ -313,7 +407,7 @@ class MultivareTask(Task):
         # 350 - Ограничение по массе барабана для гибкой жилы на 630 барабан
         # 8.89 - Плотность меди
         self.volume_bobbin = 350 / (
-                    pi * 0.25 * 8.89 * order.diameter ** 2 * max(order.wires_in_sliver, order.wires_in_sliver_extra))
+                pi * 0.25 * 8.89 * order.diameter ** 2 * max(order.wires_in_sliver, order.wires_in_sliver_extra))
         self.IDZak = order.IDZak
         self.account_number = order.account_number + type
         self.diameter = diameter
@@ -478,8 +572,13 @@ class Basket:
         # queue_multivare.find_order(account_number=order.account_number)
 
     def __repr__(self):
-        return 'Корзина (Время работы заказов = {}ч. {}мин.; Длина {}): {}'.format(str(self.time_work // 60),
-                                                                                   str(round(
-                                                                                       self.time_work % 60,
-                                                                                       2)), self.sum_basket,
-                                                                                   self.orders.__repr__())
+        return 'Корзина (Время работы заказов = {}ч. {}мин.; Длина {}): {}'.format(
+            str(self.time_work // 60),
+            str(
+                round(
+                    self.time_work % 60,
+                    2
+                )
+            ), self.sum_basket,
+            self.orders.__repr__()
+        )
