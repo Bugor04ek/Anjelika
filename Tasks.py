@@ -270,7 +270,6 @@ class WireDrawingTask(Task):
         self.time_setup = 0
         self.spin_road = []
 
-
     def assign_equipment(self, equipment):
         if self.equipment_type in equipment.machine_type:
             self.equipment = equipment
@@ -337,7 +336,6 @@ class WireDrawingTask(Task):
 
         else:
             best_road = {}
-            best_time = 0
             for road1 in current_task.spin_road:
                 road2 = previous_task.spin_road
                 for i in range(min(len(road1), len(road2))):
@@ -469,7 +467,13 @@ class MultivareTask(Task):
         # )
         self.num_basket = self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2)
         self.time_on_mult_1_basket = self.time_on_multivare / self.num_basket  #(self.num_basket[0] + self.num_basket[1])
-        self.update_basket_status()
+
+        # Пока у нас не назначено оборудование просто создаем класс корзины и считаем длину.
+        # Не записываем ни оборудование, ни список заказов
+        if self.equipment is None:
+            Basket()
+            # self.update_basket_status()
+
         # длина заказа в расчете на одну прядь (весь заказ это length_strands *
         # (number_of_sliver + number_of_sliver_extra))
         self.length_strands = round((self.order.order_length * self.number_of_veins * self.number_of_strands), 2)
@@ -565,7 +569,7 @@ class MultivareTask(Task):
         return all(getattr(self, key) == val for (key, val) in kwargs.items())
 
 
-class Basket:
+class Basket(metaclass=OrderMeta):
     """
     Корзина для подачи на мультик. Класс создается когда заказы с мультика израсходуют суммарно 8 корзин.
     Класс передается в очередь на волочилку.
@@ -623,11 +627,7 @@ class Basket:
     def __repr__(self):
         return 'Корзина (Время работы заказов = {}ч. {}мин.; Длина {}): {}'.format(
             str(self.time_work // 60),
-            str(
-                round(
-                    self.time_work % 60,
-                    2
-                )
-            ), self.sum_basket,
+            str(round(self.time_work % 60, 2)),
+            self.sum_basket,
             self.orders.__repr__()
         )

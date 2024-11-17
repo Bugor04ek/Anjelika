@@ -33,14 +33,14 @@ class WireDrawingMachine(metaclass=MachineMeta):
     STRETCHING_WIRE = 5  # протягивание проволочки в отжиге
     W = 12 * 60  # время изготовления 8 корзин
 
-    def __init__(self, name: str, machine_type: [''], supported_materials: [''], basket: bool, spinners_road: [], facts_diameter: [],
+    def __init__(self, name: str, machine_type: [''], supported_materials: [''], basket: bool, spinners_road: [],
                  min_diameter, max_diameter):
         self.name = name
         self.machine_type = machine_type
         self.supported_materials = supported_materials
         self.basket = basket
         self.spinners_road = spinners_road
-        self.facts_diameter = facts_diameter
+        # self.facts_diameter = facts_diameter
         self.min_diameter = min_diameter
         self.max_diameter = max_diameter
 
@@ -197,7 +197,7 @@ def initialize_equipments():
         dragger_data = json.load(dragger_file)
         for name, data in dragger_data.items():
             equipments.append(WireDrawingMachine(name, data['machine_type'], data['supported_materials'], data['basket'],
-                                                 data['spinners_road'], data.get('facts_diameter', []), data['min_diameter'], data['max_diameter']))
+                                                 data['spinners_road'], data['min_diameter'], data['max_diameter']))
 
     # Загрузка данных из Multivare.json
     with open("Оборудование/Multivare.json", "r", encoding="utf-8") as multivare_file:
