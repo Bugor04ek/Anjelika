@@ -3,7 +3,7 @@ from typing import Any
 
 from gosts import Mark
 import random
-from Equipments import MultivareMachine, WireDrawingMachine, Basket
+from Equipments import MultivareMachine, WireDrawingMachine
 
 dict_key_group = {}
 
@@ -34,8 +34,8 @@ class Order(metaclass=OrderMeta):
     """
 
     def __init__(self, row):
+        self.time_on_drawing = None
         self.time_on_multivare = None
-        self.time_on_dragger = None
         self.IDZak = row['IDZakaza']
         self.account_number = row['НомерСчета']
         self.mark = Mark(row['МаркаЗаказаИзЕРП'])
@@ -81,7 +81,7 @@ class Order(metaclass=OrderMeta):
 
         # Если заказ пойдет на мультик, то у него не должно быть задания на волочилку, т.к. для таких заказов заданием будет являться корзина
         if 'Волочение' in self.operation_sequence and not 'Волочение (мультивайер)' in self.operation_sequence:
-            self.time_on_dragger = row['ВремяНаВолочение']
+            self.time_on_drawing = row['ВремяНаВолочение']
             task['wiredrawing']: list = self.set_task_for_dragger()
         if 'Волочение (мультивайер)' in self.operation_sequence:
             self.time_on_multivare = row['ВремяНаВолочениемультивайер']
@@ -101,10 +101,10 @@ class Order(metaclass=OrderMeta):
         Заводим Задание на волочилку и добавляем задание в очередь. Тут очередь будет еще не в оптимальном порядке
         :return:
         """
-        task = [WireDrawingTask(self, self.account_number, self.voloka, '')]
+        task = [WireDrawingTask(self, self.account_number, self.voloka, '', self.time_on_drawing)]
         if self.mark.cable_parameters.get('Тип') == 'Плюсовой':
             task.append(
-                WireDrawingTask(self, self.account_number, self.diameter_plus, '+')
+                WireDrawingTask(self, self.account_number, self.diameter_plus, '+', self.time_on_drawing)
             )
 
         return task
@@ -112,14 +112,14 @@ class Order(metaclass=OrderMeta):
     def set_task_for_multivare(self):
         task = [MultivareTask(
             self, self.diameter, self.number_of_veins, self.number_of_strands,
-            self.number_of_sliver, self.wires_in_sliver, ''
+            self.number_of_sliver, self.wires_in_sliver, '', self.time_on_multivare
         )]
         if self.number_of_sliver_extra:
             task.append(
                 MultivareTask(
                     self, self.diameter, self.number_of_veins, self.wires_in_sliver_extra,
                     self.number_of_sliver_extra,
-                    self.wires_in_sliver_extra, 'e'
+                    self.wires_in_sliver_extra, 'e', self.time_on_multivare
                 )
             )
 
@@ -129,7 +129,7 @@ class Order(metaclass=OrderMeta):
                     self, self.diameter_plus, self.number_of_veins_plus,
                     self.number_of_strands_plus,
                     self.number_of_sliver_plus,
-                    self.wires_in_sliver_plus, '+'
+                    self.wires_in_sliver_plus, '+', self.time_on_multivare
                 )
             )
 
@@ -139,7 +139,7 @@ class Order(metaclass=OrderMeta):
                         self, self.diameter_plus, self.number_of_veins_plus,
                         self.number_of_strands_plus,
                         self.number_of_sliver_extra_plus,
-                        self.wires_in_sliver_extra_plus, 'e+'
+                        self.wires_in_sliver_extra_plus, 'e+', self.time_on_multivare
                     )
                 )
 
@@ -149,7 +149,7 @@ class Order(metaclass=OrderMeta):
                     self, self.diameter, self.number_of_veins_support,
                     self.number_of_strands_support,
                     self.number_of_sliver_support,
-                    self.wires_in_sliver_support, 's'
+                    self.wires_in_sliver_support, 's', self.time_on_multivare
                 )
             )
             if self.number_of_sliver_extra_support:
@@ -158,7 +158,7 @@ class Order(metaclass=OrderMeta):
                         self, self.diameter, self.number_of_veins_support,
                         self.number_of_strands_support,
                         self.number_of_sliver_extra_support,
-                        self.wires_in_sliver_extra_support, 'es'
+                        self.wires_in_sliver_extra_support, 'es', self.time_on_multivare
                     )
                 )
 
@@ -195,12 +195,13 @@ class Task(metaclass=TaskMeta):
     Базовый класс для задания на оборудование.
     """
 
-    def __init__(self, order, account_number, equipment_type=None, part_type=''):
+    def __init__(self, order, account_number, time_work, equipment_type=None, part_type=''):
+        self.part_type = part_type  # '', '+', 'support'
         self.order = order
         self.account_number = account_number  # Используем номер заказа из Order
-        self.part_type = part_type  # '', '+', 'support'
         self.equipment_type = equipment_type  # Тип оборудования
         self.equipment = None  # Конкретное оборудование, назначается в генетическом алгоритме
+        self.time_work = time_work
         self.current_operation_index = 0  # Индекс текущей операции в цепочке
 
     def next_operation(self):
@@ -255,14 +256,14 @@ class WireDrawingTask(Task):
     """
 
     # Переменная класса для подсчета индексов
-    def __init__(self, order, account_number, diameter, part_type):
-        super().__init__(order, account_number=account_number, equipment_type='wiredrawing', part_type=part_type)
+    def __init__(self, order, account_number, diameter, part_type, time_work):
+        super().__init__(order, account_number=account_number, equipment_type='wiredrawing', part_type=part_type, time_work=time_work)
         if issubclass(Order, type(order)):
             self.material = order.material
-            self.time_work = order.time_on_dragger
+            # self.time_work = order.time_on_dragger
             self.voloka = diameter
         elif issubclass(Basket, type(order)):
-            self.time_work = WireDrawingMachine.W
+            # self.time_work = WireDrawingMachine.W
             self.voloka = MultivareMachine.d_mult
             self.material = 'cu'
 
@@ -399,8 +400,8 @@ class MultivareTask(Task):
     Задание на мультик хранит в переменной класса хранит все заказы в массиве, их можно будет найти по IDZak
     """
 
-    def __init__(self, order, diameter, number_of_veins, number_of_strands, number_of_sliver, wires_in_sliver, type):
-        super().__init__(order, account_number=order.account_number, equipment_type='multivare', part_type=type)
+    def __init__(self, order, diameter, number_of_veins, number_of_strands, number_of_sliver, wires_in_sliver, type, time_work):
+        super().__init__(order, account_number=order.account_number, equipment_type='multivare', part_type=type, time_work=time_work)
         # self.volume_bobbin = order.volume_bobbin
         # 350 - Ограничение по массе барабана для гибкой жилы на 630 барабан
         # 8.89 - Плотность меди
@@ -470,8 +471,9 @@ class MultivareTask(Task):
 
         # Пока у нас не назначено оборудование просто создаем класс корзины и считаем длину.
         # Не записываем ни оборудование, ни список заказов
+        basket = None
         if self.equipment is None:
-            Basket()
+            basket = Basket()
             # self.update_basket_status()
 
         # длина заказа в расчете на одну прядь (весь заказ это length_strands *
@@ -569,7 +571,7 @@ class MultivareTask(Task):
         return all(getattr(self, key) == val for (key, val) in kwargs.items())
 
 
-class Basket(metaclass=OrderMeta):
+class Basket(Task):
     """
     Корзина для подачи на мультик. Класс создается когда заказы с мультика израсходуют суммарно 8 корзин.
     Класс передается в очередь на волочилку.
@@ -582,10 +584,13 @@ class Basket(metaclass=OrderMeta):
         :param orders: None, если много заказов. Не None, если 1 заказ
         :param sum_basket: 0, если много заказов. 8, если 1 заказ
         """
+        super().__init__(self, account_number=None, equipment_type='wiredrawing', part_type=None, time_work=0)
         if orders is None:
             orders = []
         self.time_work = 0
         self.orders: [MultivareTask] = orders
+        self.material = 'cu'
+        self.voloka = MultivareMachine.d_mult
         self.diameter = MultivareMachine.d_mult
         self.len_basket = MultivareMachine.KM_IN_1_BASKET * 8
         self.sum_basket = sum_basket
@@ -625,7 +630,7 @@ class Basket(metaclass=OrderMeta):
         # queue_multivare.find_order(account_number=order.account_number)
 
     def __repr__(self):
-        return 'Корзина (Время работы заказов = {}ч. {}мин.; Длина {}): {}'.format(
+        return 'Корзина (Время работы заказов = {}ч. {}мин.; Длина {}): {} \n'.format(
             str(self.time_work // 60),
             str(round(self.time_work % 60, 2)),
             self.sum_basket,

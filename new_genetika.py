@@ -43,8 +43,8 @@ def run_genetic_algorithm(tasks, pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
 
 # Функция оценки приспособленности — для вычисления общего времени выполнения задач
 def evaluate_fitness(individual):
-    multivare_time = sum(task.time_on_multivare for task in individual['multivare'])
-    wiredrawing_time = sum(task.time_on_wiredrawing for task in individual['wiredrawing'])
+    multivare_time = sum(task.time_work for task in individual['multivare'])
+    wiredrawing_time = sum(task.time_work for task in individual['wiredrawing'])
     return multivare_time + wiredrawing_time,
 
 

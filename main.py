@@ -62,7 +62,7 @@ def main():
 
     Task.assign_tasks_to_equipment(tasks_drawing, available_equipments=WireDrawingMachine.get_all_instances())
     Task.assign_tasks_to_equipment(tasks_multivare, available_equipments=MultivareMachine.get_all_instances())
-    print(TaskMeta.get_instances_all())
+    print(TaskMeta.get_instances_by_type('wiredrawing'))
     # print(TaskMeta.get_instances_by_type('multivare'))
     # Шаг 4: Запуск генетического алгоритма с выбранными заданиями
     new_genetika.run(Task.get_instances_all())
