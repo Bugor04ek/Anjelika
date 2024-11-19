@@ -467,7 +467,7 @@ class MultivareTask(Task):
         #     self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET % 8
         # )
         self.num_basket = self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2)
-        self.time_on_mult_1_basket = self.time_on_multivare / self.num_basket  #(self.num_basket[0] + self.num_basket[1])
+        # self.time_on_mult_1_basket = self.time_on_multivare / self.num_basket  #(self.num_basket[0] + self.num_basket[1])
 
         # Пока у нас не назначено оборудование просто создаем класс корзины и считаем длину.
         # Не записываем ни оборудование, ни список заказов
@@ -571,42 +571,50 @@ class MultivareTask(Task):
         return all(getattr(self, key) == val for (key, val) in kwargs.items())
 
 
-class Basket(Task):
+class BasketMeta(type):
+    """
+    Метакласс для отслеживания всех экземпляров корзин.
+    """
+    _current_basket = None
+    _baskets = []
+
+    @classmethod
+    def get_current_basket(cls):
+        if cls._current_basket is None or cls._current_basket.sum_basket >= 8:
+            cls.create_new_basket()
+        return cls._current_basket
+
+    @classmethod
+    def create_new_basket(cls):
+        cls._current_basket = Basket()
+        cls._baskets.append(cls._current_basket)
+
+    @classmethod
+    def get_all_baskets(cls):
+        return cls._baskets
+
+
+class Basket(Task, metaclass=BasketMeta):
     """
     Корзина для подачи на мультик. Класс создается когда заказы с мультика израсходуют суммарно 8 корзин.
     Класс передается в очередь на волочилку.
     """
 
-    def __init__(self, orders=None, sum_basket=0):
+    def __init__(self, order, sum_basket):
         """
         Создание корзины. Когда будет несколько заказов в корзинах, тогда используются значения параметров по умолчанию.
         Если один заказ тратит 8 корзин, тогда используются переданные параметры
         :param orders: None, если много заказов. Не None, если 1 заказ
         :param sum_basket: 0, если много заказов. 8, если 1 заказ
         """
-        super().__init__(self, account_number=None, equipment_type='wiredrawing', part_type=None, time_work=0)
-        if orders is None:
-            orders = []
-        self.time_work = 0
-        self.orders: [MultivareTask] = orders
+        super().__init__(self, account_number=None, equipment_type='wiredrawing', part_type=None, time_work=WireDrawingMachine.W)
+        self.orders: [MultivareTask] = [order]
+        self.time_on_multivare = order.time_on_multivare
         self.material = 'cu'
         self.voloka = MultivareMachine.d_mult
         self.diameter = MultivareMachine.d_mult
         self.len_basket = MultivareMachine.KM_IN_1_BASKET * 8
         self.sum_basket = sum_basket
-        self.set_time_work()
-
-    def set_time_work(self):
-        """
-        Устанавливается время траты 8 корзин.
-        1. Если заказов 0, значит экземпляр корзины только что создан и будет набиваться заказами
-        2. Иначе заказ полностью тратит 8 корзин и время считается из его параметров без времени перенастройки, т.к. в таком случае уже будет заказ ранее, где учтено это время
-        :return: время, за которое потратится 8 корзин, если 0, тогда время будет увеличиваться по мере добавления заказов
-        """
-        if len(self.orders) == 0:
-            self.time_work = 0
-        else:
-            self.time_work = self.orders[0].time_on_mult_1_basket * self.sum_basket
 
     def append(self, order: MultivareTask, num_basket=None, use_time_setup=True):
         """
@@ -621,13 +629,12 @@ class Basket(Task):
         self.orders.append(order)
         if num_basket is None:
             # Тут берем траты корзины из заказа
-            self.time_work += order.time_on_mult_1_basket * order.num_basket[1] + order.time_setup
-            self.sum_basket += order.num_basket[1]
+            self.time_work += order.time_on_multivare
+            self.sum_basket += order.num_basket
         else:
             # Тут берем траты корзины из параметра
             self.time_work += order.time_on_mult_1_basket * num_basket + (order.time_setup if use_time_setup else 0)
             self.sum_basket += num_basket
-        # queue_multivare.find_order(account_number=order.account_number)
 
     def __repr__(self):
         return 'Корзина (Время работы заказов = {}ч. {}мин.; Длина {}): {} \n'.format(
@@ -636,3 +643,70 @@ class Basket(Task):
             self.sum_basket,
             self.orders.__repr__()
         )
+
+
+# class Basket(Task):
+#     """
+#     Корзина для подачи на мультик. Класс создается когда заказы с мультика израсходуют суммарно 8 корзин.
+#     Класс передается в очередь на волочилку.
+#     """
+#
+#     def __init__(self, orders=None, sum_basket=0):
+#         """
+#         Создание корзины. Когда будет несколько заказов в корзинах, тогда используются значения параметров по умолчанию.
+#         Если один заказ тратит 8 корзин, тогда используются переданные параметры
+#         :param orders: None, если много заказов. Не None, если 1 заказ
+#         :param sum_basket: 0, если много заказов. 8, если 1 заказ
+#         """
+#         super().__init__(self, account_number=None, equipment_type='wiredrawing', part_type=None, time_work=0)
+#         if orders is None:
+#             orders = []
+#         self.time_work = 0
+#         self.orders: [MultivareTask] = orders
+#         self.material = 'cu'
+#         self.voloka = MultivareMachine.d_mult
+#         self.diameter = MultivareMachine.d_mult
+#         self.len_basket = MultivareMachine.KM_IN_1_BASKET * 8
+#         self.sum_basket = sum_basket
+#         self.set_time_work()
+#
+#     def set_time_work(self):
+#         """
+#         Устанавливается время траты 8 корзин.
+#         1. Если заказов 0, значит экземпляр корзины только что создан и будет набиваться заказами
+#         2. Иначе заказ полностью тратит 8 корзин и время считается из его параметров без времени перенастройки, т.к. в таком случае уже будет заказ ранее, где учтено это время
+#         :return: время, за которое потратится 8 корзин, если 0, тогда время будет увеличиваться по мере добавления заказов
+#         """
+#         if len(self.orders) == 0:
+#             self.time_work = 0
+#         else:
+#             self.time_work = self.orders[0].time_on_mult_1_basket * self.sum_basket
+#
+#     def append(self, order: MultivareTask, num_basket=None, use_time_setup=True):
+#         """
+#         1. Если заказ полностью подходит по вместимости корзины, то берем время и длину из заказа
+#         2. Если заказ не влазит в текущую корзину, то в одну корзину добавляем, что остается до восьми целых,
+#         а в следующую все что осталось от этого заказа
+#         :param use_time_setup: True когда заказ сидит только в одной корзине. False, когда заказ встречается уже во второй раз, чтобы не учитывать второй раз время перенастройки
+#         :param order: Заказ на мультик
+#         :param num_basket: None, если заказ полностью влез в корзину. Не None, если часть заказа будет в двух разны корзинах
+#         :return:
+#         """
+#         self.orders.append(order)
+#         if num_basket is None:
+#             # Тут берем траты корзины из заказа
+#             self.time_work += order.time_on_mult_1_basket * order.num_basket[1] + order.time_setup
+#             self.sum_basket += order.num_basket[1]
+#         else:
+#             # Тут берем траты корзины из параметра
+#             self.time_work += order.time_on_mult_1_basket * num_basket + (order.time_setup if use_time_setup else 0)
+#             self.sum_basket += num_basket
+#         # queue_multivare.find_order(account_number=order.account_number)
+#
+#     def __repr__(self):
+#         return 'Корзина (Время работы заказов = {}ч. {}мин.; Длина {}): {} \n'.format(
+#             str(self.time_work // 60),
+#             str(round(self.time_work % 60, 2)),
+#             self.sum_basket,
+#             self.orders.__repr__()
+#         )
