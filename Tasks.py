@@ -1,6 +1,8 @@
 import weakref
 from typing import Any
 
+from pybind11_abseil.status import out_of_range_error
+
 from gosts import Mark
 import random
 from Equipments import MultivareMachine, WireDrawingMachine
@@ -471,9 +473,9 @@ class MultivareTask(Task):
 
         # Пока у нас не назначено оборудование просто создаем класс корзины и считаем длину.
         # Не записываем ни оборудование, ни список заказов
-        basket = None
-        if self.equipment is None:
-            basket = Basket()
+        # basket = None
+        # if self.equipment is None:
+        #     basket = Basket()
             # self.update_basket_status()
 
         # длина заказа в расчете на одну прядь (весь заказ это length_strands *
@@ -594,22 +596,28 @@ class BasketMeta(type):
         return cls._baskets
 
 
-class Basket(Task, metaclass=BasketMeta):
+class Basket(Task):
     """
     Корзина для подачи на мультик. Класс создается когда заказы с мультика израсходуют суммарно 8 корзин.
     Класс передается в очередь на волочилку.
     """
 
-    def __init__(self, order, sum_basket):
+    def __init__(self, order, sum_basket=0):
         """
         Создание корзины. Когда будет несколько заказов в корзинах, тогда используются значения параметров по умолчанию.
         Если один заказ тратит 8 корзин, тогда используются переданные параметры
-        :param orders: None, если много заказов. Не None, если 1 заказ
+        :param order: None, если заказа нет, значит создаем корзину с остатками с предыдущей корзины. Не None, если 1 заказ
         :param sum_basket: 0, если много заказов. 8, если 1 заказ
         """
         super().__init__(self, account_number=None, equipment_type='wiredrawing', part_type=None, time_work=WireDrawingMachine.W)
-        self.orders: [MultivareTask] = [order]
-        self.time_on_multivare = order.time_on_multivare
+
+        if order is not None:
+            self.time_on_multivare = order.time_on_multivare
+            self.orders: [MultivareTask] = [order]
+        else:
+            self.time_on_multivare = 0
+            self.orders: [MultivareTask] = []
+
         self.material = 'cu'
         self.voloka = MultivareMachine.d_mult
         self.diameter = MultivareMachine.d_mult
@@ -627,14 +635,22 @@ class Basket(Task, metaclass=BasketMeta):
         :return:
         """
         self.orders.append(order)
-        if num_basket is None:
-            # Тут берем траты корзины из заказа
-            self.time_work += order.time_on_multivare
-            self.sum_basket += order.num_basket
-        else:
-            # Тут берем траты корзины из параметра
-            self.time_work += order.time_on_mult_1_basket * num_basket + (order.time_setup if use_time_setup else 0)
-            self.sum_basket += num_basket
+        # if num_basket is None:
+        # Тут берем траты корзины из заказа
+        self.time_on_multivare += order.time_on_multivare
+        self.sum_basket += order.num_basket
+        # else:
+        #     # Тут берем траты корзины из параметра
+        #     self.time_work += order.time_on_mult_1_basket * num_basket + (order.time_setup if use_time_setup else 0)
+        #     self.sum_basket += num_basket
+
+    def append_setup_time(self):
+        """
+        После того как знаем задание на мультик добавляем ко времени 'self.time_on_multivare' время перестановок из массива внутри корзины
+        :return:
+        """
+        for order in self.order:
+            self.time_on_multivare += order.time_on_multivare
 
     def __repr__(self):
         return 'Корзина (Время работы заказов = {}ч. {}мин.; Длина {}): {} \n'.format(
