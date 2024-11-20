@@ -6,7 +6,6 @@ from Equipments import initialize_equipments, MultivareMachine
 from Tasks import Order, TaskMeta, OrderMeta, Task, WireDrawingMachine
 import new_genetika  # Алгоритмы для генетической оптимизации
 
-import pandas as pd
 
 equipments = []
 
@@ -63,6 +62,32 @@ def main():
     Task.assign_tasks_to_equipment(tasks_drawing, available_equipments=WireDrawingMachine.get_all_instances())
     Task.assign_tasks_to_equipment(tasks_multivare, available_equipments=MultivareMachine.get_all_instances())
     print(TaskMeta.get_instances_by_type('wiredrawing'))
+
+    task_old = [task for task in tasks_drawing if task.equipment.name == 'old']
+    task_al = [task for task in tasks_drawing if task.equipment.name == 'al']
+    task_new = [task for task in tasks_drawing if task.equipment.name == 'new']
+
+    for i in range(1, len(task_old) + 1):
+        prev = task_old[i-1]
+        current = task_old[i]
+        current.calculate_setup_time(prev)
+
+    for i in range(1, len(task_al) ):
+        prev = task_al[i - 1]
+        current = task_al[i]
+        current.calculate_setup_time(prev)
+
+    for i in range(1, len(task_new) + 1):
+        prev = task_new[i-1]
+        current = task_new[i]
+        current.calculate_setup_time(prev)
+
+    for i in range(1, len(tasks_multivare) + 1):
+        prev = tasks_multivare[i-1]
+        current = tasks_multivare[i]
+        current.calculate_setup_time(prev)
+
+
     # print(TaskMeta.get_instances_by_type('multivare'))
     # Шаг 4: Запуск генетического алгоритма с выбранными заданиями
     new_genetika.run(Task.get_instances_all())
