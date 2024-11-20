@@ -60,10 +60,10 @@ def main():
     tasks_multivare = TaskMeta.get_instances_by_type('multivare')
     # print(*tasks_draggers, sep='\n')
 
-    Task.assign_tasks_to_equipment(tasks_drawing, available_equipments=WireDrawingMachine.get_all_instances('wiredrawing'))
-    Task.assign_tasks_to_equipment(tasks_multivare, available_equipments=MultivareMachine.get_all_instances('multivare'))
-    print(TaskMeta.get_instances_by_type('wiredrawing'))
-    # print(TaskMeta.get_instances_by_type('multivare'))
+    # Task.assign_tasks_to_equipment(tasks_drawing, available_equipments=WireDrawingMachine.get_all_instances('wiredrawing'))
+    # Task.assign_tasks_to_equipment(tasks_multivare, available_equipments=MultivareMachine.get_all_instances('multivare'))
+    # print(TaskMeta.get_instances_by_type('wiredrawing'))
+    # # print(TaskMeta.get_instances_by_type('multivare'))
     # Шаг 4: Запуск генетического алгоритма с выбранными заданиями
     new_genetika.run(Task.get_instances_all())
     print("Генетический алгоритм завершен")
