@@ -1,8 +1,6 @@
 import weakref
 from typing import Any, Union
 
-from pybind11_abseil.status import out_of_range_error
-
 from gosts import Mark
 import random
 from Equipments import MultivareMachine, WireDrawingMachine, Equipment, MachineMeta
@@ -231,6 +229,7 @@ class Task(metaclass=TaskMeta):
         """
         for task in tasks:
             task.equipment = random.choice(task.acceptable_equipment)
+            task.set_spin_road()
             # suitable_equipments = [eq for eq in available_equipments if eq.is_suitable(task) and task.equipment_type in eq.machine_type]
             # if suitable_equipments:
             #     equipment = random.choice(suitable_equipments)
@@ -326,7 +325,7 @@ class WireDrawingTask(Task):
             # проходим по маршрутам и ищем, где начинается расхождение, чтобы после этой фильеры обрезать проволочку и снять все фильеры
             for i in range(min(len(current_task.spin_road), len(previous_task.spin_road))):
                 if current_task.spin_road[i] != previous_task.spin_road[i]:
-                    # разница уникальных волок в маршрутcurrent_taskе
+                    # разница уникальных волок в маршруте
                     diff_spin = i
                     break
             else:
@@ -476,8 +475,7 @@ class MultivareTask(Task):
         Находим в словаре фильер ближайшие значения к диаметру.
         """
 
-        self.spin = MultivareMachine.dictionary_spinners[
-            min(MultivareMachine.dictionary_spinners, key=lambda x: abs(self.diameter - x))]
+        self.spin = MultivareMachine.dictionary_spinners[min(MultivareMachine.dictionary_spinners, key=lambda x: abs(self.diameter - x))]
 
     def calculating_length(self):
         # суммарная длина проволочек
@@ -522,6 +520,29 @@ class MultivareTask(Task):
         volume_half_bobbin = round(self.length_strands % self.volume_bobbin, 2)  # меди на неполной катушки на 1 прядь
 
         self.full_bobbin = int(number_full_bobbin), volume_half_bobbin, int(int(number_full_bobbin) > 0)
+
+    def set_spin_road(self):
+        """
+        Находим в словаре фильер ближайшие значения к диаметру.
+        Если находим в справочнике значение фильеры, тогда количество = ключ
+        Если не находим, тогда ищем после какой фильеры нужно поставить еще одну количество = ключ + 1
+        :return: количество фильер
+        """
+        # маршрут записанный из ключевых волок, последняя волока -- минимально возможный диаметр
+        roads = self.equipment.spinners_road
+
+        # на новой и алюминиевой волочилке будет один маршрут
+
+        self.spin_road = min(roads, key=lambda x: abs(self.diameter - x[-1]))
+        a = 0
+            # if self.voloka >= voloka:
+            #     # меняем волоку на большую и меняем маршрут
+            #     self.spin_road = self.equipment.spinners_road[:i]
+            #     while i != len(roads) - 1:
+            #         self.spin_road.append(0)
+            #         i += 1
+            #     self.spin_road.append(self.voloka)
+            #     break
 
     @staticmethod
     def calculate_setup_time(current_task: "MultivareTask", previous_task: "MultivareTask"):
