@@ -19,7 +19,7 @@ def generate_individual(tasks):
 
     # задание на каждый тип оборудований
     tasks_multivare = TaskMeta.get_instances_by_type(equipment_type='multivare')
-    tasks_drawing = TaskMeta.get_instances_by_type(name='al', equipment_type='wiredrawing')
+    tasks_drawing = TaskMeta.get_instances_by_type(equipment_name='al', equipment_type='wiredrawing')
 
     eq = Equipment.get_all_instances()
     # individual[]

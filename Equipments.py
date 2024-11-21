@@ -29,7 +29,7 @@ class MachineMeta(type):
 class Equipment(metaclass=MachineMeta):
 
     def __init__(self, name, machine_type):
-        self.name = name
+        self.equipment_name = name
         self.machine_type = machine_type
 
     @classmethod
@@ -69,7 +69,7 @@ class WireDrawingMachine(Equipment):
     #     return [instance for instance in cls._instances if instance.name in names]
 
     def __repr__(self):
-        return f"WireDrawingMachine(name={self.name}, machine_type={self.machine_type})"
+        return f"WireDrawingMachine(name={self.equipment_name}, machine_type={self.machine_type})"
 
 
 class MultivareMachine(Equipment):
@@ -129,7 +129,7 @@ class MultivareMachine(Equipment):
     #     return [instance for instance in cls._instances if instance.name in names]
 
     def __repr__(self):
-        return f"MultivareMachine(name={self.name}, machine_type={self.machine_type})"
+        return f"MultivareMachine(name={self.equipment_name}, machine_type={self.machine_type})"
 
 
 # class Basket:

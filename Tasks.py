@@ -184,8 +184,17 @@ class TaskMeta(type):
     @classmethod
     def get_instances_by_type(cls, **kwargs):
         """Возвращает все экземпляры заданий определенного типа оборудования."""
-        return [instance for instance in cls._instances for key, val in kwargs.items() if getattr(instance, key) == val]
+        res = []
+        for instance in cls._instances:
+            for key, val in kwargs.items():
+                if getattr(instance, key) == val:
+                    continue
+                else:
+                    break
+            else:
+                res.append(instance)
 
+        return res
 
 
     @classmethod
@@ -205,13 +214,11 @@ class Task(metaclass=TaskMeta):
         self.order = order
         self.account_number = account_number  # Используем номер заказа из Order
         self.equipment_type = equipment_type  # Тип оборудования
+        self.equipment_name = ''  # Конкретное оборудование, назначается в генетическом алгоритме
         self.equipment = None  # Конкретное оборудование, назначается в генетическом алгоритме
         self.time_work = time_work
         self.current_operation_index = 0  # Индекс текущей операции в цепочке
         self.set_acceptable_equipment()
-
-    def name(self):
-        return self.equipment.name
 
     def next_operation(self):
         """
@@ -235,7 +242,9 @@ class Task(metaclass=TaskMeta):
         Назначает оборудование для всех заданий, выбирая подходящее.
         """
         for task in tasks:
-            task.equipment = random.choice(task.acceptable_equipment)
+            eq = random.choice(task.acceptable_equipment)
+            task.equipment = eq
+            task.equipment_name = eq.equipment_name
             # suitable_equipments = [eq for eq in available_equipments if eq.is_suitable(task) and task.equipment_type in eq.machine_type]
             # if suitable_equipments:
             #     equipment = random.choice(suitable_equipments)
@@ -345,9 +354,6 @@ class WireDrawingTask(Task):
             current_task.comment_setup = 'снять {} волок ({});'.format(len(spin_in_without_0), spin_in_without_0)
             setup_time = len(spin_in_without_0) * WireDrawingMachine.CHANGE_WIRE + len(spin_in_without_0) * WireDrawingMachine.REMOVED_SPIN + WireDrawingMachine.STRETCHING_WIRE
 
-
-
-
             # вставляем волоки с текущего задания
             spin_in_with_0 = len(current_task.spin_road) - diff_spin
             spin_in_without_0 = sum([1 for e in current_task.spin_road[-spin_in_with_0:] if e != 0])
@@ -406,7 +412,6 @@ class WireDrawingTask(Task):
 
                 if len(previous_task.spin_road) > 1:
                     previous_task.spin_road = [list(sorted(best_road.items(), key=lambda x: x[1])[0][0][1])]
-
 
         current_task.time_setup = setup_time
 
