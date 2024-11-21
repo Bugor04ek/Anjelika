@@ -26,7 +26,7 @@ class MachineMeta(type):
         return list(cls._instances)
 
 
-class Equipment:
+class Equipment(metaclass=MachineMeta):
 
     def __init__(self, name, machine_type):
         self.name = name
@@ -39,7 +39,7 @@ class Equipment:
         return [instance for instance in cls._instances if type in instance.machine_type]
 
 
-class WireDrawingMachine(Equipment, metaclass=MachineMeta):
+class WireDrawingMachine(Equipment):
     REMOVED_SPIN = 1  # время снятия фильер
     INSERT_SPIN = 5  # время вставки фильер
     CHANGE_BOBBIN = 5  # смена катушки
@@ -72,7 +72,7 @@ class WireDrawingMachine(Equipment, metaclass=MachineMeta):
         return f"WireDrawingMachine(name={self.name}, machine_type={self.machine_type})"
 
 
-class MultivareMachine(Equipment, metaclass=MachineMeta):
+class MultivareMachine(Equipment):
     REMOVED_SPIN = 1  # время снятия фильер
     INSERT_SPIN = 5  # время вставки фильер (это время надо умножить на количество проволочек в пряди)
     CHANGE_BASKET = 20  # смена корзины на мультике

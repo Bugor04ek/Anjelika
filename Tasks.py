@@ -182,9 +182,11 @@ class TaskMeta(type):
         return instance
 
     @classmethod
-    def get_instances_by_type(cls, equipment_type):
+    def get_instances_by_type(cls, **kwargs):
         """Возвращает все экземпляры заданий определенного типа оборудования."""
-        return [instance for instance in cls._instances if instance.equipment_type == equipment_type]
+        return [instance for instance in cls._instances for key, val in kwargs.items() if getattr(instance, key) == val]
+
+
 
     @classmethod
     def get_instances_all(cls):
@@ -207,6 +209,9 @@ class Task(metaclass=TaskMeta):
         self.time_work = time_work
         self.current_operation_index = 0  # Индекс текущей операции в цепочке
         self.set_acceptable_equipment()
+
+    def name(self):
+        return self.equipment.name
 
     def next_operation(self):
         """
