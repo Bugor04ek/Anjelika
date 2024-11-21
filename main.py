@@ -1,14 +1,11 @@
 import json
 from datetime import datetime
 
-import Equipments
 from Equipments import initialize_equipments, MultivareMachine
 from Tasks import Order, TaskMeta, OrderMeta, Task, WireDrawingMachine
 import new_genetika  # Алгоритмы для генетической оптимизации
 
 import pandas as pd
-
-equipments = []
 
 
 def create_orders():
@@ -44,7 +41,6 @@ def create_orders():
 
 def main():
     # Шаг 0: Заведение оборудований
-    global equipments
     equipments = initialize_equipments()
 
     # Шаг 1: Инициализация заказов

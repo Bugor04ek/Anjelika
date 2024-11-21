@@ -13,17 +13,17 @@ creator.create("Individual", dict, fitness=creator.FitnessMin)
 # Создание начальной популяции на основе заданий
 def generate_individual(tasks):
     """Создает индивида с распределением задач по оборудованию."""
-    eq = Equipments.MachineMeta.get_all_instances()
 
+    # Выбираем рандомное оборудование на задание из подходящих оборудований
+    Task.assign_tasks_to_equipment(TaskMeta.get_instances_all())
+
+    # задание на каждый тип оборудований
     tasks_multivare = TaskMeta.get_instances_by_type('multivare')
     tasks_drawing = TaskMeta.get_instances_by_type('wiredrawing')
 
-    Task.assign_tasks_to_equipment(tasks_multivare, available_equipments=MultivareMachine.get_all_instances('multivare'))
-    Task.assign_tasks_to_equipment(tasks_drawing, available_equipments=WireDrawingMachine.get_all_instances('wiredrawing'))
-
     individual = {
-        'multivare': random.sample(tasks_multivare, k=len(tasks_multivare)),  #[task for task in tasks if isinstance(task, Tasks.MultivareTask)],
-        'wiredrawing': random.sample(tasks_drawing, k=len(tasks_drawing)), #[task for task in tasks if isinstance(task, Tasks.WireDrawingTask)]
+        'multivare': random.sample(tasks_multivare, k=len(tasks_multivare)),
+        'wiredrawing': random.sample(tasks_drawing, k=len(tasks_drawing)),
     }
 
     return creator.Individual(individual)

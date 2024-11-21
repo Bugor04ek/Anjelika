@@ -1,11 +1,11 @@
 import weakref
-from typing import Any
+from typing import Any, Union
 
 from pybind11_abseil.status import out_of_range_error
 
 from gosts import Mark
 import random
-from Equipments import MultivareMachine, WireDrawingMachine
+from Equipments import MultivareMachine, WireDrawingMachine, Equipment, MachineMeta
 
 dict_key_group = {}
 
@@ -198,6 +198,7 @@ class Task(metaclass=TaskMeta):
     """
 
     def __init__(self, order, account_number, time_work, equipment_type=None, part_type=''):
+        self.acceptable_equipment: [Equipment] = []
         self.part_type = part_type  # '', '+', 'support'
         self.order = order
         self.account_number = account_number  # Используем номер заказа из Order
@@ -205,6 +206,7 @@ class Task(metaclass=TaskMeta):
         self.equipment = None  # Конкретное оборудование, назначается в генетическом алгоритме
         self.time_work = time_work
         self.current_operation_index = 0  # Индекс текущей операции в цепочке
+        self.set_acceptable_equipment()
 
     def next_operation(self):
         """
@@ -223,21 +225,27 @@ class Task(metaclass=TaskMeta):
             # если старая волочилка, то берем много маршрутов, если другая, то 1
 
     @staticmethod
-    def assign_tasks_to_equipment(tasks, available_equipments):
+    def assign_tasks_to_equipment(tasks: [Union['MultivareTask', 'WireDrawingTask']]):
         """
         Назначает оборудование для всех заданий, выбирая подходящее.
         """
         for task in tasks:
-            suitable_equipments = [eq for eq in available_equipments if eq.is_suitable(task)]
-            if suitable_equipments:
-                equipment = random.choice(suitable_equipments)
-                task.assign_equipment(equipment)
+            task.equipment = random.choice(task.acceptable_equipment)
+            # suitable_equipments = [eq for eq in available_equipments if eq.is_suitable(task) and task.equipment_type in eq.machine_type]
+            # if suitable_equipments:
+            #     equipment = random.choice(suitable_equipments)
+            #     task.assign_equipment(equipment)
+
+    def set_acceptable_equipment(self):
+        equipments = MachineMeta.get_all_instances()
+        self.acceptable_equipment = [eq for eq in equipments if self.equipment_type in eq.machine_type and eq.is_suitable(self)]
+
 
     @staticmethod
     def form_matrix_multivare(tasks):
         """
         Функция для создания матрицы времени перенастроек мультика
-        :param orders: неупорядоченный список заказов на мультик
+        :param tasks: неупорядоченный список заказов на мультик
         :return: матрица времени перенастроек
         """
         temp_matrix1 = []
@@ -256,10 +264,8 @@ class WireDrawingTask(Task):
     """
     Класс для заказов на волочение. Тут может быть либо обычный заказ, либо корзина состоящая из заказов на мультик.
     """
-
     # Переменная класса для подсчета индексов
     def __init__(self, order, account_number, diameter, part_type, time_work):
-        super().__init__(order, account_number=account_number, equipment_type='wiredrawing', part_type=part_type, time_work=time_work)
         if issubclass(Order, type(order)):
             self.material = order.material
             # self.time_work = order.time_on_dragger
@@ -268,6 +274,7 @@ class WireDrawingTask(Task):
             # self.time_work = WireDrawingMachine.W
             self.voloka = MultivareMachine.d_mult
             self.material = 'cu'
+        super().__init__(order, account_number=account_number, equipment_type='wiredrawing', part_type=part_type, time_work=time_work)
 
         self.comment_setup = ''
         self.time_setup = 0
