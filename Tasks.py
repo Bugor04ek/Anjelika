@@ -363,23 +363,23 @@ class WireDrawingTask(Task):
 
                         spin_out = len(road2) - diff_spin
                         self.comment_setup = 'снять {} волок ({});'.format(spin_out, road2[-spin_out:])
-                        setup_time = spin_out * WireDrawingMachine.CHANGE_WIRE + spin_out * WireDrawingMachine.REMOVED_SPIN
+                        setup_time = spin_out * WireDrawingMachine.CHANGE_WIRE + spin_out * WireDrawingMachine.REMOVED_SPIN + WireDrawingMachine.STRETCHING_WIRE
 
                         # вставляем волоки с текущего задания
                         spin_in = abs(len(road1) - len(road2))
                         self.comment_setup += 'вставить {} волок ({});'.format((spin_in), road1[-(len(road1) - diff_spin):])
-                        setup_time = spin_in * WireDrawingMachine.CHANGE_WIRE + len(road1) * WireDrawingMachine.INSERT_SPIN
+                        setup_time = spin_in * WireDrawingMachine.CHANGE_WIRE + len(road1) * WireDrawingMachine.INSERT_SPIN + WireDrawingMachine.STRETCHING_WIRE
 
                         best_road[tuple(road1),tuple(road2)] = setup_time
                     else:
                         spin_out = len(road2) - diff_spin
                         self.comment_setup += 'снять {} волок ({});'.format(spin_out, road2[-spin_out:])
-                        setup_time = spin_out * WireDrawingMachine.CHANGE_WIRE + spin_out * WireDrawingMachine.REMOVED_SPIN
+                        setup_time = spin_out * WireDrawingMachine.CHANGE_WIRE + spin_out * WireDrawingMachine.REMOVED_SPIN + WireDrawingMachine.STRETCHING_WIRE
 
                         # вставляем волоки с текущего задания
                         spin_in = len(road1) - diff_spin
                         self.comment_setup += 'вставить {} волок ({});'.format(spin_in, road1[-spin_in:])
-                        setup_time = spin_in * WireDrawingMachine.CHANGE_WIRE + spin_in * WireDrawingMachine.INSERT_SPIN
+                        setup_time = spin_in * WireDrawingMachine.CHANGE_WIRE + spin_in * WireDrawingMachine.INSERT_SPIN + WireDrawingMachine.STRETCHING_WIRE
 
                         best_road[tuple(road1),tuple(road2)] = setup_time
 

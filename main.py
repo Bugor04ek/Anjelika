@@ -1,4 +1,5 @@
 import json
+import random
 from datetime import datetime
 
 import Equipments
@@ -63,11 +64,12 @@ def main():
     Task.assign_tasks_to_equipment(tasks_multivare, available_equipments=MultivareMachine.get_all_instances())
     print(TaskMeta.get_instances_by_type('wiredrawing'))
 
+
     task_old = [task for task in tasks_drawing if task.equipment.name == 'old']
     task_al = [task for task in tasks_drawing if task.equipment.name == 'al']
     task_new = [task for task in tasks_drawing if task.equipment.name == 'new']
 
-    for i in range(1, len(task_old) + 1):
+    for i in range(1, len(task_old) ):
         prev = task_old[i-1]
         current = task_old[i]
         current.calculate_setup_time(prev)
@@ -77,12 +79,12 @@ def main():
         current = task_al[i]
         current.calculate_setup_time(prev)
 
-    for i in range(1, len(task_new) + 1):
+    for i in range(1, len(task_new) ):
         prev = task_new[i-1]
         current = task_new[i]
         current.calculate_setup_time(prev)
 
-    for i in range(1, len(tasks_multivare) + 1):
+    for i in range(1, len(tasks_multivare) ):
         prev = tasks_multivare[i-1]
         current = tasks_multivare[i]
         current.calculate_setup_time(prev)
