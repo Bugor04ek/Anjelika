@@ -1,6 +1,9 @@
 from deap import base, creator, tools, algorithms
 import random
-import Tasks
+
+import Equipments
+from Tasks import Task, TaskMeta
+from Equipments import MultivareMachine, WireDrawingMachine
 
 # Настройка среды DEAP для минимизации времени
 creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
@@ -10,10 +13,19 @@ creator.create("Individual", dict, fitness=creator.FitnessMin)
 # Создание начальной популяции на основе заданий
 def generate_individual(tasks):
     """Создает индивида с распределением задач по оборудованию."""
+
+    # Выбираем рандомное оборудование на задание из подходящих оборудований
+    Task.assign_tasks_to_equipment(TaskMeta.get_instances_all())
+
+    # задание на каждый тип оборудований
+    tasks_multivare = TaskMeta.get_instances_by_type('multivare')
+    tasks_drawing = TaskMeta.get_instances_by_type('wiredrawing')
+
     individual = {
-        'multivare': [task for task in tasks if isinstance(task, Tasks.MultivareTask)],
-        'wiredrawing': [task for task in tasks if isinstance(task, Tasks.WireDrawingTask)]
+        'multivare': random.sample(tasks_multivare, k=len(tasks_multivare)),
+        'wiredrawing': random.sample(tasks_drawing, k=len(tasks_drawing)),
     }
+
     return creator.Individual(individual)
 
 

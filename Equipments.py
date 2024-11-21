@@ -1,3 +1,4 @@
+import abc
 import json
 
 import weakref
@@ -13,19 +14,32 @@ class MachineMeta(type):
     """
     Метакласс для отслеживания всех созданных экземпляров.
     """
-    _instances: weakref.WeakSet
-
-    def __init__(cls, name, bases, dct):
-        super().__init__(name, bases, dct)
-        cls._instances = weakref.WeakSet()
+    _instances = weakref.WeakSet()
 
     def __call__(cls, *args, **kwargs):
         instance = super().__call__(*args, **kwargs)
         cls._instances.add(instance)
         return instance
 
+    @classmethod
+    def get_all_instances(cls):
+        return list(cls._instances)
 
-class WireDrawingMachine(metaclass=MachineMeta):
+
+class Equipment:
+
+    def __init__(self, name, machine_type):
+        self.name = name
+        self.machine_type = machine_type
+
+    @classmethod
+    def get_all_instances(cls, type=None):
+        if type is None:
+            return list(cls._instances)
+        return [instance for instance in cls._instances if type in instance.machine_type]
+
+
+class WireDrawingMachine(Equipment, metaclass=MachineMeta):
     REMOVED_SPIN = 1  # время снятия фильер
     INSERT_SPIN = 5  # время вставки фильер
     CHANGE_BOBBIN = 5  # смена катушки
@@ -35,8 +49,7 @@ class WireDrawingMachine(metaclass=MachineMeta):
 
     def __init__(self, name: str, machine_type: [''], supported_materials: [''], basket: bool, spinners_road: [],
                  min_diameter, max_diameter):
-        self.name = name
-        self.machine_type = machine_type
+        super().__init__(name, machine_type)
         self.supported_materials = supported_materials
         self.basket = basket
         self.spinners_road = spinners_road
@@ -49,17 +62,17 @@ class WireDrawingMachine(metaclass=MachineMeta):
                 self.min_diameter <= task.voloka <= self.max_diameter and
                 (not (task.order.__class__.__name__ == 'Basket') or (task.order.__class__.__name__ == 'Basket' and self.basket)))
 
-    @classmethod
-    def get_all_instances(cls, names=None):
-        if names is None:
-            return list(cls._instances)
-        return [instance for instance in cls._instances if instance.name in names]
+    # @classmethod
+    # def get_all_instances(cls, names=None):
+    #     if names is None:
+    #         return list(cls._instances)
+    #     return [instance for instance in cls._instances if instance.name in names]
 
     def __repr__(self):
         return f"WireDrawingMachine(name={self.name}, machine_type={self.machine_type})"
 
 
-class MultivareMachine(metaclass=MachineMeta):
+class MultivareMachine(Equipment, metaclass=MachineMeta):
     REMOVED_SPIN = 1  # время снятия фильер
     INSERT_SPIN = 5  # время вставки фильер (это время надо умножить на количество проволочек в пряди)
     CHANGE_BASKET = 20  # смена корзины на мультике
@@ -98,8 +111,7 @@ class MultivareMachine(metaclass=MachineMeta):
     pi = 3.141592653589793
 
     def __init__(self, name, machine_type, supported_materials, total_baskets, remaining_basket_length, spinners_road):
-        self.name = name
-        self.machine_type = machine_type
+        super().__init__(name, machine_type)
         self.supported_materials = supported_materials
         self.total_baskets = total_baskets  # MultivareMachine.KM_IN_16_BASKET всего корзин
         self.remaining_basket_length = remaining_basket_length  # MultivareMachine.KM_IN_8_BASKET  # начальный запас длины для 8 корзин
@@ -110,11 +122,11 @@ class MultivareMachine(metaclass=MachineMeta):
         return True
         # return material in self.supported_materials and quantity <= self.capacity
 
-    @classmethod
-    def get_all_instances(cls, names=None):
-        if names is None:
-            return list(cls._instances)
-        return [instance for instance in cls._instances if instance.name in names]
+    # @classmethod
+    # def get_all_instances(cls, names=None):
+    #     if names is None:
+    #         return list(cls._instances)
+    #     return [instance for instance in cls._instances if instance.name in names]
 
     def __repr__(self):
         return f"MultivareMachine(name={self.name}, machine_type={self.machine_type})"
