@@ -1,11 +1,11 @@
 import json
+import random
 from datetime import datetime
 
 from Equipments import initialize_equipments, MultivareMachine
 from Tasks import Order, TaskMeta, OrderMeta, Task, WireDrawingMachine
 import new_genetika  # Алгоритмы для генетической оптимизации
 
-import pandas as pd
 
 
 def create_orders():
@@ -55,6 +55,11 @@ def main():
     tasks_drawing = TaskMeta.get_instances_by_type('wiredrawing')
     tasks_multivare = TaskMeta.get_instances_by_type('multivare')
     # print(*tasks_draggers, sep='\n')
+    
+    for i in range(1, len(tasks_multivare) ):
+        prev = tasks_multivare[i-1]
+        current = tasks_multivare[i]
+        current.calculate_setup_time(prev)
 
     # Task.assign_tasks_to_equipment(tasks_drawing, available_equipments=WireDrawingMachine.get_all_instances('wiredrawing'))
     # Task.assign_tasks_to_equipment(tasks_multivare, available_equipments=MultivareMachine.get_all_instances('multivare'))
