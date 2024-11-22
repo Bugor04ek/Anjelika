@@ -223,7 +223,7 @@ class Task(metaclass=TaskMeta):
         return None  # Завершение операций
 
     def assign_equipment(self, equipment):
-        if self.equipment_type in equipment.machine_type:
+        if self.equipment_type in equipment.equipment_type:
             self.equipment = equipment
             # установить маршрут фильер
             # self.spin_road(self)
@@ -236,14 +236,14 @@ class Task(metaclass=TaskMeta):
         """
         for task in tasks:
             task.equipment = random.choice(task.acceptable_equipment)
-            # suitable_equipments = [eq for eq in available_equipments if eq.is_suitable(task) and task.equipment_type in eq.machine_type]
+            # suitable_equipments = [eq for eq in available_equipments if eq.is_suitable(task) and task.equipment_type in eq.equipment_type]
             # if suitable_equipments:
             #     equipment = random.choice(suitable_equipments)
             #     task.assign_equipment(equipment)
 
     def set_acceptable_equipment(self):
         equipments = MachineMeta.get_all_instances()
-        self.acceptable_equipment = [eq for eq in equipments if self.equipment_type in eq.machine_type and eq.is_suitable(self)]
+        self.acceptable_equipment = [eq for eq in equipments if self.equipment_type in eq.equipment_type and eq.is_suitable(self)]
 
 
     @staticmethod
@@ -286,7 +286,7 @@ class WireDrawingTask(Task):
         self.spin_road = []
 
     def assign_equipment(self, equipment):
-        if self.equipment_type in equipment.machine_type:
+        if self.equipment_type in equipment.equipment_type:
             self.equipment = equipment
             self.set_spin_road()
 
