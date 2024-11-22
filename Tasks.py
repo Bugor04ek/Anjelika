@@ -180,9 +180,11 @@ class TaskMeta(type):
         return instance
 
     @classmethod
-    def get_instances_by_type(cls, equipment_type):
+    def get_instances_by_type(cls, **kwargs):
         """Возвращает все экземпляры заданий определенного типа оборудования."""
-        return [instance for instance in cls._instances if instance.equipment_type == equipment_type]
+        return [instance for instance in cls._instances for key, val in kwargs.items() if getattr(instance, key) == val]
+
+
 
     @classmethod
     def get_instances_all(cls):
@@ -206,6 +208,9 @@ class Task(metaclass=TaskMeta):
         self.current_operation_index = 0  # Индекс текущей операции в цепочке
         self.set_acceptable_equipment()
 
+    def name(self):
+        return self.equipment.name
+
     def next_operation(self):
         """
         Переход к следующей операции в цепочке.
@@ -216,7 +221,7 @@ class Task(metaclass=TaskMeta):
         return None  # Завершение операций
 
     def assign_equipment(self, equipment):
-        if self.equipment_type in equipment.machine_type:
+        if self.equipment_type in equipment.equipment_type:
             self.equipment = equipment
             # установить маршрут фильер
             # self.spin_road(self)
@@ -230,14 +235,10 @@ class Task(metaclass=TaskMeta):
         for task in tasks:
             task.equipment = random.choice(task.acceptable_equipment)
             task.set_spin_road()
-            # suitable_equipments = [eq for eq in available_equipments if eq.is_suitable(task) and task.equipment_type in eq.machine_type]
-            # if suitable_equipments:
-            #     equipment = random.choice(suitable_equipments)
-            #     task.assign_equipment(equipment)
 
     def set_acceptable_equipment(self):
         equipments = MachineMeta.get_all_instances()
-        self.acceptable_equipment = [eq for eq in equipments if self.equipment_type in eq.machine_type and eq.is_suitable(self)]
+        self.acceptable_equipment = [eq for eq in equipments if self.equipment_type in eq.equipment_type and eq.is_suitable(self)]
 
 
     @staticmethod
@@ -280,7 +281,7 @@ class WireDrawingTask(Task):
         self.spin_road = []
 
     def assign_equipment(self, equipment):
-        if self.equipment_type in equipment.machine_type:
+        if self.equipment_type in equipment.equipment_type:
             self.equipment = equipment
             self.set_spin_road()
 

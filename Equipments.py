@@ -26,20 +26,20 @@ class MachineMeta(type):
         return list(cls._instances)
 
 
-class Equipment:
+class Equipment(metaclass=MachineMeta):
 
     def __init__(self, name, machine_type):
-        self.name = name
-        self.machine_type = machine_type
+        self.equipment_name = name
+        self.equipment_type = machine_type
 
     @classmethod
     def get_all_instances(cls, type=None):
         if type is None:
             return list(cls._instances)
-        return [instance for instance in cls._instances if type in instance.machine_type]
+        return [instance for instance in cls._instances if type in instance.equipment_type]
 
 
-class WireDrawingMachine(Equipment, metaclass=MachineMeta):
+class WireDrawingMachine(Equipment):
     REMOVED_SPIN = 1  # время снятия фильер
     INSERT_SPIN = 5  # время вставки фильер
     CHANGE_BOBBIN = 5  # смена катушки
@@ -69,10 +69,10 @@ class WireDrawingMachine(Equipment, metaclass=MachineMeta):
     #     return [instance for instance in cls._instances if instance.name in names]
 
     def __repr__(self):
-        return f"WireDrawingMachine(name={self.name}, machine_type={self.machine_type})"
+        return f"WireDrawingMachine(name={self.equipment_name}, machine_type={self.equipment_type})"
 
 
-class MultivareMachine(Equipment, metaclass=MachineMeta):
+class MultivareMachine(Equipment):
     REMOVED_SPIN = 1  # время снятия фильер
     INSERT_SPIN = 5  # время вставки фильер (это время надо умножить на количество проволочек в пряди)
     CHANGE_BASKET = 20  # смена корзины на мультике
@@ -129,7 +129,7 @@ class MultivareMachine(Equipment, metaclass=MachineMeta):
     #     return [instance for instance in cls._instances if instance.name in names]
 
     def __repr__(self):
-        return f"MultivareMachine(name={self.name}, machine_type={self.machine_type})"
+        return f"MultivareMachine(name={self.equipment_name}, machine_type={self.equipment_type})"
 
 
 # class Basket:
@@ -208,14 +208,14 @@ def initialize_equipments():
     with open("Оборудование/Draggers.json", "r", encoding="utf-8") as dragger_file:
         dragger_data = json.load(dragger_file)
         for name, data in dragger_data.items():
-            equipments.append(WireDrawingMachine(name, data['machine_type'], data['supported_materials'], data['basket'],
+            equipments.append(WireDrawingMachine(name, data['equipment_type'], data['supported_materials'], data['basket'],
                                                  data['spinners_road'], data['min_diameter'], data['max_diameter']))
 
     # Загрузка данных из Multivare.json
     with open("Оборудование/Multivare.json", "r", encoding="utf-8") as multivare_file:
         multivare_data = json.load(multivare_file)
         for name, data in multivare_data.items():
-            equipments.append(MultivareMachine(name, data['machine_type'], data['supported_materials'], data['total_baskets'], data['remaining_basket_length'], data['spinners_road']))
+            equipments.append(MultivareMachine(name, data['equipment_type'], data['supported_materials'], data['total_baskets'], data['remaining_basket_length'], data['spinners_road']))
 
     return equipments
     # print(WireDrawingMachine.get_all_instances())

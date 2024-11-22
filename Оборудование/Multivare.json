@@ -1,7 +1,7 @@
 {
     "multivare": {
         "supported_materials": ["cu"],
-        "machine_type": ["multivare"],
+        "equipment_type": ["multivare"],
         "total_baskets": 560,
         "remaining_basket_length": 280,
         "spinners_road": [
