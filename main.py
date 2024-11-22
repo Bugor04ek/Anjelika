@@ -52,8 +52,8 @@ def main():
 
     # Шаг 3: Получаем задания из экземпляров Order, например:
     # tasks = [task for order in orders for task in order.task]
-    tasks_drawing = TaskMeta.get_instances_by_type(equipment_type='multivare')
-    tasks_multivare = TaskMeta.get_instances_by_type(equipment_type='wiredrawing')
+    tasks_multivare = TaskMeta.get_instances_by_type(equipment_type='multivare')
+    tasks_drawing = TaskMeta.get_instances_by_type(equipment_type='wiredrawing')
     # print(*tasks_draggers, sep='\n')
     
     # for i in range(1, len(tasks_multivare) ):

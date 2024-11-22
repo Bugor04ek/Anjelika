@@ -28,9 +28,9 @@ class MachineMeta(type):
 
 class Equipment(metaclass=MachineMeta):
 
-    def __init__(self, name, equipment_type):
-        self.name = name
-        self.equipment_type = equipment_type
+    def __init__(self, name, machine_type):
+        self.equipment_name = name
+        self.equipment_type = machine_type
 
     @classmethod
     def get_all_instances(cls, type=None):
@@ -47,9 +47,9 @@ class WireDrawingMachine(Equipment):
     STRETCHING_WIRE = 5  # протягивание проволочки в отжиге
     W = 12 * 60  # время изготовления 8 корзин
 
-    def __init__(self, name: str, equipment_type: [''], supported_materials: [''], basket: bool, spinners_road: [],
+    def __init__(self, name: str, machine_type: [''], supported_materials: [''], basket: bool, spinners_road: [],
                  min_diameter, max_diameter):
-        super().__init__(name, equipment_type)
+        super().__init__(name, machine_type)
         self.supported_materials = supported_materials
         self.basket = basket
         self.spinners_road = spinners_road
@@ -69,7 +69,7 @@ class WireDrawingMachine(Equipment):
     #     return [instance for instance in cls._instances if instance.name in names]
 
     def __repr__(self):
-        return f"WireDrawingMachine(name={self.name}, equipment_type={self.equipment_type})"
+        return f"WireDrawingMachine(name={self.equipment_name}, machine_type={self.equipment_type})"
 
 
 class MultivareMachine(Equipment):
@@ -110,8 +110,8 @@ class MultivareMachine(Equipment):
     d_mult = 2.08
     pi = 3.141592653589793
 
-    def __init__(self, name, equipment_type, supported_materials, total_baskets, remaining_basket_length, spinners_road):
-        super().__init__(name, equipment_type)
+    def __init__(self, name, machine_type, supported_materials, total_baskets, remaining_basket_length, spinners_road):
+        super().__init__(name, machine_type)
         self.supported_materials = supported_materials
         self.total_baskets = total_baskets  # MultivareMachine.KM_IN_16_BASKET всего корзин
         self.remaining_basket_length = remaining_basket_length  # MultivareMachine.KM_IN_8_BASKET  # начальный запас длины для 8 корзин
@@ -129,7 +129,7 @@ class MultivareMachine(Equipment):
     #     return [instance for instance in cls._instances if instance.name in names]
 
     def __repr__(self):
-        return f"MultivareMachine(name={self.name}, equipment_type={self.equipment_type})"
+        return f"MultivareMachine(name={self.equipment_name}, machine_type={self.equipment_type})"
 
 
 # class Basket:
