@@ -1,8 +1,6 @@
 import weakref
 from typing import Any, Union
 
-from pybind11_abseil.status import out_of_range_error
-
 from gosts import Mark
 import random
 from Equipments import MultivareMachine, WireDrawingMachine, Equipment, MachineMeta
@@ -236,10 +234,7 @@ class Task(metaclass=TaskMeta):
         """
         for task in tasks:
             task.equipment = random.choice(task.acceptable_equipment)
-            # suitable_equipments = [eq for eq in available_equipments if eq.is_suitable(task) and task.equipment_type in eq.equipment_type]
-            # if suitable_equipments:
-            #     equipment = random.choice(suitable_equipments)
-            #     task.assign_equipment(equipment)
+            task.set_spin_road()
 
     def set_acceptable_equipment(self):
         equipments = MachineMeta.get_all_instances()
@@ -326,12 +321,13 @@ class WireDrawingTask(Task):
             # self.spin_road = random.choice(self.spin_road)
 
         setup_time = 0
+        diff_spin = 0
 
         if current_task.equipment.name != 'old': # Алюминиевая и Новая волочилка
             # проходим по маршрутам и ищем, где начинается расхождение, чтобы после этой фильеры обрезать проволочку и снять все фильеры
             for i in range(min(len(current_task.spin_road), len(previous_task.spin_road))):
                 if current_task.spin_road[i] != previous_task.spin_road[i]:
-                    # разница уникальных волок в маршрутcurrent_taskе
+                    # разница уникальных волок в маршруте
                     diff_spin = i
                     break
             else:
@@ -343,7 +339,7 @@ class WireDrawingTask(Task):
             spin_in_without_0 = [e for e in previous_task.spin_road[-spin_in_with_0:] if e != 0]
             spin_out = len(previous_task.spin_road) - diff_spin  # это всегда будет 1 волока
             current_task.comment_setup = 'снять {} волок ({});'.format(len(spin_in_without_0), spin_in_without_0)
-            setup_time = len(spin_in_without_0) * WireDrawingMachine.CHANGE_WIRE + len(spin_in_without_0) * WireDrawingMachine.REMOVED_SPIN + WireDrawingMachine.STRETCHING_WIRE
+            setup_time += len(spin_in_without_0) * WireDrawingMachine.CHANGE_WIRE + len(spin_in_without_0) * WireDrawingMachine.REMOVED_SPIN + WireDrawingMachine.STRETCHING_WIRE
 
 
 
@@ -353,7 +349,7 @@ class WireDrawingTask(Task):
             spin_in_without_0 = sum([1 for e in current_task.spin_road[-spin_in_with_0:] if e != 0])
             spin_in_values = [e for e in current_task.spin_road[-spin_in_with_0:] if e != 0] # Список значений фильер, которые нужно поставить, без нулей
             current_task.comment_setup += 'вставить {} волок ({});'.format(spin_in_without_0, spin_in_values)
-            setup_time = spin_in_without_0 * WireDrawingMachine.CHANGE_WIRE + spin_in_without_0 * WireDrawingMachine.INSERT_SPIN + WireDrawingMachine.STRETCHING_WIRE
+            setup_time += spin_in_without_0 * WireDrawingMachine.CHANGE_WIRE + spin_in_without_0 * WireDrawingMachine.INSERT_SPIN + WireDrawingMachine.STRETCHING_WIRE
 
             setup_time += WireDrawingMachine.CHANGE_BOBBIN
 
@@ -377,23 +373,23 @@ class WireDrawingTask(Task):
 
                         spin_out = len(road2) - diff_spin
                         current_task.comment_setup = 'снять {} волок ({});'.format(spin_out, road2[-spin_out:])
-                        setup_time = spin_out * WireDrawingMachine.CHANGE_WIRE + spin_out * WireDrawingMachine.REMOVED_SPIN + WireDrawingMachine.STRETCHING_WIRE
+                        setup_time += spin_out * WireDrawingMachine.CHANGE_WIRE + spin_out * WireDrawingMachine.REMOVED_SPIN + WireDrawingMachine.STRETCHING_WIRE
 
                         # вставляем волоки с текущего задания
                         spin_in = abs(len(road1) - len(road2))
                         current_task.comment_setup += 'вставить {} волок ({});'.format(spin_in, road1[-(len(road1) - diff_spin):])
-                        setup_time = spin_in * WireDrawingMachine.CHANGE_WIRE + len(road1) * WireDrawingMachine.INSERT_SPIN + WireDrawingMachine.STRETCHING_WIRE
+                        setup_time += spin_in * WireDrawingMachine.CHANGE_WIRE + len(road1) * WireDrawingMachine.INSERT_SPIN + WireDrawingMachine.STRETCHING_WIRE
 
                         best_road[tuple(road1),tuple(road2)] = setup_time
                     else:
                         spin_out = len(road2) - diff_spin
                         current_task.comment_setup += 'снять {} волок ({});'.format(spin_out, road2[-spin_out:])
-                        setup_time = spin_out * WireDrawingMachine.CHANGE_WIRE + spin_out * WireDrawingMachine.REMOVED_SPIN + WireDrawingMachine.STRETCHING_WIRE
+                        setup_time += spin_out * WireDrawingMachine.CHANGE_WIRE + spin_out * WireDrawingMachine.REMOVED_SPIN + WireDrawingMachine.STRETCHING_WIRE
 
                         # вставляем волоки с текущего задания
                         spin_in = len(road1) - diff_spin
                         current_task.comment_setup += 'вставить {} волок ({});'.format(spin_in, road1[-spin_in:])
-                        setup_time = spin_in * WireDrawingMachine.CHANGE_WIRE + spin_in * WireDrawingMachine.INSERT_SPIN + WireDrawingMachine.STRETCHING_WIRE
+                        setup_time += spin_in * WireDrawingMachine.CHANGE_WIRE + spin_in * WireDrawingMachine.INSERT_SPIN + WireDrawingMachine.STRETCHING_WIRE
 
                         best_road[tuple(road1),tuple(road2)] = setup_time
 
@@ -441,6 +437,7 @@ class MultivareTask(Task):
                 pi * 0.25 * 8.89 * order.diameter ** 2 * max(order.wires_in_sliver, order.wires_in_sliver_extra))
         self.IDZak = order.IDZak
         self.account_number = order.account_number + type
+        self.comment_setup = ''
         self.diameter = diameter
         self.number_of_sliver = number_of_sliver
         self.wires_in_sliver = wires_in_sliver
@@ -457,7 +454,7 @@ class MultivareTask(Task):
         self.time_on_mult_1_basket = 0
         self.__time_setup = 0
         self.num_basket = 0
-        self.counting_spinners()
+        # self.counting_spinners()
         # self.set_group()
         self.calculating_length()
 
@@ -481,8 +478,7 @@ class MultivareTask(Task):
         Находим в словаре фильер ближайшие значения к диаметру.
         """
 
-        self.spin = MultivareMachine.dictionary_spinners[
-            min(MultivareMachine.dictionary_spinners, key=lambda x: abs(self.diameter - x))]
+        self.spin = MultivareMachine.dictionary_spinners[min(MultivareMachine.dictionary_spinners, key=lambda x: abs(self.diameter - x))]
 
     def calculating_length(self):
         # суммарная длина проволочек
@@ -528,6 +524,21 @@ class MultivareTask(Task):
 
         self.full_bobbin = int(number_full_bobbin), volume_half_bobbin, int(int(number_full_bobbin) > 0)
 
+    def set_spin_road(self):
+        """
+        Находим в словаре фильер ближайшие значения к диаметру.
+        Если находим в справочнике значение фильеры, тогда количество = ключ
+        Если не находим, тогда ищем после какой фильеры нужно поставить еще одну количество = ключ + 1
+        :return: количество фильер
+        """
+        # маршрут записанный из ключевых волок, последняя волока -- минимально возможный диаметр
+        roads = self.equipment.spinners_road
+
+        # на новой и алюминиевой волочилке будет один маршрут
+
+        self.spin_road = [min(roads, key=lambda x: abs(self.diameter - x[-1]))]
+
+
     @staticmethod
     def calculate_setup_time(current_task: "MultivareTask", previous_task: "MultivareTask"):
         """
@@ -547,36 +558,64 @@ class MultivareTask(Task):
                 1 ПРОВЕРКА -- Разность диаметров
             """
 
-            # меньше диаметр - больше фильер
-            if previous_task.spin_road > previous_task.spin:
-                removed_spin = previous_task.spin - current_task.spin + 1  # снимаем фильеры +1, чтобы переставить ее в конец
-                total_setup_time += removed_spin * MultivareMachine.REMOVED_SPIN  # Время на снятие фильер
-                total_setup_time += MultivareMachine.INSERT_SPIN * current_task.wires_in_sliver  # Время на установку фильер
-            # больше диаметр - меньше фильер
-            elif previous_task.spin < current_task.spin:
-                removed_spin = 1  # снимаем последнюю
-                total_setup_time += removed_spin * MultivareMachine.REMOVED_SPIN  # время на снятие фильер
-                total_setup_time += MultivareMachine.INSERT_SPIN * (
-                        current_task.spin - (
-                        previous_task.spin - 1)) * current_task.wires_in_sliver  # время на установку фильер +1, потому 1 уже снята tt
+            setup_time = 0
+            diff_spin = 0
 
-            """
-                2 ПРОВЕРКА -- Разность проволочек
-            """
+            best_road = {}
+            for road1 in current_task.spin_road:
+                spin_road2 = previous_task.spin_road
 
-            dif_wire = abs(current_task.wires_in_sliver - previous_task.wires_in_sliver)
+                for road2 in spin_road2:
+                    for i in range(min(len(road1), len(road2))):
+                        if road1[i] != road2[i]:
+                            # разница уникальных волок в маршруте
+                            diff_spin = i
+                            break
+                    else:
+                        best_road[tuple(road1), tuple(road2)] = 0
+                        continue
 
-            if previous_task.wires_in_sliver < current_task.wires_in_sliver:
-                # Надо протянуть новые проволочки через все фильеры на новом заказе
-                total_setup_time += dif_wire * current_task.spin * MultivareMachine.CHANGE_WIRE + MultivareMachine.STRETCHING_WIRE
-            elif previous_task.wires_in_sliver > current_task.wires_in_sliver:
-                # Надо снять проволочки со всех фильер previous_order
-                total_setup_time += dif_wire * previous_task.spin * MultivareMachine.CHANGE_WIRE
+                    # снимаем фильеры с предыдущего задания
+                    if len(road1) != len(road2):
 
-            #после каждого заказа будет смена заказа
-            total_setup_time += MultivareMachine.CHANGE_BOBBIN  # Время на смену катушки
+                        spin_out = len(road2) - diff_spin
+                        current_task.comment_setup = 'снять {} волок ({});'.format(spin_out, road2[-spin_out:])
+                        setup_time += spin_out * MultivareMachine.CHANGE_WIRE + spin_out * MultivareMachine.REMOVED_SPIN + MultivareMachine.STRETCHING_WIRE
 
-        return total_setup_time
+                        # вставляем волоки с текущего задания
+                        spin_in = abs(len(road1) - len(road2))
+                        current_task.comment_setup += 'вставить {} волок ({});'.format(spin_in, road1[-(
+                                    len(road1) - diff_spin):])
+                        setup_time += spin_in * MultivareMachine.CHANGE_WIRE + len(
+                            road1) * MultivareMachine.INSERT_SPIN + MultivareMachine.STRETCHING_WIRE
+
+                        best_road[tuple(road1), tuple(road2)] = setup_time
+                    else:
+                        spin_out = len(road2) - diff_spin
+                        current_task.comment_setup += 'снять {} волок ({});'.format(spin_out, road2[-spin_out:])
+                        setup_time += spin_out * MultivareMachine.CHANGE_WIRE + spin_out * MultivareMachine.REMOVED_SPIN + MultivareMachine.STRETCHING_WIRE
+
+                        # вставляем волоки с текущего задания
+                        spin_in = len(road1) - diff_spin
+                        non_zero_dies = [value for value in road1[-spin_in:] if value != 0] # Не нулевые фильеры
+                        current_task.comment_setup += 'вставить {} волок ({});'.format(len(non_zero_dies), non_zero_dies)
+                        setup_time += spin_in * MultivareMachine.CHANGE_WIRE + spin_in * MultivareMachine.INSERT_SPIN + MultivareMachine.STRETCHING_WIRE
+
+                        best_road[tuple(road1), tuple(road2)] = setup_time
+
+                    setup_time = 0
+                    diff_spin = 0
+            else:
+
+                current_task.spin_road = [list(sorted(best_road.items(), key=lambda x: x[1])[0][0][0])]
+                setup_time = sorted(best_road.items(), key=lambda x: x[1])[0][1]
+
+                # if len(previous_task.spin_road) > 1:
+                #     previous_task.spin_road = [list(sorted(best_road.items(), key=lambda x: x[1])[0][0][1])]
+
+        current_task.time_setup = setup_time
+
+        return setup_time
 
     @property
     def time_setup(self):
