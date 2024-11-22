@@ -1,3 +1,4 @@
+import numpy
 from deap import base, creator, tools, algorithms
 import random
 
@@ -86,16 +87,22 @@ def run_genetic_algorithm(tasks, pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
 
     toolbox.register("individual", tools.initIterate, creator.Individual, lambda: generate_individual())
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-    # toolbox.register("randomOrder", random.sample, range(num_orders), num_orders)
-    toolbox.register("individualCreator", tools.initIterate, creator.Individual)
+    toolbox.register("randomOrder", random.sample, range(len(tasks)), len(tasks))
+    toolbox.register("individualCreator", tools.initIterate, creator.Individual, toolbox.randomOrder)
     toolbox.register("populationCreator", tools.initRepeat, list, toolbox.individualCreator)
+
+    population = toolbox.population(n=POPULATION_SIZE)
 
     toolbox.register("evaluate", evaluate_fitness)
     toolbox.register("select", tools.selTournament, tournsize=3)
     toolbox.register("mate", tools.cxUniform, indpb=0.5)
     toolbox.register("mutate", tools.mutShuffleIndexes, indpb=0.05)
+    hof = tools.HallOfFame(HALL_OF_FAME_SIZE)
 
-    population = toolbox.populationCreator(n=POPULATION_SIZE)
+    stats = tools.Statistics(lambda ind: ind.fitness.values)
+
+    stats.register("avg", numpy.mean)
+    stats.register("min", numpy.min)
 
     # Инициализация популяции
     population, logbook = eaSimpleWithElitism(
@@ -107,9 +114,11 @@ def run_genetic_algorithm(tasks, pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
         halloffame=hof,
         verbose=True
     )
-    # Запуск генетического алгоритма с элитизмом
-    algorithms.eaSimple(population, toolbox, cxpb, mutpb, ngen, stats=None, halloffame=None, verbose=True)
 
+    print("- Лучшие решения:")
+    # Запуск генетического алгоритма с элитизмом
+    best_order = hof.items[0]  # массив заказов в виде индексов
+    print(best_order)
     return population
 
 
@@ -126,9 +135,9 @@ def generate_individual():
         for type in eq.equipment_type:
             if individual.get(type, None) is None:
                 individual[type] = {}
-            individual[type][eq.name] = TaskMeta.get_instances_by_type(equipment=eq)
+            individual[type][eq.equipment_name] = TaskMeta.get_instances_by_type(equipment=eq)
 
-    return creator.Individual(individual)
+    return individual
 
 
 # Функция оценки приспособленности — для вычисления общего времени выполнения задач

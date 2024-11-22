@@ -294,7 +294,7 @@ class WireDrawingTask(Task):
         """
         # маршрут записанный из ключевых волок, последняя волока -- минимально возможный диаметр
         roads = self.equipment.spinners_road
-        if self.equipment.name != 'old':
+        if self.equipment.equipment_name != 'old':
             # на новой и алюминиевой волочилке будет один маршрут
             for i, voloka in enumerate(roads):
                 if self.voloka >= voloka:
