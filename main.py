@@ -1,3 +1,5 @@
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 import json
 import random
 from datetime import datetime
@@ -6,6 +8,11 @@ from Equipments import initialize_equipments, MultivareMachine
 from Tasks import Order, TaskMeta, OrderMeta, Task, WireDrawingMachine, WireDrawingTask, MultivareTask
 import new_genetika  # Алгоритмы для генетической оптимизации
 
+app = FastAPI()
+
+# Модель данных для POST-запроса
+class JsonRequest(BaseModel):
+    data: list
 
 
 def create_orders():
@@ -39,7 +46,7 @@ def create_orders():
     # return [Order(row) for index, row in data.iterrows()]
 
 
-def main():
+def main1():
     # Шаг 0: Заведение оборудований
     equipments = initialize_equipments()
 
@@ -48,12 +55,43 @@ def main():
 
     # Шаг 2: Получаем все заказы с использованием метакласса OrderMeta
     orders = OrderMeta.get_all_instances()
-    print(f"Создано {len(orders)} заказов")
-    
+    # print(f"Создано {len(orders)} заказов")
+
+    # Шаг 3: Получаем задания из экземпляров Order, например:
+    # tasks = [task for order in orders for task in order.task]
+    tasks_drawing = TaskMeta.get_instances_by_type('wiredrawing')
+    tasks_multivare = TaskMeta.get_instances_by_type('multivare')
+    # print(*tasks_draggers, sep='\n')
+    Task.assign_tasks_to_equipment(tasks_multivare)
+
+    for i in range(1, len(tasks_multivare) ):
+        prev = tasks_multivare[i-1]
+        current = tasks_multivare[i]
+        MultivareTask.calculate_setup_time(current, prev)
+
+    # Task.assign_tasks_to_equipment(tasks_drawing, available_equipments=WireDrawingMachine.get_all_instances('wiredrawing'))
+    # print(TaskMeta.get_instances_by_type('wiredrawing'))
+    # # print(TaskMeta.get_instances_by_type('multivare'))
     # Шаг 4: Запуск генетического алгоритма с выбранными заданиями
-    new_genetika.run(Task.get_instances_all())
-    print("Генетический алгоритм завершен")
+    # new_genetika.run(Task.get_instances_all())
+    # print("Генетический алгоритм завершен")
 
+# Эндпоинт для перемешивания JSON
+@app.post("/shuffle_json")
+async def shuffle_json(request):
+    try:
+        # Получаем список из тела запроса
+        json_data = request.data
 
-if __name__ == "__main__":
-    main()
+        # Проверяем, что это список
+        if not isinstance(json_data, list):
+            raise HTTPException(status_code=400, detail="Provided data must be a list")
+
+        # Перемешиваем данные
+        random.shuffle(json_data)
+
+        # Возвращаем перемешанный JSON
+        return {"shuffled_data": json_data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
