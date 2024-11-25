@@ -231,13 +231,17 @@ class Task(metaclass=TaskMeta):
             # если старая волочилка, то берем много маршрутов, если другая, то 1
 
     @staticmethod
-    def assign_tasks_to_equipment(tasks: [Union['MultivareTask', 'WireDrawingTask']]):
+    def assign_tasks_to_equipment(tasks: [Union['MultivareTask', 'WireDrawingTask']] | Union['Basket']):
         """
         Назначает оборудование для всех заданий, выбирая подходящее.
         """
-        for task in tasks:
-            task.equipment = random.choice(task.acceptable_equipment)
-            task.set_spin_road()
+        if isinstance(tasks, list):
+            for task in tasks:
+                task.equipment = random.choice(task.acceptable_equipment)
+                task.set_spin_road()
+        else:
+            tasks.equipment = random.choice(tasks.acceptable_equipment)
+            tasks.set_spin_road()
 
     def set_acceptable_equipment(self):
         equipments = MachineMeta.get_all_instances()
@@ -402,12 +406,11 @@ class WireDrawingTask(Task):
         return setup_time
 
     @staticmethod
-    def create_basket_refill_task(num_baskets, equipment):
+    def create_basket_refill_task(basket):
         """Создаёт задание на пополнение корзин на волочилке для конкретного оборудования."""
-        refill_task = WireDrawingTask(order=None, account_number=None, diameter=None, part_type=None)
-        refill_task.equipment = equipment
-
-        print(f"Создано задание на пополнение {num_baskets} корзин для {equipment.name}.")
+        refill_task = WireDrawingTask(order=basket, account_number=None, diameter=None, part_type=None, time_work=WireDrawingMachine.W)
+        WireDrawingTask.assign_tasks_to_equipment(refill_task)
+        print(f"Создано задание на пополнение {8} корзин для {refill_task.equipment.equipment_name}.")
 
     def __repr__(self):
         if issubclass(Order, type(self.order)):
@@ -426,6 +429,7 @@ class MultivareTask(Task):
         # self.volume_bobbin = order.volume_bobbin
         # 350 - Ограничение по массе барабана для гибкой жилы на 630 барабан
         # 8.89 - Плотность меди
+        self.velocity = 0
         self.volume_bobbin = 350 / (
                 pi * 0.25 * 8.89 * order.diameter ** 2 * max(order.wires_in_sliver, order.wires_in_sliver_extra))
         self.IDZak = order.IDZak
@@ -487,8 +491,8 @@ class MultivareTask(Task):
         #     int(self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET // 8),
         #     self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET % 8
         # )
-        self.num_basket = self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2)
-        # self.time_on_mult_1_basket = self.time_on_multivare / self.num_basket  #(self.num_basket[0] + self.num_basket[1])
+        self.num_basket = self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET
+        self.velocity = self.num_basket / self.time_on_multivare  #(self.num_basket[0] + self.num_basket[1])
 
         # Пока у нас не назначено оборудование просто создаем класс корзины и считаем длину.
         # Не записываем ни оборудование, ни список заказов
@@ -640,23 +644,17 @@ class BasketMeta(type):
     """
     Метакласс для отслеживания всех экземпляров корзин.
     """
-    _current_basket = None
-    _baskets = []
+    _instances = weakref.WeakSet()
+
+    def __call__(cls, *args, **kwargs):
+        instance = super().__call__(*args, **kwargs)
+        cls._instances.add(instance)
+        return instance
 
     @classmethod
-    def get_current_basket(cls):
-        if cls._current_basket is None or cls._current_basket.sum_basket >= 8:
-            cls.create_new_basket()
-        return cls._current_basket
-
-    @classmethod
-    def create_new_basket(cls):
-        cls._current_basket = Basket()
-        cls._baskets.append(cls._current_basket)
-
-    @classmethod
-    def get_all_baskets(cls):
-        return cls._baskets
+    def get_instances_by_type(cls, **kwargs):
+        """Возвращает все экземпляры заданий определенного типа оборудования."""
+        return [instance for instance in cls._instances for key, val in kwargs.items() if getattr(instance, key) == val]
 
 
 class Basket(Task):
@@ -672,14 +670,14 @@ class Basket(Task):
         :param order: None, если заказа нет, значит создаем корзину с остатками с предыдущей корзины. Не None, если 1 заказ
         :param sum_basket: 0, если много заказов. 8, если 1 заказ
         """
-        super().__init__(self, account_number=None, equipment_type='wiredrawing', part_type=None, time_work=WireDrawingMachine.W)
 
         if order is not None:
-            self.time_on_multivare = order.time_on_multivare
+            # Если заказ указан при инициализации, значит что это остаток с другой корзины, значит время перенастройки было уже учтенео
             self.orders: [MultivareTask] = [order]
+            self.time_on_multivare = sum_basket * order.velocity
         else:
-            self.time_on_multivare = 0
             self.orders: [MultivareTask] = []
+            self.time_on_multivare = 0
 
         self.material = 'cu'
         self.voloka = MultivareMachine.d_mult
@@ -687,7 +685,9 @@ class Basket(Task):
         self.len_basket = MultivareMachine.KM_IN_1_BASKET * 8
         self.sum_basket = sum_basket
 
-    def append(self, order: MultivareTask, use_time_setup=True):
+        super().__init__(self, account_number=None, equipment_type='wiredrawing', part_type=None, time_work=WireDrawingMachine.W)
+
+    def append(self, order: MultivareTask, num_basket: float, use_time_setup=True):
         """
         1. Если заказ полностью подходит по вместимости корзины, то берем время и длину из заказа
         2. Если заказ не влазит в текущую корзину, то в одну корзину добавляем, что остается до восьми целых,
@@ -700,8 +700,8 @@ class Basket(Task):
         self.orders.append(order)
         # if num_basket is None:
         # Тут берем траты корзины из заказа
-        self.time_on_multivare += order.time_on_multivare
-        self.sum_basket += order.num_basket
+        self.time_on_multivare += order.velocity * num_basket + order.time_setup
+        self.sum_basket += num_basket
         # else:
         #     # Тут берем траты корзины из параметра
         #     self.time_work += order.time_on_mult_1_basket * num_basket + (order.time_setup if use_time_setup else 0)

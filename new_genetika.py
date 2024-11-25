@@ -3,7 +3,7 @@ from deap import base, creator, tools, algorithms
 import random
 
 import Equipments
-from Tasks import Task, TaskMeta, MultivareTask, Basket
+from Tasks import Task, TaskMeta, MultivareTask, WireDrawingTask, Basket
 from Equipments import MultivareMachine, WireDrawingMachine, Equipment
 
 
@@ -217,69 +217,63 @@ def generate_individual(tasks):
 def get_cost_multivare(task_multivare):
 
     time = 0
-    for i in range(1, task_multivare):
-        time += MultivareTask.calculate_setup_time(task_multivare[i], task_multivare[i - 1])
+    for task in task_multivare.values():
+        for i in range(1, len(task)):
+            time += MultivareTask.calculate_setup_time(task[i], task[i - 1])
 
-    calculating_basket(task_multivare)
+        calculating_basket(task)
 
     return time
 
 
-def calculating_basket(task_multivare):
+def calculating_basket(task_multivare: [MultivareTask]):
     """
     Для оптимально расставленных заказов на мультике считаются корзины. Корзина набивается заказами, которые сами по себе не формируют полноценные 8,
     если такие заказы есть, то заказ должен занимать нужное количество корзин в одиночку, а остаток делить с остальными заказами
     :return:
     """
 
-    rest_basket: int = MultivareMachine.KM_IN_8_BASKET
+    rest_basket: int = 8
     temp_basket: Basket = Basket(None)
+    num_basket = 0
     for order in task_multivare:
-        rest_basket -= order.num_basket  # сколько нужно до 8 корзин
-        temp_basket.append(order)
-        # Если со следующим заказом получается меньше 8 корзин, но он занимает сам по себе больше 8 корзин
-        if rest_basket >= 0:
+        if order.num_basket < 8:
+            if order.equipment.capacity - order.num_basket >= 0:
+                temp_basket.append(order, order.num_basket)
+                order.equipment.capacity -= order.num_basket  # сколько нужно до 8 корзин
+                # Если со следующим заказом получается меньше 8 корзин, но он занимает сам по себе больше 8 корзин
+            else:
+                temp_basket.append(order, order.equipment.capacity)
+                WireDrawingTask.create_basket_refill_task(temp_basket)
+                order.equipment.remaining_basket_length -= 8
+                num_basket = order.num_basket - order.equipment.capacity
+                order.equipment.capacity = 8
 
-            # temp_num_basket = (order.num_basket[0] - 1, order.num_basket[1] + (8 - rest_basket))
-            # распределяем полные корзины -> (2 (полные корзины), 5.47 (неполные корзины) -> (1, 5.47) -> (1, 13.47 + (8 - rest_basket))
-            # Добавляем такой заказ последним и начинаем новые корзины, потому что после него пойдут корзины только для этого заказа
-            # sum_basket += rest_basket
+                while num_basket > 8:
+                    WireDrawingTask.create_basket_refill_task(Basket(order, 8))
+                    order.equipment.remaining_basket_length -= 8
+                    num_basket -= 8
 
-
-            # Task.append(Dragger.WireDrawingTask(temp_basket))
-
-            # for _ in range(temp_num_basket[0]):
-            #     Dragger.queue_dragger_new_dragger.append(Dragger.WireDrawingTask(Basket([order], 8)))
-
-            # sum_basket = 0
-            # temp_basket: Basket = Basket()
-            # sum_basket += temp_num_basket[1]
-            # temp_basket.append(order, num_basket=temp_num_basket[1], use_time_setup=False)
-
-        # Если со следующим заказом получается больше 8 корзин
-        elif (sum_basket + order.num_basket[1]) > 8:
-            # Прибавляем так, чтобы стало 8 и добавляем время изготовления этой части корзины
-            rest_basket = 8 - sum_basket  # сколько нужно до 8 корзин
-            temp_basket.append(order, rest_basket)
-            Dragger.queue_dragger_new_dragger.append(Dragger.WireDrawingTask(temp_basket))
-
-            # Если заказ на больше 8 корзин, то между корзин будут корзины с 1 этим заказом
-            for _ in range(order.num_basket[0]):
-                Dragger.queue_dragger_new_dragger.append(Dragger.WireDrawingTask(Basket([order], 8)))
-
-            # начинаем новую корзину и добавляем в нее остаток текущего заказа
-            temp_basket: Basket = Basket()
-            sum_basket = order.num_basket[1] - rest_basket  # сколько корзин нужно
-            temp_basket.append(order, sum_basket, False)
-            # Переходим к следующему заказу, т.к. этот полностью исчерпан
+                order.equipment.capacity = 8 - num_basket
+                temp_basket.append(order, order.equipment.capacity)
         else:
-            sum_basket += order.num_basket[1]
-            temp_basket.append(order)
+
+            num_basket = order.num_basket - order.equipment.capacity
+
+            while num_basket > 8:
+                WireDrawingTask.create_basket_refill_task(Basket(order, 8))
+                order.equipment.remaining_basket_length -= 8
+                order.equipment.capacity = 8
+                num_basket -= 8
+
+            order.equipment.capacity = 8 - num_basket
+            temp_basket.append(order, order.equipment.capacity)
     else:
         if len(temp_basket.orders) > 0:
+            pass
             # Dragger.queue_dragger.append(Dragger.TaskForDragger(temp_basket))
-            QueueMultivare.rest_basket += sum_basket
-            QueueMultivare.rest_orders = temp_basket
+            # QueueMultivare.rest_basket += sum_basket
+            # QueueMultivare.rest_orders = temp_basket
 
 
 def evaluate_fitness(individual):
