@@ -37,7 +37,7 @@ class Order(metaclass=OrderMeta):
         self.time_on_drawing = None
         self.time_on_multivare = None
         self.IDZak = row['IDZakaza']
-        self.account_number = row['НомерСчета']
+        self.account_number = row['НомерСчёта']
         self.mark = Mark(row['МаркаЗаказаИзЕРП'])
         self.release_date = row['ДатаВыпускаПоЗаказу']
         self.order_length = row['КоличествоКилометровВПроизводство']
@@ -65,7 +65,10 @@ class Order(metaclass=OrderMeta):
         self.wires_in_sliver_extra_support = row['КоличествоПроволокНаОднойКатушкеВспомогательныйДоп']
         # self.type_bobbin = row['Вид барабана']
         self.volume_bobbin = row['КилометражМассаVSДлина']
-        self.material = 'al' if self.mark.mark[0] in ['А', 'A'] else 'cu'
+        try:
+            self.material = 'al' if self.mark.mark[0] in ['А', 'A'] else 'cu'
+        except:
+            self.material = 'cu'
         self.operation_sequence = row['ОперацииПоЗаказу']
         self.current_operation_index = 0  # Указатель на текущую операцию
         self.task = self.set_task(row)
@@ -311,17 +314,12 @@ class WireDrawingTask(Task):
                 if self.voloka == road[0][-1]:
                     self.spin_road = road
                     break
+
     @staticmethod
     def calculate_setup_time(current_task: "WireDrawingTask", previous_task: "WireDrawingTask"):
         """Расчет времени перенастройки между заданиями."""
-        # if not previous_task and self.equipment.name != 'old':
-        #     return 0
-        # else:
-            # заглушка, чтобы был маршрут на первом задание, чтобы можно было считать время
-            # self.spin_road = random.choice(self.spin_road)
 
         setup_time = 0
-        diff_spin = 0
 
         if current_task.equipment.name != 'old': # Алюминиевая и Новая волочилка
             # проходим по маршрутам и ищем, где начинается расхождение, чтобы после этой фильеры обрезать проволочку и снять все фильеры
@@ -341,9 +339,6 @@ class WireDrawingTask(Task):
             current_task.comment_setup = 'снять {} волок ({});'.format(len(spin_in_without_0), spin_in_without_0)
             setup_time += len(spin_in_without_0) * WireDrawingMachine.CHANGE_WIRE + len(spin_in_without_0) * WireDrawingMachine.REMOVED_SPIN + WireDrawingMachine.STRETCHING_WIRE
 
-
-
-
             # вставляем волоки с текущего задания
             spin_in_with_0 = len(current_task.spin_road) - diff_spin
             spin_in_without_0 = sum([1 for e in current_task.spin_road[-spin_in_with_0:] if e != 0])
@@ -353,7 +348,7 @@ class WireDrawingTask(Task):
 
             setup_time += WireDrawingMachine.CHANGE_BOBBIN
 
-        else: # Старая волочилка
+        else:  # Старая волочилка
             best_road = {}
             for road1 in current_task.spin_road:
                 spin_road2 = previous_task.spin_road
@@ -394,7 +389,6 @@ class WireDrawingTask(Task):
                         best_road[tuple(road1),tuple(road2)] = setup_time
 
                     setup_time = 0
-                    diff_spin = 0
             else:
 
                 current_task.spin_road = [list(sorted(best_road.items(), key=lambda x: x[1])[0][0][0])]
@@ -402,7 +396,6 @@ class WireDrawingTask(Task):
 
                 if len(previous_task.spin_road) > 1:
                     previous_task.spin_road = [list(sorted(best_road.items(), key=lambda x: x[1])[0][0][1])]
-
 
         current_task.time_setup = setup_time
 
@@ -502,7 +495,7 @@ class MultivareTask(Task):
         # basket = None
         # if self.equipment is None:
         #     basket = Basket()
-            # self.update_basket_status()
+        # self.update_basket_status()
 
         # длина заказа в расчете на одну прядь (весь заказ это length_strands *
         # (number_of_sliver + number_of_sliver_extra))
@@ -694,7 +687,7 @@ class Basket(Task):
         self.len_basket = MultivareMachine.KM_IN_1_BASKET * 8
         self.sum_basket = sum_basket
 
-    def append(self, order: MultivareTask, num_basket=None, use_time_setup=True):
+    def append(self, order: MultivareTask, use_time_setup=True):
         """
         1. Если заказ полностью подходит по вместимости корзины, то берем время и длину из заказа
         2. Если заказ не влазит в текущую корзину, то в одну корзину добавляем, что остается до восьми целых,

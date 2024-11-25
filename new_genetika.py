@@ -3,8 +3,26 @@ from deap import base, creator, tools, algorithms
 import random
 
 import Equipments
-from Tasks import Task, TaskMeta
+from Tasks import Task, TaskMeta, MultivareTask, Basket
 from Equipments import MultivareMachine, WireDrawingMachine, Equipment
+
+
+def varAnd(population, toolbox, cxpb, mutpb):
+    offspring = [toolbox.clone(ind) for ind in population]
+
+    # Apply crossover and mutation on the offspring
+    for i in range(1, len(offspring), 2):
+        if random.random() < cxpb:
+            toolbox.mate(offspring[i - 1], offspring[i])
+            del offspring[i - 1].fitness.values  # Удаление старого значения fitness
+            del offspring[i].fitness.values  # Удаление старого значения fitness
+
+    for i in range(len(offspring)):
+        if random.random() < mutpb:
+            offspring[i], = toolbox.mutate(offspring[i])
+            del offspring[i].fitness.values
+
+    return offspring
 
 
 def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, halloffame=None, verbose=__debug__):
@@ -69,13 +87,68 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, hall
     return population, logbook
 
 
+def uniform_crossover(tasks1, tasks2):
+    """
+    Унифицированный кроссовер для заданий одного типа оборудования.
+    Выполняется с вероятностью indpb на уровне каждого задания.
+    """
+    child1, child2 = tasks1[:], tasks2[:]
+    indpb = 0.5
+
+    min_len = min(len(tasks1), len(tasks2))
+    # Проходимся по каждому заданию в списках и случайно решаем, будем ли менять задание
+    for i in range(min_len):
+        if random.random() < indpb:
+            # Меняем задания местами
+            child1[i], child2[i] = child2[i], child1[i]
+
+    return child1, child2
+
+
+def crossover(parent1, parent2):
+    """
+    Кроссовер двух родителей для создания двух потомков.
+    """
+    # Копируем родителей, чтобы создать потомков
+    child1, child2 = parent1.copy(), parent2.copy()
+
+    for equipment_type in parent1.keys():
+        # Получаем задания для каждого типа оборудования
+        parent1_tasks = parent1[equipment_type]
+        parent2_tasks = parent2[equipment_type]
+
+        # Создаем новые списки для потомков
+        child1_tasks = {}
+        child2_tasks = {}
+
+        # Проходим по каждому оборудованию внутри типа (например, old, new для wiredrawing)
+        for equipment in parent1_tasks.keys():
+            tasks1 = parent1_tasks[equipment]
+            tasks2 = parent2_tasks[equipment]
+
+            # Если у нас достаточно заданий для выполнения кроссовера
+            if len(tasks1) > 1 and len(tasks2) > 1:
+                # Выполняем унифицированный кроссовер внутри одного оборудования
+                tasks1, tasks2 = uniform_crossover(tasks1, tasks2)
+
+                # Обновляем потомков новыми заданиями
+                child1_tasks[equipment] = tasks1
+                child2_tasks[equipment] = tasks2
+
+        # Обновляем задачи в потомках для текущего типа оборудования
+        child1[equipment_type] = child1_tasks
+        child2[equipment_type] = child2_tasks
+
+    return child1, child2
+
+
 # Основная функция запуска алгоритма
 def run_genetic_algorithm(tasks, pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
 
     # константы задачи
-    HALL_OF_FAME_SIZE = len(tasks) * 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
-    POPULATION_SIZE = len(tasks) * 200  # количество индивидуумов в популяции
-    MAX_GENERATIONS = len(tasks)  # максимальное количество поколений
+    HALL_OF_FAME_SIZE = 20  # количеству индивидуумов, которых мы хотим хранить в зале славы
+    POPULATION_SIZE = 100  # количество индивидуумов в популяции
+    MAX_GENERATIONS = 10  # максимальное количество поколений
     P_CROSSOVER = 1  # вероятность скрещивания
     P_MUTATION = 0  # вероятность мутации индивидуума
 
@@ -85,17 +158,16 @@ def run_genetic_algorithm(tasks, pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
     creator.create("Individual", dict, fitness=creator.FitnessMin)
 
-    toolbox.register("individual", tools.initIterate, creator.Individual, lambda: generate_individual())
+    toolbox.register("individual", tools.initIterate, creator.Individual, lambda: generate_individual(tasks))
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-    toolbox.register("randomOrder", random.sample, range(len(tasks)), len(tasks))
-    toolbox.register("individualCreator", tools.initIterate, creator.Individual, toolbox.randomOrder)
+    toolbox.register("individualCreator", tools.initIterate, creator.Individual)
     toolbox.register("populationCreator", tools.initRepeat, list, toolbox.individualCreator)
 
     population = toolbox.population(n=POPULATION_SIZE)
 
     toolbox.register("evaluate", evaluate_fitness)
     toolbox.register("select", tools.selTournament, tournsize=3)
-    toolbox.register("mate", tools.cxUniform, indpb=0.5)
+    toolbox.register("mate", crossover)
     toolbox.register("mutate", tools.mutShuffleIndexes, indpb=0.05)
     hof = tools.HallOfFame(HALL_OF_FAME_SIZE)
 
@@ -123,28 +195,102 @@ def run_genetic_algorithm(tasks, pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
 
 
 # Создание начальной популяции на основе заданий
-def generate_individual():
+def generate_individual(tasks):
     """Создает индивида с распределением задач по оборудованию."""
 
     # Выбираем рандомное оборудование на задание из подходящих оборудований
-    Task.assign_tasks_to_equipment(TaskMeta.get_instances_all())
+    Task.assign_tasks_to_equipment(tasks)
 
     # задание на каждый тип оборудований
     individual = {}
     for eq in Equipment.get_all_instances():
-        for type in eq.equipment_type:
-            if individual.get(type, None) is None:
-                individual[type] = {}
-            individual[type][eq.equipment_name] = TaskMeta.get_instances_by_type(equipment=eq)
+        for equipment_type in eq.equipment_type:
+            if individual.get(equipment_type, None) is None:
+                individual[equipment_type] = {}
+            task = TaskMeta.get_instances_by_type(equipment=eq)
+            individual[equipment_type][eq.equipment_name] = random.sample(task, len(task))
 
     return individual
 
 
 # Функция оценки приспособленности — для вычисления общего времени выполнения задач
+def get_cost_multivare(task_multivare):
+
+    time = 0
+    for i in range(1, task_multivare):
+        time += MultivareTask.calculate_setup_time(task_multivare[i], task_multivare[i - 1])
+
+    calculating_basket(task_multivare)
+
+    return time
+
+
+def calculating_basket(task_multivare):
+    """
+    Для оптимально расставленных заказов на мультике считаются корзины. Корзина набивается заказами, которые сами по себе не формируют полноценные 8,
+    если такие заказы есть, то заказ должен занимать нужное количество корзин в одиночку, а остаток делить с остальными заказами
+    :return:
+    """
+
+    rest_basket: int = MultivareMachine.KM_IN_8_BASKET
+    temp_basket: Basket = Basket(None)
+    for order in task_multivare:
+        rest_basket -= order.num_basket  # сколько нужно до 8 корзин
+        temp_basket.append(order)
+        # Если со следующим заказом получается меньше 8 корзин, но он занимает сам по себе больше 8 корзин
+        if rest_basket >= 0:
+
+            # temp_num_basket = (order.num_basket[0] - 1, order.num_basket[1] + (8 - rest_basket))
+            # распределяем полные корзины -> (2 (полные корзины), 5.47 (неполные корзины) -> (1, 5.47) -> (1, 13.47 + (8 - rest_basket))
+            # Добавляем такой заказ последним и начинаем новые корзины, потому что после него пойдут корзины только для этого заказа
+            # sum_basket += rest_basket
+
+
+            # Task.append(Dragger.WireDrawingTask(temp_basket))
+
+            # for _ in range(temp_num_basket[0]):
+            #     Dragger.queue_dragger_new_dragger.append(Dragger.WireDrawingTask(Basket([order], 8)))
+
+            # sum_basket = 0
+            # temp_basket: Basket = Basket()
+            # sum_basket += temp_num_basket[1]
+            # temp_basket.append(order, num_basket=temp_num_basket[1], use_time_setup=False)
+
+        # Если со следующим заказом получается больше 8 корзин
+        elif (sum_basket + order.num_basket[1]) > 8:
+            # Прибавляем так, чтобы стало 8 и добавляем время изготовления этой части корзины
+            rest_basket = 8 - sum_basket  # сколько нужно до 8 корзин
+            temp_basket.append(order, rest_basket)
+            Dragger.queue_dragger_new_dragger.append(Dragger.WireDrawingTask(temp_basket))
+
+            # Если заказ на больше 8 корзин, то между корзин будут корзины с 1 этим заказом
+            for _ in range(order.num_basket[0]):
+                Dragger.queue_dragger_new_dragger.append(Dragger.WireDrawingTask(Basket([order], 8)))
+
+            # начинаем новую корзину и добавляем в нее остаток текущего заказа
+            temp_basket: Basket = Basket()
+            sum_basket = order.num_basket[1] - rest_basket  # сколько корзин нужно
+            temp_basket.append(order, sum_basket, False)
+            # Переходим к следующему заказу, т.к. этот полностью исчерпан
+        else:
+            sum_basket += order.num_basket[1]
+            temp_basket.append(order)
+    else:
+        if len(temp_basket.orders) > 0:
+            # Dragger.queue_dragger.append(Dragger.TaskForDragger(temp_basket))
+            QueueMultivare.rest_basket += sum_basket
+            QueueMultivare.rest_orders = temp_basket
+
+
 def evaluate_fitness(individual):
-    multivare_time = sum(task.time_work for task in individual['multivare'])
-    wiredrawing_time = sum(task.time_work for task in individual['wiredrawing'])
-    return multivare_time + wiredrawing_time,
+    eq = Equipment.get_all_instances()
+    multivare_time = 0
+    get_cost_multivare(individual['multivare'])
+    for equipment_name in individual['multivare'].keys():
+        multivare_time += sum(task.time_work for task in individual['multivare'][equipment_name])
+    for equipment_name in individual['wiredrawing'].keys():
+        multivare_time += sum(task.time_work for task in individual['wiredrawing'][equipment_name])
+    return multivare_time,
 
 
 def run(tasks):
