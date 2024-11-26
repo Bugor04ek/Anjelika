@@ -487,10 +487,10 @@ class MultivareTask(Task):
 
         # 0 - сколько корзин по 8 штук нужно, если заказ очень большой и требуется много корзин
         # 1 - сколько корзин еще заполнится (набирается число до 8)
-        # self.num_basket = (
-        #     int(self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET // 8),
-        #     self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET % 8
-        # )
+        self.num_basket1 = (
+             int(self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET // 8),
+             self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET % 8
+        )
         self.num_basket = self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET
         self.velocity = self.num_basket / self.time_on_multivare  #(self.num_basket[0] + self.num_basket[1])
 
@@ -700,7 +700,7 @@ class Basket(Task):
         self.orders.append(order)
         # if num_basket is None:
         # Тут берем траты корзины из заказа
-        self.time_on_multivare += order.velocity * num_basket + order.time_setup
+        self.time_on_multivare += num_basket / order.velocity + order.time_setup
         self.sum_basket += num_basket
         # else:
         #     # Тут берем траты корзины из параметра

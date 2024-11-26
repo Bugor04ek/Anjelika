@@ -3,6 +3,7 @@ from deap import base, creator, tools, algorithms
 import random
 
 import Equipments
+import Tasks
 from Tasks import Task, TaskMeta, MultivareTask, WireDrawingTask, Basket
 from Equipments import MultivareMachine, WireDrawingMachine, Equipment
 
@@ -16,6 +17,8 @@ def varAnd(population, toolbox, cxpb, mutpb):
             toolbox.mate(offspring[i - 1], offspring[i])
             del offspring[i - 1].fitness.values  # Удаление старого значения fitness
             del offspring[i].fitness.values  # Удаление старого значения fitness
+            offspring[i - 1].basket = []  # Удаление старого значения fitness
+            offspring[i].basket = [] # Удаление старого значения fitness
 
     for i in range(len(offspring)):
         if random.random() < mutpb:
@@ -144,7 +147,6 @@ def crossover(parent1, parent2):
 
 # Основная функция запуска алгоритма
 def run_genetic_algorithm(tasks, pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
-
     # константы задачи
     HALL_OF_FAME_SIZE = 20  # количеству индивидуумов, которых мы хотим хранить в зале славы
     POPULATION_SIZE = 100  # количество индивидуумов в популяции
@@ -156,7 +158,8 @@ def run_genetic_algorithm(tasks, pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
 
     # Настройка среды DEAP для минимизации времени
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
-    creator.create("Individual", dict, fitness=creator.FitnessMin)
+    creator.create("Basket", list)
+    creator.create("Individual", dict, fitness=creator.FitnessMin, basket=creator.Basket)
 
     toolbox.register("individual", tools.initIterate, creator.Individual, lambda: generate_individual(tasks))
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
@@ -214,76 +217,64 @@ def generate_individual(tasks):
 
 
 # Функция оценки приспособленности — для вычисления общего времени выполнения задач
-def get_cost_multivare(task_multivare):
-
+def get_cost_multivare(ind):
     time = 0
-    for task in task_multivare.values():
+    for task in ind['multivare'].values():
         for i in range(1, len(task)):
             time += MultivareTask.calculate_setup_time(task[i], task[i - 1])
 
-        calculating_basket(task)
+        calculating_basket(ind, task)
 
     return time
 
 
-def calculating_basket(task_multivare: [MultivareTask]):
+def calculating_basket(ind, task):
     """
     Для оптимально расставленных заказов на мультике считаются корзины. Корзина набивается заказами, которые сами по себе не формируют полноценные 8,
     если такие заказы есть, то заказ должен занимать нужное количество корзин в одиночку, а остаток делить с остальными заказами
     :return:
     """
 
-    rest_basket: int = 8
     temp_basket: Basket = Basket(None)
-    num_basket = 0
-    for order in task_multivare:
-        if order.num_basket < 8:
-            if order.equipment.capacity - order.num_basket >= 0:
-                temp_basket.append(order, order.num_basket)
-                order.equipment.capacity -= order.num_basket  # сколько нужно до 8 корзин
-                # Если со следующим заказом получается меньше 8 корзин, но он занимает сам по себе больше 8 корзин
-            else:
-                temp_basket.append(order, order.equipment.capacity)
-                WireDrawingTask.create_basket_refill_task(temp_basket)
-                order.equipment.remaining_basket_length -= 8
-                num_basket = order.num_basket - order.equipment.capacity
-                order.equipment.capacity = 8
-
-                while num_basket > 8:
-                    WireDrawingTask.create_basket_refill_task(Basket(order, 8))
-                    order.equipment.remaining_basket_length -= 8
-                    num_basket -= 8
-
-                order.equipment.capacity = 8 - num_basket
-                temp_basket.append(order, order.equipment.capacity)
+    for order in task:
+        if order.equipment.capacity - order.num_basket >= 0:
+            temp_basket.append(order, order.num_basket)
+            order.equipment.capacity -= order.num_basket  # сколько нужно до 8 корзин
+            # Если со следующим заказом получается меньше 8 корзин, но он занимает сам по себе больше 8 корзин
         else:
-
+            temp_basket.append(order, order.equipment.capacity)
+            ind.basket.append(temp_basket)
+            order.equipment.remaining_basket_length -= 8
             num_basket = order.num_basket - order.equipment.capacity
-
             while num_basket > 8:
-                WireDrawingTask.create_basket_refill_task(Basket(order, 8))
+                ind.basket.append(Basket(order, 8))
                 order.equipment.remaining_basket_length -= 8
-                order.equipment.capacity = 8
                 num_basket -= 8
 
             order.equipment.capacity = 8 - num_basket
-            temp_basket.append(order, order.equipment.capacity)
+            temp_basket = Basket(order, num_basket)
     else:
         if len(temp_basket.orders) > 0:
-            pass
+            ind.basket.append(temp_basket)
+        order.equipment.capacity = 8
             # Dragger.queue_dragger.append(Dragger.TaskForDragger(temp_basket))
             # QueueMultivare.rest_basket += sum_basket
             # QueueMultivare.rest_orders = temp_basket
 
 
+def get_cost_drawing(individual):
+    pass
+
+
 def evaluate_fitness(individual):
-    eq = Equipment.get_all_instances()
+    # eq = Equipment.get_all_instances()
     multivare_time = 0
-    get_cost_multivare(individual['multivare'])
-    for equipment_name in individual['multivare'].keys():
-        multivare_time += sum(task.time_work for task in individual['multivare'][equipment_name])
-    for equipment_name in individual['wiredrawing'].keys():
-        multivare_time += sum(task.time_work for task in individual['wiredrawing'][equipment_name])
+    multivare_time += get_cost_multivare(individual)
+    get_cost_drawing(individual)
+    # for equipment_name in individual['multivare'].keys():
+    #     multivare_time += sum(task.time_work for task in individual['multivare'][equipment_name])
+    # for equipment_name in individual['wiredrawing'].keys():
+    #     multivare_time += sum(task.time_work for task in individual['wiredrawing'][equipment_name])
     return multivare_time,
 
 
