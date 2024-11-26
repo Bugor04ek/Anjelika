@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
 import json
 import random
@@ -10,8 +10,8 @@ import new_genetika  # Алгоритмы для генетической опт
 
 app = FastAPI()
 
-# Модель данных для POST-запроса
-class JsonRequest(BaseModel):
+# Модель данных
+class JsonArray(BaseModel):
     data: list
 
 
@@ -78,20 +78,12 @@ def main1():
 
 # Эндпоинт для перемешивания JSON
 @app.post("/shuffle_json")
-async def shuffle_json(request):
-    try:
-        # Получаем список из тела запроса
-        json_data = request.data
+def shuffle_json(payload: JsonArray):
+    # Доступ к массиву из тела запроса
+    json_array = payload.data
 
-        # Проверяем, что это список
-        if not isinstance(json_data, list):
-            raise HTTPException(status_code=400, detail="Provided data must be a list")
+    # Перемешивание массива
+    random.shuffle(json_array)
 
-        # Перемешиваем данные
-        random.shuffle(json_data)
-
-        # Возвращаем перемешанный JSON
-        return {"shuffled_data": json_data}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
+    # Возвращаем перемешанный массив
+    return {"ShuffledData": json_array}
