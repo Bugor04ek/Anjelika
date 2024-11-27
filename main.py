@@ -51,7 +51,7 @@ def main():
     print(f"Создано {len(orders)} заказов")
     
     # Шаг 4: Запуск генетического алгоритма с выбранными заданиями
-    new_genetika.run(Task.get_instances_all())
+    new_genetika.run()
     print("Генетический алгоритм завершен")
 
 

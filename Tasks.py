@@ -325,7 +325,7 @@ class WireDrawingTask(Task):
 
         setup_time = 0
 
-        if current_task.equipment.name != 'old': # Алюминиевая и Новая волочилка
+        if current_task.equipment.equipment_name != 'old':  # Алюминиевая и Новая волочилка
             # проходим по маршрутам и ищем, где начинается расхождение, чтобы после этой фильеры обрезать проволочку и снять все фильеры
             for i in range(min(len(current_task.spin_road), len(previous_task.spin_road))):
                 if current_task.spin_road[i] != previous_task.spin_road[i]:
@@ -657,7 +657,7 @@ class BasketMeta(type):
         return [instance for instance in cls._instances for key, val in kwargs.items() if getattr(instance, key) == val]
 
 
-class Basket(Task):
+class Basket(WireDrawingTask):
     """
     Корзина для подачи на мультик. Класс создается когда заказы с мультика израсходуют суммарно 8 корзин.
     Класс передается в очередь на волочилку.
@@ -685,7 +685,7 @@ class Basket(Task):
         self.len_basket = MultivareMachine.KM_IN_1_BASKET * 8
         self.sum_basket = sum_basket
 
-        super().__init__(self, account_number=None, equipment_type='wiredrawing', part_type=None, time_work=WireDrawingMachine.W)
+        super().__init__(self, account_number=None, part_type=None, time_work=WireDrawingMachine.W, diameter=self.voloka)
 
     def append(self, order: MultivareTask, num_basket: float, use_time_setup=True):
         """

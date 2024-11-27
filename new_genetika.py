@@ -2,6 +2,8 @@ import numpy
 from deap import base, creator, tools, algorithms
 import random
 
+from numpy.random.mtrand import choice
+
 import Equipments
 import Tasks
 from Tasks import Task, TaskMeta, MultivareTask, WireDrawingTask, Basket
@@ -18,7 +20,7 @@ def varAnd(population, toolbox, cxpb, mutpb):
             del offspring[i - 1].fitness.values  # Удаление старого значения fitness
             del offspring[i].fitness.values  # Удаление старого значения fitness
             offspring[i - 1].basket = []  # Удаление старого значения fitness
-            offspring[i].basket = [] # Удаление старого значения fitness
+            offspring[i].basket = []  # Удаление старого значения fitness
 
     for i in range(len(offspring)):
         if random.random() < mutpb:
@@ -146,13 +148,13 @@ def crossover(parent1, parent2):
 
 
 # Основная функция запуска алгоритма
-def run_genetic_algorithm(tasks, pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
+def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     # константы задачи
     HALL_OF_FAME_SIZE = 20  # количеству индивидуумов, которых мы хотим хранить в зале славы
     POPULATION_SIZE = 100  # количество индивидуумов в популяции
     MAX_GENERATIONS = 10  # максимальное количество поколений
     P_CROSSOVER = 1  # вероятность скрещивания
-    P_MUTATION = 0  # вероятность мутации индивидуума
+    P_MUTATION = 0.05  # вероятность мутации индивидуума
 
     toolbox = base.Toolbox()
 
@@ -161,7 +163,7 @@ def run_genetic_algorithm(tasks, pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     creator.create("Basket", list)
     creator.create("Individual", dict, fitness=creator.FitnessMin, basket=creator.Basket)
 
-    toolbox.register("individual", tools.initIterate, creator.Individual, lambda: generate_individual(tasks))
+    toolbox.register("individual", tools.initIterate, creator.Individual, lambda: generate_individual())
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
     toolbox.register("individualCreator", tools.initIterate, creator.Individual)
     toolbox.register("populationCreator", tools.initRepeat, list, toolbox.individualCreator)
@@ -198,11 +200,11 @@ def run_genetic_algorithm(tasks, pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
 
 
 # Создание начальной популяции на основе заданий
-def generate_individual(tasks):
+def generate_individual():
     """Создает индивида с распределением задач по оборудованию."""
 
     # Выбираем рандомное оборудование на задание из подходящих оборудований
-    Task.assign_tasks_to_equipment(tasks)
+    Task.assign_tasks_to_equipment(Task.get_instances_all())
 
     # задание на каждый тип оборудований
     individual = {}
@@ -243,11 +245,20 @@ def calculating_basket(ind, task):
             # Если со следующим заказом получается меньше 8 корзин, но он занимает сам по себе больше 8 корзин
         else:
             temp_basket.append(order, order.equipment.capacity)
-            ind.basket.append(temp_basket)
+
+            Task.assign_tasks_to_equipment(temp_basket)
+            task = ind['wiredrawing'][temp_basket.equipment.equipment_name]
+            task.insert(random.randint(0, len(task)), temp_basket)
+
             order.equipment.remaining_basket_length -= 8
             num_basket = order.num_basket - order.equipment.capacity
             while num_basket > 8:
-                ind.basket.append(Basket(order, 8))
+
+                b = Basket(order, 8)
+                Task.assign_tasks_to_equipment(b)
+                task = ind['wiredrawing'][temp_basket.equipment.equipment_name]
+                task.insert(random.randint(0, len(task)), b)
+
                 order.equipment.remaining_basket_length -= 8
                 num_basket -= 8
 
@@ -256,27 +267,43 @@ def calculating_basket(ind, task):
     else:
         if len(temp_basket.orders) > 0:
             ind.basket.append(temp_basket)
+            Task.assign_tasks_to_equipment(temp_basket)
+            task = ind['wiredrawing'][temp_basket.equipment.equipment_name]
+            task.insert(random.randint(0, len(task)), temp_basket)
         order.equipment.capacity = 8
             # Dragger.queue_dragger.append(Dragger.TaskForDragger(temp_basket))
             # QueueMultivare.rest_basket += sum_basket
             # QueueMultivare.rest_orders = temp_basket
 
 
-def get_cost_drawing(individual):
-    pass
+def get_cost_drawing(ind):
+    time = 0
+    # return 0
+    # indexes_baskets = individual.basket
+    total_time = 0  # суммарное время перенастроек
+    num_downtime = 0  # количество простоев волочилки
+    num_uptime = 0  # количесвто простоев мультика
+    time_route_to_basket = 0
+
+    for eq in ind['wiredrawing']:
+        tasks = ind['wiredrawing'][eq]
+        for i in range(1, len(tasks)):
+            time += WireDrawingTask.calculate_setup_time(tasks[i], tasks[i - 1])
+
+    return time
 
 
 def evaluate_fitness(individual):
     # eq = Equipment.get_all_instances()
-    multivare_time = 0
-    multivare_time += get_cost_multivare(individual)
-    get_cost_drawing(individual)
+
+    multivare_time = get_cost_multivare(individual)
+    drawing_time = get_cost_drawing(individual)
     # for equipment_name in individual['multivare'].keys():
     #     multivare_time += sum(task.time_work for task in individual['multivare'][equipment_name])
     # for equipment_name in individual['wiredrawing'].keys():
     #     multivare_time += sum(task.time_work for task in individual['wiredrawing'][equipment_name])
-    return multivare_time,
+    return multivare_time + drawing_time,
 
 
-def run(tasks):
-    run_genetic_algorithm(tasks)
+def run():
+    run_genetic_algorithm()
