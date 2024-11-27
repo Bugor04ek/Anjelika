@@ -1,6 +1,7 @@
 import numpy
 from deap import base, creator, tools, algorithms
 import random
+import copy
 
 from numpy.random.mtrand import choice
 
@@ -110,12 +111,27 @@ def uniform_crossover(tasks1, tasks2):
     return child1, child2
 
 
+def mutate(individual):
+    """Оператор мутации: случайное перемешивание задач на оборудовании."""
+    for equipment_type in individual.keys():
+        for equipment in individual[equipment_type]:
+            # Получаем задачи для данного оборудования
+            tasks = individual[equipment_type][equipment]
+
+            # С вероятностью mutpb выполняем перемешивание задач
+            if random.random() < 0.1:  # Вероятность мутации
+                random.shuffle(tasks)
+
+    # Возвращаем мутировавшего индивида в виде кортежа (так требует DEAP)
+    return (individual,)
+
+
 def crossover(parent1, parent2):
     """
     Кроссовер двух родителей для создания двух потомков.
     """
     # Копируем родителей, чтобы создать потомков
-    child1, child2 = parent1.copy(), parent2.copy()
+    child1, child2 = copy.deepcopy(parent1), copy.deepcopy(parent2)
 
     for equipment_type in parent1.keys():
         # Получаем задания для каждого типа оборудования
@@ -163,17 +179,15 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     creator.create("Basket", list)
     creator.create("Individual", dict, fitness=creator.FitnessMin, basket=creator.Basket)
 
-    toolbox.register("individual", tools.initIterate, creator.Individual, lambda: generate_individual())
-    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
-    toolbox.register("individualCreator", tools.initIterate, creator.Individual)
+    toolbox.register("individualCreator", tools.initIterate, creator.Individual, generate_individual)
     toolbox.register("populationCreator", tools.initRepeat, list, toolbox.individualCreator)
 
-    population = toolbox.population(n=POPULATION_SIZE)
+    population = toolbox.populationCreator(n=POPULATION_SIZE)
 
     toolbox.register("evaluate", evaluate_fitness)
     toolbox.register("select", tools.selTournament, tournsize=3)
     toolbox.register("mate", crossover)
-    toolbox.register("mutate", tools.mutShuffleIndexes, indpb=0.05)
+    toolbox.register("mutate",  mutate)
     hof = tools.HallOfFame(HALL_OF_FAME_SIZE)
 
     stats = tools.Statistics(lambda ind: ind.fitness.values)
@@ -202,7 +216,8 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
 # Создание начальной популяции на основе заданий
 def generate_individual():
     """Создает индивида с распределением задач по оборудованию."""
-
+    # Task_c = copy.deepcopy(Task)
+    # TaskMeta_c = copy.deepcopy(TaskMeta)
     # Выбираем рандомное оборудование на задание из подходящих оборудований
     Task.assign_tasks_to_equipment(Task.get_instances_all())
 
@@ -213,7 +228,8 @@ def generate_individual():
             if individual.get(equipment_type, None) is None:
                 individual[equipment_type] = {}
             task = TaskMeta.get_instances_by_type(equipment=eq)
-            individual[equipment_type][eq.equipment_name] = random.sample(task, len(task))
+            task_c = copy.deepcopy(task)
+            individual[equipment_type][eq.equipment_name] = random.sample(task_c, len(task_c))
 
     return individual
 
@@ -237,7 +253,7 @@ def calculating_basket(ind, task):
     :return:
     """
 
-    temp_basket: Basket = Basket(None)
+    temp_basket: Basket = copy.deepcopy(Basket(None))
     for order in task:
         if order.equipment.capacity - order.num_basket >= 0:
             temp_basket.append(order, order.num_basket)
@@ -247,29 +263,31 @@ def calculating_basket(ind, task):
             temp_basket.append(order, order.equipment.capacity)
 
             Task.assign_tasks_to_equipment(temp_basket)
-            task = ind['wiredrawing'][temp_basket.equipment.equipment_name]
-            task.insert(random.randint(0, len(task)), temp_basket)
+            ind.basket.append(temp_basket)
+            # task_w = ind['wiredrawing'][temp_basket.equipment.equipment_name]
+            # task_w.insert(random.randint(0, len(task)), temp_basket)
 
             order.equipment.remaining_basket_length -= 8
             num_basket = order.num_basket - order.equipment.capacity
             while num_basket > 8:
 
-                b = Basket(order, 8)
+                b = copy.deepcopy(Basket(order, 8))
                 Task.assign_tasks_to_equipment(b)
-                task = ind['wiredrawing'][temp_basket.equipment.equipment_name]
-                task.insert(random.randint(0, len(task)), b)
+                ind.basket.append(b)
+                # task_w = ind['wiredrawing'][temp_basket.equipment.equipment_name]
+                # task_w.insert(random.randint(0, len(task_w)), b)
 
                 order.equipment.remaining_basket_length -= 8
                 num_basket -= 8
 
             order.equipment.capacity = 8 - num_basket
-            temp_basket = Basket(order, num_basket)
+            temp_basket = copy.deepcopy(Basket(order, num_basket))
     else:
         if len(temp_basket.orders) > 0:
-            ind.basket.append(temp_basket)
             Task.assign_tasks_to_equipment(temp_basket)
-            task = ind['wiredrawing'][temp_basket.equipment.equipment_name]
-            task.insert(random.randint(0, len(task)), temp_basket)
+            ind.basket.append(temp_basket)
+            # task_w = ind['wiredrawing'][temp_basket.equipment.equipment_name]
+            # task_w.insert(random.randint(0, len(task_w)), temp_basket)
         order.equipment.capacity = 8
             # Dragger.queue_dragger.append(Dragger.TaskForDragger(temp_basket))
             # QueueMultivare.rest_basket += sum_basket
