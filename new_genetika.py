@@ -98,7 +98,7 @@ def uniform_crossover(tasks1, tasks2):
     Унифицированный кроссовер для заданий одного типа оборудования.
     Выполняется с вероятностью indpb на уровне каждого задания.
     """
-    child1, child2 = tasks1[:], tasks2[:]
+    child1, child2 = copy.deepcopy(tasks1[:]), copy.deepcopy(tasks2[:])
     indpb = 0.5
 
     min_len = min(len(tasks1), len(tasks2))
@@ -116,7 +116,7 @@ def mutate(individual):
     for equipment_type in individual.keys():
         for equipment in individual[equipment_type]:
             # Получаем задачи для данного оборудования
-            tasks = individual[equipment_type][equipment]
+            tasks = copy.deepcopy(individual[equipment_type][equipment])
 
             # С вероятностью mutpb выполняем перемешивание задач
             if random.random() < 0.1:  # Вероятность мутации
@@ -135,8 +135,8 @@ def crossover(parent1, parent2):
 
     for equipment_type in parent1.keys():
         # Получаем задания для каждого типа оборудования
-        parent1_tasks = parent1[equipment_type]
-        parent2_tasks = parent2[equipment_type]
+        parent1_tasks = copy.deepcopy(parent1[equipment_type])
+        parent2_tasks = copy.deepcopy(parent2[equipment_type])
 
         # Создаем новые списки для потомков
         child1_tasks = {}
@@ -144,8 +144,8 @@ def crossover(parent1, parent2):
 
         # Проходим по каждому оборудованию внутри типа (например, old, new для wiredrawing)
         for equipment in parent1_tasks.keys():
-            tasks1 = parent1_tasks[equipment]
-            tasks2 = parent2_tasks[equipment]
+            tasks1 = copy.deepcopy(parent1_tasks[equipment])
+            tasks2 = copy.deepcopy(parent2_tasks[equipment])
 
             # Если у нас достаточно заданий для выполнения кроссовера
             if len(tasks1) > 1 and len(tasks2) > 1:
@@ -210,7 +210,8 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     # Запуск генетического алгоритма с элитизмом
     best_order = hof.items[0]  # массив заказов в виде индексов
     print(best_order)
-    return population
+    return best_order
+    # return population
 
 
 # Создание начальной популяции на основе заданий
@@ -324,4 +325,5 @@ def evaluate_fitness(individual):
 
 
 def run():
-    run_genetic_algorithm()
+    return run_genetic_algorithm()
+
