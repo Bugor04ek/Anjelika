@@ -171,7 +171,8 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     MAX_GENERATIONS = 10  # максимальное количество поколений
     P_CROSSOVER = 1  # вероятность скрещивания
     P_MUTATION = 0.05  # вероятность мутации индивидуума
-
+    TASKS = Task.get_instances_all()
+    TASKS_len = len(Task.get_instances_all())
     toolbox = base.Toolbox()
 
     # Настройка среды DEAP для минимизации времени
@@ -179,7 +180,7 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     creator.create("Basket", list)
     creator.create("Individual", dict, fitness=creator.FitnessMin, basket=creator.Basket)
 
-    toolbox.register("individualCreator", tools.initIterate, creator.Individual, generate_individual)
+    toolbox.register("individualCreator", tools.initIterate, creator.Individual, generate_individual(TASKS))
     toolbox.register("populationCreator", tools.initRepeat, list, toolbox.individualCreator)
 
     population = toolbox.populationCreator(n=POPULATION_SIZE)
@@ -215,12 +216,13 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
 
 
 # Создание начальной популяции на основе заданий
-def generate_individual():
+def generate_individual(tasks):
     """Создает индивида с распределением задач по оборудованию."""
     # Task_c = copy.deepcopy(Task)
     # TaskMeta_c = copy.deepcopy(TaskMeta)
     # Выбираем рандомное оборудование на задание из подходящих оборудований
-    Task.assign_tasks_to_equipment(Task.get_instances_all())
+    available_orders = list(range(len(tasks)))
+    Task.assign_tasks_to_equipment(tasks)
 
     # задание на каждый тип оборудований
     individual = {}
@@ -228,12 +230,19 @@ def generate_individual():
         for equipment_type in eq.equipment_type:
             if individual.get(equipment_type, None) is None:
                 individual[equipment_type] = {}
-            task = TaskMeta.get_instances_by_type(equipment=eq)
-            task_c = copy.deepcopy(task)
-            individual[equipment_type][eq.equipment_name] = random.sample(task_c, len(task_c))
+            task_c = copy.deepcopy(TaskMeta.get_instances_by_type(equipment=eq))
+            individual[equipment_type][eq.equipment_name] = random.sample(list(next(i for i, task2 in enumerate(tasks) if task2.order.UUID == task1.order.UUID) for task1 in task_c), len(task_c))
+            # individual[equipment_type][eq.equipment_name] = get_task_indices(tasks, task_c)
+            # tasks -- все задания. надо перебрать task_c и найти каждый заказ в списке tasks и вернуть его индекс
 
     return individual
 
+def get_task_indices(tasks, equipment_tasks):
+    indices = []
+    for task in equipment_tasks:
+        index = tasks.index(task)  # Найти индекс задания в общем списке
+        indices.append(index)
+    return indices
 
 # Функция оценки приспособленности — для вычисления общего времени выполнения задач
 def get_cost_multivare(ind):
