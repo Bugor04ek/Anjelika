@@ -1,0 +1,4 @@
+fastapi~=0.115.2
+uvicorn
+pydantic~=2.9.2
+deap

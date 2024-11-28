@@ -61,6 +61,7 @@ class Order(metaclass=OrderMeta):
         self.number_of_strands_support = row['КоличествоСтренгВспомогательный']
         self.number_of_sliver_support = row['КоличествоЗарядныхКатушекНаСтренгеВспомогательный']
         self.wires_in_sliver_support = row['КоличествоПроволокНаОднойКатушкеВспомогательный']
+        self.UUID = row['UUID']
         self.number_of_sliver_extra_support = row['КоличествоЗарядныхКатушекНаСтренгеВспомогательныйДоп']
         self.wires_in_sliver_extra_support = row['КоличествоПроволокНаОднойКатушкеВспомогательныйДоп']
         # self.type_bobbin = row['Вид барабана']
@@ -324,6 +325,7 @@ class WireDrawingTask(Task):
         """Расчет времени перенастройки между заданиями."""
 
         setup_time = 0
+        current_task.comment_setup = ''
 
         if current_task.equipment.equipment_name != 'old':  # Алюминиевая и Новая волочилка
             # проходим по маршрутам и ищем, где начинается расхождение, чтобы после этой фильеры обрезать проволочку и снять все фильеры
@@ -549,6 +551,7 @@ class MultivareTask(Task):
         """
 
         total_setup_time = 0
+        current_task.comment_setup = ''
 
         if previous_task is not None:
             """
@@ -600,8 +603,10 @@ class MultivareTask(Task):
 
                         best_road[tuple(road1), tuple(road2)] = setup_time
 
-                    setup_time = 0
                     diff_spin = 0
+                    current_task.spin_road = [list(sorted(best_road.items(), key=lambda x: x[1])[0][0][0])]
+                    setup_time = sorted(best_road.items(), key=lambda x: x[1])[0][1]
+                    current_task.time_setup = setup_time
             else:
 
                 current_task.spin_road = [list(sorted(best_road.items(), key=lambda x: x[1])[0][0][0])]
