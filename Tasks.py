@@ -600,8 +600,10 @@ class MultivareTask(Task):
 
                         best_road[tuple(road1), tuple(road2)] = setup_time
 
-                    setup_time = 0
                     diff_spin = 0
+                    current_task.spin_road = [list(sorted(best_road.items(), key=lambda x: x[1])[0][0][0])]
+                    setup_time = sorted(best_road.items(), key=lambda x: x[1])[0][1]
+                    current_task.time_setup = setup_time
             else:
 
                 current_task.spin_road = [list(sorted(best_road.items(), key=lambda x: x[1])[0][0][0])]
