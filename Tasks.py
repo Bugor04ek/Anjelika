@@ -37,7 +37,7 @@ class Order(metaclass=OrderMeta):
         self.time_on_drawing = None
         self.time_on_multivare = None
         self.IDZak = row['IDZakaza']
-        self.account_number = row['НомерСчета']
+        self.account_number = row['НомерСчёта']
         self.mark = Mark(row['МаркаЗаказаИзЕРП'])
         self.release_date = row['ДатаВыпускаПоЗаказу']
         self.order_length = row['КоличествоКилометровВПроизводство']
@@ -65,7 +65,10 @@ class Order(metaclass=OrderMeta):
         self.wires_in_sliver_extra_support = row['КоличествоПроволокНаОднойКатушкеВспомогательныйДоп']
         # self.type_bobbin = row['Вид барабана']
         self.volume_bobbin = row['КилометражМассаVSДлина']
-        self.material = 'al' if self.mark.mark[0] in ['А', 'A'] else 'cu'
+        try:
+            self.material = 'al' if self.mark.mark[0] in ['А', 'A'] else 'cu'
+        except:
+            self.material = 'cu'
         self.operation_sequence = row['ОперацииПоЗаказу']
         self.current_operation_index = 0  # Указатель на текущую операцию
         self.task = self.set_task(row)
@@ -228,13 +231,17 @@ class Task(metaclass=TaskMeta):
             # если старая волочилка, то берем много маршрутов, если другая, то 1
 
     @staticmethod
-    def assign_tasks_to_equipment(tasks: [Union['MultivareTask', 'WireDrawingTask']]):
+    def assign_tasks_to_equipment(tasks: [Union['MultivareTask', 'WireDrawingTask']] | Union['Basket']):
         """
         Назначает оборудование для всех заданий, выбирая подходящее.
         """
-        for task in tasks:
-            task.equipment = random.choice(task.acceptable_equipment)
-            task.set_spin_road()
+        if isinstance(tasks, list):
+            for task in tasks:
+                task.equipment = random.choice(task.acceptable_equipment)
+                task.set_spin_road()
+        else:
+            tasks.equipment = random.choice(tasks.acceptable_equipment)
+            tasks.set_spin_road()
 
     def set_acceptable_equipment(self):
         equipments = MachineMeta.get_all_instances()
@@ -294,7 +301,7 @@ class WireDrawingTask(Task):
         """
         # маршрут записанный из ключевых волок, последняя волока -- минимально возможный диаметр
         roads = self.equipment.spinners_road
-        if self.equipment.name != 'old':
+        if self.equipment.equipment_name != 'old':
             # на новой и алюминиевой волочилке будет один маршрут
             for i, voloka in enumerate(roads):
                 if self.voloka >= voloka:
@@ -311,19 +318,14 @@ class WireDrawingTask(Task):
                 if self.voloka == road[0][-1]:
                     self.spin_road = road
                     break
+
     @staticmethod
     def calculate_setup_time(current_task: "WireDrawingTask", previous_task: "WireDrawingTask"):
         """Расчет времени перенастройки между заданиями."""
-        # if not previous_task and self.equipment.name != 'old':
-        #     return 0
-        # else:
-            # заглушка, чтобы был маршрут на первом задание, чтобы можно было считать время
-            # self.spin_road = random.choice(self.spin_road)
 
         setup_time = 0
-        diff_spin = 0
 
-        if current_task.equipment.name != 'old': # Алюминиевая и Новая волочилка
+        if current_task.equipment.equipment_name != 'old':  # Алюминиевая и Новая волочилка
             # проходим по маршрутам и ищем, где начинается расхождение, чтобы после этой фильеры обрезать проволочку и снять все фильеры
             for i in range(min(len(current_task.spin_road), len(previous_task.spin_road))):
                 if current_task.spin_road[i] != previous_task.spin_road[i]:
@@ -341,9 +343,6 @@ class WireDrawingTask(Task):
             current_task.comment_setup = 'снять {} волок ({});'.format(len(spin_in_without_0), spin_in_without_0)
             setup_time += len(spin_in_without_0) * WireDrawingMachine.CHANGE_WIRE + len(spin_in_without_0) * WireDrawingMachine.REMOVED_SPIN + WireDrawingMachine.STRETCHING_WIRE
 
-
-
-
             # вставляем волоки с текущего задания
             spin_in_with_0 = len(current_task.spin_road) - diff_spin
             spin_in_without_0 = sum([1 for e in current_task.spin_road[-spin_in_with_0:] if e != 0])
@@ -353,7 +352,7 @@ class WireDrawingTask(Task):
 
             setup_time += WireDrawingMachine.CHANGE_BOBBIN
 
-        else: # Старая волочилка
+        else:  # Старая волочилка
             best_road = {}
             for road1 in current_task.spin_road:
                 spin_road2 = previous_task.spin_road
@@ -394,7 +393,6 @@ class WireDrawingTask(Task):
                         best_road[tuple(road1),tuple(road2)] = setup_time
 
                     setup_time = 0
-                    diff_spin = 0
             else:
 
                 current_task.spin_road = [list(sorted(best_road.items(), key=lambda x: x[1])[0][0][0])]
@@ -403,18 +401,16 @@ class WireDrawingTask(Task):
                 if len(previous_task.spin_road) > 1:
                     previous_task.spin_road = [list(sorted(best_road.items(), key=lambda x: x[1])[0][0][1])]
 
-
         current_task.time_setup = setup_time
 
         return setup_time
 
     @staticmethod
-    def create_basket_refill_task(num_baskets, equipment):
+    def create_basket_refill_task(basket):
         """Создаёт задание на пополнение корзин на волочилке для конкретного оборудования."""
-        refill_task = WireDrawingTask(order=None, account_number=None, diameter=None, part_type=None)
-        refill_task.equipment = equipment
-
-        print(f"Создано задание на пополнение {num_baskets} корзин для {equipment.name}.")
+        refill_task = WireDrawingTask(order=basket, account_number=None, diameter=None, part_type=None, time_work=WireDrawingMachine.W)
+        WireDrawingTask.assign_tasks_to_equipment(refill_task)
+        print(f"Создано задание на пополнение {8} корзин для {refill_task.equipment.equipment_name}.")
 
     def __repr__(self):
         if issubclass(Order, type(self.order)):
@@ -433,6 +429,7 @@ class MultivareTask(Task):
         # self.volume_bobbin = order.volume_bobbin
         # 350 - Ограничение по массе барабана для гибкой жилы на 630 барабан
         # 8.89 - Плотность меди
+        self.velocity = 0
         self.volume_bobbin = 350 / (
                 pi * 0.25 * 8.89 * order.diameter ** 2 * max(order.wires_in_sliver, order.wires_in_sliver_extra))
         self.IDZak = order.IDZak
@@ -490,19 +487,19 @@ class MultivareTask(Task):
 
         # 0 - сколько корзин по 8 штук нужно, если заказ очень большой и требуется много корзин
         # 1 - сколько корзин еще заполнится (набирается число до 8)
-        # self.num_basket = (
-        #     int(self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET // 8),
-        #     self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET % 8
-        # )
-        self.num_basket = self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2)
-        # self.time_on_mult_1_basket = self.time_on_multivare / self.num_basket  #(self.num_basket[0] + self.num_basket[1])
+        self.num_basket1 = (
+             int(self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET // 8),
+             self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET % 8
+        )
+        self.num_basket = self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET
+        self.velocity = self.num_basket / self.time_on_multivare  #(self.num_basket[0] + self.num_basket[1])
 
         # Пока у нас не назначено оборудование просто создаем класс корзины и считаем длину.
         # Не записываем ни оборудование, ни список заказов
         # basket = None
         # if self.equipment is None:
         #     basket = Basket()
-            # self.update_basket_status()
+        # self.update_basket_status()
 
         # длина заказа в расчете на одну прядь (весь заказ это length_strands *
         # (number_of_sliver + number_of_sliver_extra))
@@ -647,26 +644,20 @@ class BasketMeta(type):
     """
     Метакласс для отслеживания всех экземпляров корзин.
     """
-    _current_basket = None
-    _baskets = []
+    _instances = weakref.WeakSet()
+
+    def __call__(cls, *args, **kwargs):
+        instance = super().__call__(*args, **kwargs)
+        cls._instances.add(instance)
+        return instance
 
     @classmethod
-    def get_current_basket(cls):
-        if cls._current_basket is None or cls._current_basket.sum_basket >= 8:
-            cls.create_new_basket()
-        return cls._current_basket
-
-    @classmethod
-    def create_new_basket(cls):
-        cls._current_basket = Basket()
-        cls._baskets.append(cls._current_basket)
-
-    @classmethod
-    def get_all_baskets(cls):
-        return cls._baskets
+    def get_instances_by_type(cls, **kwargs):
+        """Возвращает все экземпляры заданий определенного типа оборудования."""
+        return [instance for instance in cls._instances for key, val in kwargs.items() if getattr(instance, key) == val]
 
 
-class Basket(Task):
+class Basket(WireDrawingTask):
     """
     Корзина для подачи на мультик. Класс создается когда заказы с мультика израсходуют суммарно 8 корзин.
     Класс передается в очередь на волочилку.
@@ -679,14 +670,14 @@ class Basket(Task):
         :param order: None, если заказа нет, значит создаем корзину с остатками с предыдущей корзины. Не None, если 1 заказ
         :param sum_basket: 0, если много заказов. 8, если 1 заказ
         """
-        super().__init__(self, account_number=None, equipment_type='wiredrawing', part_type=None, time_work=WireDrawingMachine.W)
 
         if order is not None:
-            self.time_on_multivare = order.time_on_multivare
+            # Если заказ указан при инициализации, значит что это остаток с другой корзины, значит время перенастройки было уже учтенео
             self.orders: [MultivareTask] = [order]
+            self.time_on_multivare = sum_basket * order.velocity
         else:
-            self.time_on_multivare = 0
             self.orders: [MultivareTask] = []
+            self.time_on_multivare = 0
 
         self.material = 'cu'
         self.voloka = MultivareMachine.d_mult
@@ -694,7 +685,9 @@ class Basket(Task):
         self.len_basket = MultivareMachine.KM_IN_1_BASKET * 8
         self.sum_basket = sum_basket
 
-    def append(self, order: MultivareTask, num_basket=None, use_time_setup=True):
+        super().__init__(self, account_number=None, part_type=None, time_work=WireDrawingMachine.W, diameter=self.voloka)
+
+    def append(self, order: MultivareTask, num_basket: float, use_time_setup=True):
         """
         1. Если заказ полностью подходит по вместимости корзины, то берем время и длину из заказа
         2. Если заказ не влазит в текущую корзину, то в одну корзину добавляем, что остается до восьми целых,
@@ -707,8 +700,8 @@ class Basket(Task):
         self.orders.append(order)
         # if num_basket is None:
         # Тут берем траты корзины из заказа
-        self.time_on_multivare += order.time_on_multivare
-        self.sum_basket += order.num_basket
+        self.time_on_multivare += num_basket / order.velocity + order.time_setup
+        self.sum_basket += num_basket
         # else:
         #     # Тут берем траты корзины из параметра
         #     self.time_work += order.time_on_mult_1_basket * num_basket + (order.time_setup if use_time_setup else 0)

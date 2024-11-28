@@ -47,8 +47,10 @@ class WireDrawingMachine(Equipment):
     STRETCHING_WIRE = 5  # протягивание проволочки в отжиге
     W = 12 * 60  # время изготовления 8 корзин
 
-    def __init__(self, name: str, machine_type: [''], supported_materials: [''], basket: bool, spinners_road: [],
-                 min_diameter, max_diameter):
+    def __init__(
+        self, name: str, machine_type: [''], supported_materials: [''], basket: bool, spinners_road: [],
+        min_diameter, max_diameter
+        ):
         super().__init__(name, machine_type)
         self.supported_materials = supported_materials
         self.basket = basket
@@ -60,7 +62,8 @@ class WireDrawingMachine(Equipment):
     def is_suitable(self, task: "WireDrawingTask"):
         return (task.material in self.supported_materials and
                 self.min_diameter <= task.voloka <= self.max_diameter and
-                (not (task.order.__class__.__name__ == 'Basket') or (task.order.__class__.__name__ == 'Basket' and self.basket)))
+                (not (task.order.__class__.__name__ == 'Basket') or (
+                            task.order.__class__.__name__ == 'Basket' and self.basket)))
 
     # @classmethod
     # def get_all_instances(cls, names=None):
@@ -208,14 +211,23 @@ def initialize_equipments():
     with open("Оборудование/Draggers.json", "r", encoding="utf-8") as dragger_file:
         dragger_data = json.load(dragger_file)
         for name, data in dragger_data.items():
-            equipments.append(WireDrawingMachine(name, data['equipment_type'], data['supported_materials'], data['basket'],
-                                                 data['spinners_road'], data['min_diameter'], data['max_diameter']))
+            equipments.append(
+                WireDrawingMachine(
+                    name, data['equipment_type'], data['supported_materials'], data['basket'],
+                    data['spinners_road'], data['min_diameter'], data['max_diameter']
+                    )
+                )
 
     # Загрузка данных из Multivare.json
     with open("Оборудование/Multivare.json", "r", encoding="utf-8") as multivare_file:
         multivare_data = json.load(multivare_file)
         for name, data in multivare_data.items():
-            equipments.append(MultivareMachine(name, data['equipment_type'], data['supported_materials'], data['total_baskets'], data['remaining_basket_length'], data['spinners_road']))
+            equipments.append(
+                MultivareMachine(
+                    name, data['equipment_type'], data['supported_materials'], data['total_baskets'],
+                    data['remaining_basket_length'], data['spinners_road']
+                    )
+                )
 
     return equipments
     # print(WireDrawingMachine.get_all_instances())
@@ -223,5 +235,5 @@ def initialize_equipments():
 
 
 if __name__ == "__main__":
-# Инициализация оборудования
+    # Инициализация оборудования
     initialize_equipments()
