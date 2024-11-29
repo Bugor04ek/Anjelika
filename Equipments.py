@@ -38,6 +38,11 @@ class Equipment(metaclass=MachineMeta):
             return list(cls._instances)
         return [instance for instance in cls._instances if type in instance.equipment_type]
 
+    @classmethod
+    def get_instances_by_type(cls, **kwargs):
+        """Возвращает все экземпляры заданий определенного типа оборудования."""
+        return [instance for instance in cls._instances for key, val in kwargs.items() if getattr(instance, key) == val]
+
 
 class WireDrawingMachine(Equipment):
     REMOVED_SPIN = 1  # время снятия фильер

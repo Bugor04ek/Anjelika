@@ -1,3 +1,5 @@
+from pickle import GLOBAL
+
 import numpy
 from deap import base, creator, tools, algorithms
 import random
@@ -9,6 +11,8 @@ import Equipments
 import Tasks
 from Tasks import Task, TaskMeta, MultivareTask, WireDrawingTask, Basket
 from Equipments import MultivareMachine, WireDrawingMachine, Equipment
+
+TASKS = []
 
 
 def varAnd(population, toolbox, cxpb, mutpb):
@@ -112,18 +116,22 @@ def uniform_crossover(tasks1, tasks2):
 
 
 def mutate(individual):
-    """Оператор мутации: случайное перемешивание задач на оборудовании."""
-    for equipment_type in individual.keys():
-        for equipment in individual[equipment_type]:
-            # Получаем задачи для данного оборудования
-            tasks = copy.deepcopy(individual[equipment_type][equipment])
-
-            # С вероятностью mutpb выполняем перемешивание задач
-            if random.random() < 0.1:  # Вероятность мутации
-                random.shuffle(tasks)
+    """Оператор мутации для сложной структуры индивидов."""
+    for equipment in individual.keys():
+        # Применение типового оператора DEAP к каждому списку заказов
+        tools.mutShuffleIndexes(individual[equipment], indpb=0.2)
+    return individual,
 
     # Возвращаем мутировавшего индивида в виде кортежа (так требует DEAP)
     return (individual,)
+
+
+def custom_cx_ordered_adapted(ind1, ind2):
+
+    for equipment in ind1.keys():
+        tools.cxOrdered(ind1[equipment], ind2[equipment])
+
+    return ind1, ind2
 
 
 def crossover(parent1, parent2):
@@ -171,6 +179,7 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     MAX_GENERATIONS = 10  # максимальное количество поколений
     P_CROSSOVER = 1  # вероятность скрещивания
     P_MUTATION = 0.05  # вероятность мутации индивидуума
+    global TASKS
     TASKS = Task.get_instances_all()
     TASKS_len = len(Task.get_instances_all())
     toolbox = base.Toolbox()
@@ -180,15 +189,15 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     creator.create("Basket", list)
     creator.create("Individual", dict, fitness=creator.FitnessMin, basket=creator.Basket)
 
-    toolbox.register("individualCreator", tools.initIterate, creator.Individual, generate_individual(TASKS))
-    toolbox.register("populationCreator", tools.initRepeat, list, toolbox.individualCreator)
+    toolbox.register("individual", tools.initIterate, creator.Individual, lambda: generate_individual(TASKS))
+    toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
-    population = toolbox.populationCreator(n=POPULATION_SIZE)
+    population = toolbox.population(n=POPULATION_SIZE)
 
     toolbox.register("evaluate", evaluate_fitness)
     toolbox.register("select", tools.selTournament, tournsize=3)
-    toolbox.register("mate", crossover)
-    toolbox.register("mutate",  mutate)
+    toolbox.register("mate", custom_cx_ordered_adapted)
+    toolbox.register("mutate", mutate, indpb=0.05)
     hof = tools.HallOfFame(HALL_OF_FAME_SIZE)
 
     stats = tools.Statistics(lambda ind: ind.fitness.values)
@@ -231,27 +240,24 @@ def generate_individual(tasks):
             if individual.get(equipment_type, None) is None:
                 individual[equipment_type] = {}
             task_c = copy.deepcopy(TaskMeta.get_instances_by_type(equipment=eq))
-            individual[equipment_type][eq.equipment_name] = random.sample(list(next(i for i, task2 in enumerate(tasks) if task2.order.UUID == task1.order.UUID) for task1 in task_c), len(task_c))
-            # individual[equipment_type][eq.equipment_name] = get_task_indices(tasks, task_c)
-            # tasks -- все задания. надо перебрать task_c и найти каждый заказ в списке tasks и вернуть его индекс
+            individual[equipment_type][eq.equipment_name] = random.sample(get_task_indices(tasks, task_c), len(task_c))
 
     return individual
 
-def get_task_indices(tasks, equipment_tasks):
-    indices = []
-    for task in equipment_tasks:
-        index = tasks.index(task)  # Найти индекс задания в общем списке
-        indices.append(index)
-    return indices
+
+def get_task_indices(tasks, task_c):
+    return list(next(i for i, task2 in enumerate(tasks) if task2.order.UUID == task1.order.UUID) for task1 in task_c)
+
 
 # Функция оценки приспособленности — для вычисления общего времени выполнения задач
 def get_cost_multivare(ind):
     time = 0
-    for task in ind['multivare'].values():
-        for i in range(1, len(task)):
-            time += MultivareTask.calculate_setup_time(task[i], task[i - 1])
-
-        calculating_basket(ind, task)
+    map(lambda x: x.capacity * 0 + 8, Equipment.get_instances_by_type(equipment_type='multivare'))
+    for eq in ind['multivare']:
+        tasks = ind['multivare'][eq]
+        for i in range(1, len(tasks)):
+            time += MultivareTask.calculate_setup_time(TASKS[tasks[i]], TASKS[tasks[i - 1]])
+        calculating_basket(ind, tasks)
 
     return time
 
@@ -264,7 +270,8 @@ def calculating_basket(ind, task):
     """
 
     temp_basket: Basket = copy.deepcopy(Basket(None))
-    for order in task:
+    for i in task:
+        order = TASKS[i]
         if order.equipment.capacity - order.num_basket >= 0:
             temp_basket.append(order, order.num_basket)
             order.equipment.capacity -= order.num_basket  # сколько нужно до 8 корзин
@@ -298,7 +305,6 @@ def calculating_basket(ind, task):
             ind.basket.append(temp_basket)
             # task_w = ind['wiredrawing'][temp_basket.equipment.equipment_name]
             # task_w.insert(random.randint(0, len(task_w)), temp_basket)
-        order.equipment.capacity = 8
 
 
 def get_cost_drawing(ind):
