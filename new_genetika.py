@@ -289,7 +289,7 @@ def calculating_basket(ind, task):
             ind.basket.append(temp_basket)
             # task_w = ind['wiredrawing'][temp_basket.equipment.equipment_name]
             # task_w.insert(random.randint(0, len(task_w)), temp_basket)
-        order.equipment.capacity = 8
+        # order.equipment.capacity = 8
             # Dragger.queue_dragger.append(Dragger.TaskForDragger(temp_basket))
             # QueueMultivare.rest_basket += sum_basket
             # QueueMultivare.rest_orders = temp_basket

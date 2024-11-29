@@ -1,14 +1,16 @@
+import time
 from fastapi import FastAPI
-
 from pydantic import BaseModel
 import json
+import random
 from datetime import datetime
 
-
-from Equipments import  Equipment
-from Tasks import Order
+from Equipments import initialize_equipments, MultivareMachine, Equipment
+from Tasks import Order, TaskMeta, OrderMeta, Task, WireDrawingMachine, WireDrawingTask, MultivareTask
 import new_genetika  # Алгоритмы для генетической оптимизации
 
+
+equipments = None
 app = FastAPI()
 
 # Модель данных
@@ -49,13 +51,14 @@ def create_orders():
 
 def main():
     # Шаг 0: Заведение оборудований
-    # equipments = initialize_equipments()
+
+    equipments = initialize_equipments()
 
     # Шаг 1: Инициализация заказов
     create_orders()  # создаем заказы, хранятся в OrderMeta
 
     # Шаг 2: Получаем все заказы с использованием метакласса OrderMeta
-    # orders = OrderMeta.get_all_instances()
+    orders = OrderMeta.get_all_instances()
     # print(f"Создано {len(orders)} заказов")
 
     # Шаг 3: Получаем задания из экземпляров Order, например:
@@ -79,12 +82,20 @@ def main():
     best_orders = new_genetika.run()
     time_end = datetime.now()
 
+    result_json = {}
+    for eq in Equipment.get_all_instances():
+        for equipment_type in eq.equipment_type:
+            if result_json.get(equipment_type, None) is None:
+                result_json[equipment_type] = {}
+            result_json[equipment_type][eq.equipment_name] = [{"UUID": task.order.UUID,"Маршрут": task.spin_road, "Комментарий": task.comment_setup} for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, [])]
+            # result_json.append({"UUID": task.order.UUID,"Маршрут": task.spin_road, "Комментарий": task.comment_setup} for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, []))
+
     total_time = time_end - time_begin
     print(total_time)
 
     print("Генетический алгоритм завершен")
 
-    return best_orders
+    return result_json
 
 # эндпоинт для перемешивания JSON
 @app.post("/shuffle_json")
@@ -94,33 +105,26 @@ def shuffle_json(payload: JsonArray):
     # zakazy = payload.data
 
     # Надо передавать zakazy в main или записывать в Заказы.json
-    best_orders = main()
-
-    # Доступ к данным из best_orders
-    result_json = {}
-    for eq in Equipment.get_all_instances():
-        for equipment_type in eq.equipment_type:
-            if result_json.get(equipment_type, None) is None:
-                result_json[equipment_type] = {}
-            result_json[equipment_type][eq.equipment_name] = [{task.order.UUID: {"Маршрут": task.spin_road, "Комментарий": task.comment_setup}} for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, [])]
-
 
     # Возвращаем перемешанный массив
-    return {"Order": result_json}
+    return {"Order": main()}
 
 
 
-# if __name__ == "__main__":
-#     # main()
-#     best_orders = main()
-#
-#     result_json = {}
-#     for eq in Equipment.get_all_instances():
-#         for equipment_type in eq.equipment_type:
-#             if result_json.get(equipment_type, None) is None:
-#                 result_json[equipment_type] = {}
-#             result_json[equipment_type][eq.equipment_name] = [{task.order.UUID: {"Маршрут": task.spin_road, "Комментарий": task.comment_setup}} for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, [])]
-#
-#     print(result_json)
+if __name__ == "__main__":
+    # main()
+    best_orders = main()
 
+    # # Доступ к данным из best_orders
+    # result_json = {}
+    # for eq in Equipment.get_all_instances():
+    #     for equipment_type in eq.equipment_type:
+    #         if result_json.get(equipment_type, None) is None:
+    #             result_json[equipment_type] = {}
+    #         result_json[equipment_type][eq.equipment_name] = [{task.order.UUID: {"Маршрут": task.spin_road, "Комментарий": task.comment_setup}} for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, [])]
+    #
+
+      # print(result_json)
+
+    f = 0
 
