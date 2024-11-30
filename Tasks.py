@@ -190,7 +190,6 @@ class TaskMeta(type):
         return [instance for instance in cls._instances for key, val in kwargs.items() if getattr(instance, key) == val]
 
 
-
     @classmethod
     def get_instances_all(cls):
         """Возвращает все экземпляры заданий определенного типа оборудования."""
