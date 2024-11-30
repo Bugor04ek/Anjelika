@@ -306,7 +306,6 @@ def calculating_basket(ind, task):
             # task_w = ind['wiredrawing'][temp_basket.equipment.equipment_name]
             # task_w.insert(random.randint(0, len(task_w)), temp_basket)
 
-
 def get_cost_drawing(ind):
     time = 0
     # return 0

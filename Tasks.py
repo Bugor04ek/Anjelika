@@ -1,5 +1,6 @@
 import weakref
-from typing import Any, Union
+from typing import Any, Union, List
+
 
 from gosts import Mark
 import random
@@ -231,7 +232,7 @@ class Task(metaclass=TaskMeta):
             # если старая волочилка, то берем много маршрутов, если другая, то 1
 
     @staticmethod
-    def assign_tasks_to_equipment(tasks: [Union['MultivareTask', 'WireDrawingTask']] | Union['Basket']):
+    def assign_tasks_to_equipment(tasks: Union[List[Union['MultivareTask', 'WireDrawingTask']], 'Basket']):
         """
         Назначает оборудование для всех заданий, выбирая подходящее.
         """
