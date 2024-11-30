@@ -3,7 +3,10 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import json
 import random
+
+
 from datetime import datetime
+from typing import TextIO
 
 from Equipments import initialize_equipments, MultivareMachine, Equipment
 from Tasks import Order, TaskMeta, OrderMeta, Task, WireDrawingMachine, WireDrawingTask, MultivareTask
@@ -101,10 +104,16 @@ def main():
 @app.post("/shuffle_json")
 def shuffle_json(payload: JsonArray):
 
-    # Получаем заказы из запроса
-    # zakazy = payload.data
+    # Путь к файлу
+    file_name = 'excel/Заказы.json'
 
-    # Надо передавать zakazy в main или записывать в Заказы.json
+    # Получаем JSON из запроса
+    json_data = payload.model_dump()
+
+
+    # Записываем JSON в файл
+    with open(file_name, 'w', encoding='utf-8') as json_file:  # type: TextIO
+        json.dump(json_data['data'], json_file, ensure_ascii=False, indent=4)
 
     # Возвращаем перемешанный массив
     return {"Order": main()}
