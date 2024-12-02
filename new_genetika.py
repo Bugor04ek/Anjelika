@@ -115,23 +115,63 @@ def uniform_crossover(tasks1, tasks2):
     return child1, child2
 
 
-def mutate(individual):
-    """Оператор мутации для сложной структуры индивидов."""
+def mutate(individual, mutation_rate=0.1):
+    """Кастомная мутация для индивидов."""
+    # Проходим по каждому типу оборудования
     for equipment in individual.keys():
-        # Применение типового оператора DEAP к каждому списку заказов
-        tools.mutShuffleIndexes(individual[equipment], indpb=0.2)
-    return individual,
+        # Проверяем, следует ли мутировать текущее задание
+        if random.random() < mutation_rate:
+            # Перемешиваем список заданий на данном оборудовании
+            random.shuffle(individual[equipment])
 
-    # Возвращаем мутировавшего индивида в виде кортежа (так требует DEAP)
-    return (individual,)
+    return individual
 
 
-def custom_cx_ordered_adapted(ind1, ind2):
+def convert_tasks_to_indices(tasks, all_tasks):
+    """
+    Конвертирует список заданий в индексы, основываясь на всем списке задач.
+    """
+    return [all_tasks.index(task) for task in tasks]
 
+
+def convert_indices_to_tasks(indices, all_tasks):
+    """
+    Конвертирует список индексов обратно в задачи.
+    """
+    return [all_tasks[i] for i in indices]
+
+
+def cxOrderedCustom(ind1, ind2, all_tasks):
+    """
+    Кастомный оператор скрещивания на основе cxOrdered для сложной структуры.
+    """
+
+    # Создаем копии родителей для потомков
+    child1, child2 = copy.deepcopy(ind1), copy.deepcopy(ind2)
+
+    # Перебираем каждое оборудование
     for equipment in ind1.keys():
-        tools.cxOrdered(ind1[equipment], ind2[equipment])
+        # Получаем задания на данном оборудовании для каждого родителя
+        parent1_tasks = ind1[equipment]
+        parent2_tasks = ind2[equipment]
 
-    return ind1, ind2
+        # Проверяем, есть ли задания для текущего оборудования
+        if len(parent1_tasks) < 2 or len(parent2_tasks) < 2:
+            # Нет смысла применять скрещивание, если недостаточно заданий для скрещивания
+            continue
+
+        # Конвертируем задания в индексы
+        indices1 = list(range(len(parent1_tasks)))
+        indices2 = list(range(len(parent2_tasks)))
+
+        # Применяем стандартный cxOrdered на индексы
+        tools.cxOrdered(indices1, indices2)
+
+        # Конвертируем индексы обратно в задания
+        child1[equipment] = [parent1_tasks[i] for i in indices1]
+        child2[equipment] = [parent2_tasks[i] for i in indices2]
+
+    return child1, child2
 
 
 def crossover(parent1, parent2):
@@ -187,6 +227,7 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     # Настройка среды DEAP для минимизации времени
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
     creator.create("Basket", list)
+    creator.create("Task", list)
     creator.create("Individual", dict, fitness=creator.FitnessMin, basket=creator.Basket)
 
     toolbox.register("individual", tools.initIterate, creator.Individual, lambda: generate_individual(TASKS))
@@ -196,7 +237,7 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
 
     toolbox.register("evaluate", evaluate_fitness)
     toolbox.register("select", tools.selTournament, tournsize=3)
-    toolbox.register("mate", custom_cx_ordered_adapted)
+    toolbox.register("mate", cxOrderedCustom)
     toolbox.register("mutate", mutate, indpb=0.05)
     hof = tools.HallOfFame(HALL_OF_FAME_SIZE)
 
@@ -240,7 +281,8 @@ def generate_individual(tasks):
             if individual.get(equipment_type, None) is None:
                 individual[equipment_type] = {}
             task_c = copy.deepcopy(TaskMeta.get_instances_by_type(equipment=eq))
-            individual[equipment_type][eq.equipment_name] = random.sample(get_task_indices(tasks, task_c), len(task_c))
+            # individual[equipment_type][eq.equipment_name] = random.sample(get_task_indices(tasks, task_c), len(task_c))
+            individual[equipment_type][eq.equipment_name] = random.sample(task_c, len(task_c))
 
     return individual
 
@@ -256,7 +298,7 @@ def get_cost_multivare(ind):
     for eq in ind['multivare']:
         tasks = ind['multivare'][eq]
         for i in range(1, len(tasks)):
-            time += MultivareTask.calculate_setup_time(TASKS[tasks[i]], TASKS[tasks[i - 1]])
+            time += MultivareTask.calculate_setup_time(tasks[i], tasks[i - 1])
         calculating_basket(ind, tasks)
 
     return time
@@ -270,8 +312,7 @@ def calculating_basket(ind, task):
     """
 
     temp_basket: Basket = copy.deepcopy(Basket(None))
-    for i in task:
-        order = TASKS[i]
+    for order in task:
         if order.equipment.capacity - order.num_basket >= 0:
             temp_basket.append(order, order.num_basket)
             order.equipment.capacity -= order.num_basket  # сколько нужно до 8 корзин
@@ -305,6 +346,7 @@ def calculating_basket(ind, task):
             ind.basket.append(temp_basket)
             # task_w = ind['wiredrawing'][temp_basket.equipment.equipment_name]
             # task_w.insert(random.randint(0, len(task_w)), temp_basket)
+
 
 def get_cost_drawing(ind):
     time = 0
