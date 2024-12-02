@@ -141,7 +141,7 @@ def convert_indices_to_tasks(indices, all_tasks):
     return [all_tasks[i] for i in indices]
 
 
-def cxOrderedCustom(ind1, ind2, all_tasks):
+def cxOrderedCustom(ind1, ind2):
     """
     Кастомный оператор скрещивания на основе cxOrdered для сложной структуры.
     """
@@ -366,14 +366,8 @@ def get_cost_drawing(ind):
 
 
 def evaluate_fitness(individual):
-    # eq = Equipment.get_all_instances()
-
     multivare_time = get_cost_multivare(individual)
     drawing_time = get_cost_drawing(individual)
-    # for equipment_name in individual['multivare'].keys():
-    #     multivare_time += sum(task.time_work for task in individual['multivare'][equipment_name])
-    # for equipment_name in individual['wiredrawing'].keys():
-    #     multivare_time += sum(task.time_work for task in individual['wiredrawing'][equipment_name])
     return multivare_time + drawing_time,
 
 
