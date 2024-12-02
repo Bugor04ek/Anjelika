@@ -284,6 +284,7 @@ class WireDrawingTask(Task):
             self.material = 'cu'
         super().__init__(order, account_number=account_number, equipment_type='wiredrawing', part_type=part_type, time_work=time_work)
 
+
         self.comment_setup = ''
         self.time_setup = 0
         self.spin_road = []
@@ -316,7 +317,7 @@ class WireDrawingTask(Task):
         else:
             # на старой волочилке может быть много маршрутов
             for road in roads:
-                if self.voloka == road[0][-1]:
+                if abs(self.voloka - road[0][-1]) <= WireDrawingMachine.diameter_range: #Находится ли текущая волока в допустимом диапазоне
                     self.spin_road = road
                     break
 

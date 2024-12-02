@@ -51,6 +51,7 @@ class WireDrawingMachine(Equipment):
     CHANGE_WIRE = 1.5  # снятие/натягивание проволочки на 1 фильере
     STRETCHING_WIRE = 5  # протягивание проволочки в отжиге
     W = 12 * 60  # время изготовления 8 корзин
+    diameter_range = 0.03 # Допустимое отклонение от точного диаметра
 
     def __init__(
         self, name: str, machine_type: [''], supported_materials: [''], basket: bool, spinners_road: [],
