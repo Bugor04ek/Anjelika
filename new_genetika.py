@@ -275,7 +275,15 @@ def generate_individual(tasks):
     # TaskMeta_c = copy.deepcopy(TaskMeta)
     # Выбираем рандомное оборудование на задание из подходящих оборудований
     available_orders = list(range(len(tasks)))
+
+    tasks = TaskMeta.get_instances_all()  # Получаем список задач
+    random.shuffle(tasks)  # Перемешиваем задачи
+
     Task.assign_tasks_to_equipment(tasks)
+
+    TaskMeta.get_instances_by_type(equipment_type='multivare')
+    TaskMeta.get_instances_by_type(equipment_type='wiredrawing')
+
 
     # задание на каждый тип оборудований
     individual = {}
