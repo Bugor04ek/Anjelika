@@ -284,7 +284,6 @@ def generate_individual(tasks):
     TaskMeta.get_instances_by_type(equipment_type='multivare')
     TaskMeta.get_instances_by_type(equipment_type='wiredrawing')
 
-
     # задание на каждый тип оборудований
     individual = {}
     for eq in Equipment.get_all_instances():
@@ -305,9 +304,9 @@ def get_task_indices(tasks, task_c):
 # Функция оценки приспособленности — для вычисления общего времени выполнения задач
 def get_cost_multivare(ind):
     time = 0
-    map(lambda x: x.capacity * 0 + 8, Equipment.get_instances_by_type(equipment_type='multivare'))
+    # map(lambda x: x.capacity * 0 + 8, Equipment.get_instances_by_type(equipment_type='multivare'))
     for eq in ind['multivare']:
-        tasks = ind['multivare'][eq]
+        tasks = copy.deepcopy(ind['multivare'][eq])
         for i in range(1, len(tasks)):
             time += MultivareTask.calculate_setup_time(tasks[i], tasks[i - 1])
         calculating_basket(ind, tasks)

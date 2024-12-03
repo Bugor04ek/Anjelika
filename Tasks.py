@@ -284,7 +284,6 @@ class WireDrawingTask(Task):
             self.material = 'cu'
         super().__init__(order, account_number=account_number, equipment_type='wiredrawing', part_type=part_type, time_work=time_work)
 
-
         self.comment_setup = ''
         self.time_setup = 0
         self.spin_road = []

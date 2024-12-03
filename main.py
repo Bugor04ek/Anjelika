@@ -119,16 +119,8 @@ def shuffle_json(payload: JsonArray):
     return {"Order": main()}
 
 
-
 if __name__ == "__main__":
-    best_orders = main()
-
-    result_json = {}
-    for eq in Equipment.get_all_instances():
-        for equipment_type in eq.equipment_type:
-            if result_json.get(equipment_type, None) is None:
-                result_json[equipment_type] = {}
-            result_json[equipment_type][eq.equipment_name] = [{task.order.UUID: {"Маршрут": task.spin_road, "Комментарий": task.comment_setup}} for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, [])]
+    result_json = main()
 
     print(result_json)
 
