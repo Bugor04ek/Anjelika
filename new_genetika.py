@@ -28,9 +28,11 @@ def varAnd(population, toolbox, cxpb, mutpb):
             offspring[i].basket = []  # Удаление старого значения fitness
 
     for i in range(len(offspring)):
-        if random.random() < mutpb:
-            offspring[i], = toolbox.mutate(offspring[i])
-            del offspring[i].fitness.values
+        for equipment_type in offspring[i].keys():
+            for equipment in offspring[i][equipment_type]:
+                tools.mutShuffleIndexes(offspring[i][equipment_type][equipment], indpb=1.0 / len(offspring[i][equipment_type][equipment]))
+        del offspring[i].fitness.values
+        offspring[i].basket = []
 
     return offspring
 
@@ -147,29 +149,30 @@ def cxOrderedCustom(ind1, ind2):
     """
 
     # Создаем копии родителей для потомков
-    child1, child2 = copy.deepcopy(ind1), copy.deepcopy(ind2)
+    # child1, child2 = copy.deepcopy(ind1), copy.deepcopy(ind2)
+    child1, child2 = {}, {}
 
-    # Перебираем каждое оборудование
-    for equipment in ind1.keys():
-        # Получаем задания на данном оборудовании для каждого родителя
-        parent1_tasks = ind1[equipment]
-        parent2_tasks = ind2[equipment]
+    for equipment_type in ind1.keys():
 
-        # Проверяем, есть ли задания для текущего оборудования
-        if len(parent1_tasks) < 2 or len(parent2_tasks) < 2:
-            # Нет смысла применять скрещивание, если недостаточно заданий для скрещивания
-            continue
+        # Перебираем каждое оборудование
+        for equipment in ind1[equipment_type]:
+            tasks_ind1 = ind1[equipment_type][equipment]
+            tasks_ind2 = ind2[equipment_type][equipment]
+            # Проверяем, есть ли задания для текущего оборудования
+            if len(tasks_ind1) < 2 or len(tasks_ind2) < 2:
+                # Нет смысла применять скрещивание, если недостаточно заданий для скрещивания
+                continue
 
-        # Конвертируем задания в индексы
-        indices1 = list(range(len(parent1_tasks)))
-        indices2 = list(range(len(parent2_tasks)))
+            # Конвертируем задания в индексы
+            indices1 = list(range(len(tasks_ind1)))
+            indices2 = list(range(len(tasks_ind2)))
 
-        # Применяем стандартный cxOrdered на индексы
-        tools.cxOrdered(indices1, indices2)
+            # Применяем стандартный cxOrdered на индексы
+            tools.cxOrdered(indices1, indices2)
 
-        # Конвертируем индексы обратно в задания
-        child1[equipment] = [parent1_tasks[i] for i in indices1]
-        child2[equipment] = [parent2_tasks[i] for i in indices2]
+            # Конвертируем индексы обратно в задания
+            child1[equipment] = [copy.deepcopy(tasks_ind1[i]) for i in indices1]
+            child2[equipment] = [copy.deepcopy(tasks_ind2[i]) for i in indices2]
 
     return child1, child2
 
@@ -238,7 +241,7 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     toolbox.register("evaluate", evaluate_fitness)
     toolbox.register("select", tools.selTournament, tournsize=3)
     toolbox.register("mate", cxOrderedCustom)
-    toolbox.register("mutate", mutate, indpb=0.05)
+    toolbox.register("mutate", mutate, P_MUTATION)
     hof = tools.HallOfFame(HALL_OF_FAME_SIZE)
 
     stats = tools.Statistics(lambda ind: ind.fitness.values)
