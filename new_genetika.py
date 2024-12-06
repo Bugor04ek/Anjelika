@@ -168,7 +168,7 @@ def cxOrderedCustom(ind1, ind2):
             indices2 = list(range(len(tasks_ind2)))
 
             # Применяем стандартный cxOrdered на индексы
-            tools.cxOrdered(indices1, indices2)
+            tools.cxUniformPartialyMatched(indices1, indices2, indpb=2.0 / 150)
 
             # Конвертируем индексы обратно в задания
             child1[equipment] = [copy.deepcopy(tasks_ind1[i]) for i in indices1]
@@ -229,9 +229,9 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
 
     # Настройка среды DEAP для минимизации времени
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
-    creator.create("Basket", list)
+    # creator.create("Basket", list)
     creator.create("Task", list)
-    creator.create("Individual", dict, fitness=creator.FitnessMin, basket=creator.Basket)
+    creator.create("Individual", dict, fitness=creator.FitnessMin, Tasks=creator.Task)
 
     toolbox.register("individual", tools.initIterate, creator.Individual, lambda: generate_individual(TASKS))
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
@@ -265,7 +265,6 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     best_order = hof.items[0]  # массив заказов в виде индексов
     print(best_order)
     return best_order
-    # return population
 
 
 # Создание начальной популяции на основе заданий
@@ -277,7 +276,7 @@ def generate_individual(tasks):
     available_orders = list(range(len(tasks)))
 
     tasks = TaskMeta.get_instances_all()  # Получаем список задач
-    random.shuffle(tasks)  # Перемешиваем задачи
+    # random.shuffle(tasks)  # Перемешиваем задачи
 
     Task.assign_tasks_to_equipment(tasks)
 
@@ -294,6 +293,13 @@ def generate_individual(tasks):
             # individual[equipment_type][eq.equipment_name] = random.sample(get_task_indices(tasks, task_c), len(task_c))
             individual[equipment_type][eq.equipment_name] = random.sample(task_c, len(task_c))
 
+    for eq in individual['multivare']:
+        task_c = copy.deepcopy(individual['multivare'][eq])
+        calculating_basket(copy.deepcopy(individual), task_c)
+
+    for eq in individual['wiredrawing']:
+        random.shuffle(individual['wiredrawing'][eq])
+
     return individual
 
 
@@ -309,7 +315,6 @@ def get_cost_multivare(ind):
         tasks = copy.deepcopy(ind['multivare'][eq])
         for i in range(1, len(tasks)):
             time += MultivareTask.calculate_setup_time(tasks[i], tasks[i - 1])
-        calculating_basket(ind, tasks)
 
     return time
 
@@ -330,18 +335,20 @@ def calculating_basket(ind, task):
         else:
             temp_basket.append(order, order.equipment.capacity)
 
+            # WireDrawingTask.create_basket_refill_task(temp_basket)
             Task.assign_tasks_to_equipment(temp_basket)
-            ind.basket.append(temp_basket)
+            ind[temp_basket.equipment_type][temp_basket.equipment.equipment_name].append(temp_basket)
             # task_w = ind['wiredrawing'][temp_basket.equipment.equipment_name]
-            # task_w.insert(random.randint(0, len(task)), temp_basket)
+            # task_w.insert(random.randint(0, len(task_w)), temp_basket)
 
             order.equipment.remaining_basket_length -= 8
             num_basket = order.num_basket - order.equipment.capacity
             while num_basket > 8:
 
                 b = copy.deepcopy(Basket(order, 8))
+                # WireDrawingTask.create_basket_refill_task(temp_basket)
                 Task.assign_tasks_to_equipment(b)
-                ind.basket.append(b)
+                ind[temp_basket.equipment_type][temp_basket.equipment.equipment_name].append(b)
                 # task_w = ind['wiredrawing'][temp_basket.equipment.equipment_name]
                 # task_w.insert(random.randint(0, len(task_w)), b)
 
@@ -352,8 +359,9 @@ def calculating_basket(ind, task):
             temp_basket = copy.deepcopy(Basket(order, num_basket))
     else:
         if len(temp_basket.orders) > 0:
+            # WireDrawingTask.create_basket_refill_task(temp_basket)
             Task.assign_tasks_to_equipment(temp_basket)
-            ind.basket.append(temp_basket)
+            ind[temp_basket.equipment_type][temp_basket.equipment.equipment_name].append(temp_basket)
             # task_w = ind['wiredrawing'][temp_basket.equipment.equipment_name]
             # task_w.insert(random.randint(0, len(task_w)), temp_basket)
 

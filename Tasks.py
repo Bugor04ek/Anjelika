@@ -662,7 +662,7 @@ class BasketMeta(type):
         return [instance for instance in cls._instances for key, val in kwargs.items() if getattr(instance, key) == val]
 
 
-class Basket(WireDrawingTask):
+class Basket(Task):
     """
     Корзина для подачи на мультик. Класс создается когда заказы с мультика израсходуют суммарно 8 корзин.
     Класс передается в очередь на волочилку.
@@ -689,8 +689,8 @@ class Basket(WireDrawingTask):
         self.diameter = MultivareMachine.d_mult
         self.len_basket = MultivareMachine.KM_IN_1_BASKET * 8
         self.sum_basket = sum_basket
-
-        super().__init__(self, account_number=None, part_type=None, time_work=WireDrawingMachine.W, diameter=self.voloka)
+        super().__init__(self, account_number=None, equipment_type='wiredrawing', part_type=None, time_work=WireDrawingMachine.W)
+        WireDrawingTask.assign_tasks_to_equipment(self)
 
     def append(self, order: MultivareTask, num_basket: float, use_time_setup=True):
         """
