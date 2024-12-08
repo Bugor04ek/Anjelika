@@ -1,7 +1,14 @@
 from pickle import GLOBAL
+from concurrent.futures import ThreadPoolExecutor
 
+
+import time
+import threading
+from threading import Lock
+import json
 import numpy
 from deap import base, creator, tools, algorithms
+from datetime import datetime, timedelta
 import random
 import copy
 
@@ -281,8 +288,8 @@ def generate_individual(tasks):
 
     Task.assign_tasks_to_equipment(tasks)
 
-    TaskMeta.get_instances_by_type(equipment_type='multivare')
-    TaskMeta.get_instances_by_type(equipment_type='wiredrawing')
+    # TaskMeta.get_instances_by_type(equipment_type='multivare')
+    # TaskMeta.get_instances_by_type(equipment_type='wiredrawing')
 
 
     # задание на каждый тип оборудований
@@ -359,8 +366,7 @@ def calculating_basket(ind, task):
             # task_w.insert(random.randint(0, len(task_w)), temp_basket)
 
 
-def get_cost_drawing(ind):
-    time = 0
+def get_cost_drawing(ind, print_logs=False):
     # return 0
     # indexes_baskets = individual.basket
     total_time = 0  # суммарное время перенастроек
@@ -368,13 +374,155 @@ def get_cost_drawing(ind):
     num_uptime = 0  # количесвто простоев мультика
     time_route_to_basket = 0
 
-    for eq in ind['wiredrawing']:
-        tasks = ind['wiredrawing'][eq]
-        for i in range(1, len(tasks)):
-            time += WireDrawingTask.calculate_setup_time(tasks[i], tasks[i - 1])
+    filters_json = 'Оборудование/Фильеры.json'
 
-    return time
+    # Чтение JSON-файла в массив
+    with open(filters_json, 'r', encoding='utf-8') as file:
+        filters_array = json.load(file)
 
+    # Получаем сегодняшний день в 0:00
+    today_midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Создаем словарь фильер с ключом "Диаметр"
+    filters_dict = {}
+    for filter_item in filters_array:
+        filter_item["ВремяОсвобождения"] = today_midnight
+        filters_dict[filter_item['Диаметр']] = {"Информация": filter_item}
+
+    time_total = 0
+
+    # Параллельно запускаем расчёты для каждого оборудования
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = []
+        equipment_types = ['old', 'new', 'al']
+
+        # Перемешиваем волочилки в случайном порядке
+        random.shuffle(equipment_types)
+
+        for eq_type in equipment_types:
+            future = executor.submit(
+                calculate_setup_time_for_tasks,
+                ind['wiredrawing'][eq_type],
+                filters_dict,
+                eq_type,
+                print_logs  # Передаем флаг логирования
+            )
+            futures.append(future)
+
+        # Ждём завершения всех потоков и суммируем результаты
+        for future in futures:
+            time_total += future.result()
+
+    return time_total
+
+
+def process_spin_road(task):
+    """Обработка spin_road в зависимости от оборудования."""
+    if task.equipment.equipment_name == "old":
+        # Если оборудование old, выбираем случайный подсписок
+        if isinstance(task.spin_road, list) and isinstance(task.spin_road[0], list):
+            spin_road = random.choice(task.spin_road)
+        else:
+            spin_road = task.spin_road
+    else:
+        # Для al и new оставляем как есть
+        spin_road = task.spin_road
+
+    # Разворачиваем вложенные списки в один список
+    if isinstance(spin_road, list):
+        flat_spin_road = []
+        for item in spin_road:
+            if isinstance(item, list):
+                flat_spin_road.extend(item)
+            else:
+                flat_spin_road.append(item)
+        return flat_spin_road
+    else:
+        return [spin_road]
+
+
+def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=False):
+    """Вычисление времени переналадки на одном оборудовании с учётом фильер."""
+    time_total = 0
+    equipment_time = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    for i in range(len(tasks)):
+        current_task = tasks[i]
+
+        # Обработка spin_road
+        current_task.spin_road = process_spin_road(current_task)
+
+        # Вывод списка фильеров, необходимых для текущего заказа
+        if print_logs:
+            print(
+                f"Для текущего заказа нужны фильеры: {current_task.spin_road} и время его выполнения - {current_task.time_work} минут.")
+
+        # Проверяем доступность фильер
+        all_filters_available = True
+        local_penalty_time = 0
+        for filter_diameter in current_task.spin_road:
+            # Пропускаем фильеры с диаметром 0
+            if filter_diameter == 0:
+                continue
+
+            if filter_diameter not in filters_dict:
+                if print_logs:
+                    print(f"Фильера {filter_diameter} отсутствует в справочнике!")
+                continue
+
+            filter_info = filters_dict[filter_diameter]["Информация"]
+
+            # Проверяем, доступна ли фильера
+            if filter_info["Количество"] <= 0:
+                all_filters_available = False
+                remaining_time = max(
+                    0,
+                    (filter_info["ВремяОсвобождения"] - equipment_time).total_seconds() / 60
+                )
+                local_penalty_time += remaining_time
+                if print_logs:
+                    print(f"Фильера {filter_diameter} занята, штраф за ожидание: {remaining_time} минут.")
+                break
+
+        # Если фильеры недоступны, добавляем штраф и переходим к следующему заказу
+        if not all_filters_available:
+            time_total += local_penalty_time  # Только штраф за оставшееся время
+            continue
+
+        # Обновляем время выполнения оборудования
+        task_time = current_task.time_work
+        equipment_time += timedelta(minutes=task_time)
+        time_total += task_time
+
+        # Обновляем информацию о фильерах
+        for filter_diameter in current_task.spin_road:
+            if filter_diameter == 0:  # Пропускаем фильеры с диаметром 0
+                continue
+            if filter_diameter in filters_dict:
+                filter_info = filters_dict[filter_diameter]["Информация"]
+                filter_info["Количество"] -= 1  # Уменьшаем доступное количество
+                filter_info["ВремяОсвобождения"] = equipment_time  # Обновляем время освобождения фильеры
+                if print_logs:
+                    print(f"Фильера {filter_diameter} используется, осталось {filter_info['Количество']}.")
+
+        # Освобождаем фильеры после выполнения задания
+        for filter_diameter in current_task.spin_road:
+            if filter_diameter == 0:  # Пропускаем фильеры с диаметром 0
+                continue
+            if filter_diameter in filters_dict:
+                filter_info = filters_dict[filter_diameter]["Информация"]
+                filter_info["Количество"] += 1  # Возвращаем доступное количество
+                if filter_info["Количество"] == 1:
+                    filter_info["ВремяОсвобождения"] = equipment_time
+                if print_logs:
+                    print(f"Фильера {filter_diameter} освобождена, теперь доступно {filter_info['Количество']}.")
+
+        if print_logs:
+            print(f"Оборудование {eq_type}: заказ {i} выполнен. Текущее время: {equipment_time.time()}")
+
+    if print_logs:
+        print(f"Задания для оборудования {eq_type} просчитаны")
+    return time_total
 
 def evaluate_fitness(individual):
     multivare_time = get_cost_multivare(individual)
