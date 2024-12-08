@@ -408,6 +408,11 @@ class WireDrawingTask(Task):
         return setup_time
 
     @staticmethod
+    def calculate_setup_time_all(tasks: ["WireDrawingTask"]):
+        for i in range(1, len(tasks)):
+            WireDrawingTask.calculate_setup_time(tasks[i], tasks[i - 1])
+
+    @staticmethod
     def create_basket_refill_task(basket):
         """Создаёт задание на пополнение корзин на волочилке для конкретного оборудования."""
         refill_task = WireDrawingTask(order=basket, account_number=None, diameter=None, part_type=None, time_work=WireDrawingMachine.W)
@@ -537,7 +542,6 @@ class MultivareTask(Task):
 
         self.spin_road = [min(roads, key=lambda x: abs(self.diameter - x[-1]))]
 
-
     @staticmethod
     def calculate_setup_time(current_task: "MultivareTask", previous_task: "MultivareTask"):
         """
@@ -619,6 +623,11 @@ class MultivareTask(Task):
 
         return setup_time
 
+    @staticmethod
+    def calculate_setup_time_all(tasks: ["WireDrawingTask"]):
+        for i in range(1, len(tasks)):
+            MultivareTask.calculate_setup_time(tasks[i], tasks[i - 1])
+
     @property
     def time_setup(self):
         return self.__time_setup
@@ -662,7 +671,7 @@ class BasketMeta(type):
         return [instance for instance in cls._instances for key, val in kwargs.items() if getattr(instance, key) == val]
 
 
-class Basket(Task):
+class Basket:
     """
     Корзина для подачи на мультик. Класс создается когда заказы с мультика израсходуют суммарно 8 корзин.
     Класс передается в очередь на волочилку.
@@ -689,8 +698,15 @@ class Basket(Task):
         self.diameter = MultivareMachine.d_mult
         self.len_basket = MultivareMachine.KM_IN_1_BASKET * 8
         self.sum_basket = sum_basket
-        super().__init__(self, account_number=None, equipment_type='wiredrawing', part_type=None, time_work=WireDrawingMachine.W)
+        self.equipment_type = 'wiredrawing'
+        self.time_work = WireDrawingMachine.W
+        self.acceptable_equipment = []
+        self.set_acceptable_equipment()
         WireDrawingTask.assign_tasks_to_equipment(self)
+
+    def set_acceptable_equipment(self):
+        equipments = MachineMeta.get_all_instances()
+        self.acceptable_equipment = [eq for eq in equipments if self.equipment_type in eq.equipment_type and eq.is_suitable(self)]
 
     def append(self, order: MultivareTask, num_basket: float, use_time_setup=True):
         """
@@ -719,6 +735,33 @@ class Basket(Task):
         """
         for order in self.order:
             self.time_on_multivare += order.time_on_multivare
+
+    def set_spin_road(self):
+        """
+        Находим в словаре фильер ближайшие значения к диаметру.
+        Если находим в справочнике значение фильеры, тогда количество = ключ
+        Если не находим, тогда ищем после какой фильеры нужно поставить еще одну количество = ключ + 1
+        :return: количество фильер
+        """
+        # маршрут записанный из ключевых волок, последняя волока -- минимально возможный диаметр
+        roads = self.equipment.spinners_road
+        if self.equipment.equipment_name != 'old':
+            # на новой и алюминиевой волочилке будет один маршрут
+            for i, voloka in enumerate(roads):
+                if self.voloka >= voloka:
+                    # меняем волоку на большую и меняем маршрут
+                    self.spin_road = self.equipment.spinners_road[:i]
+                    while i != len(roads) - 1:
+                        self.spin_road.append(0)
+                        i += 1
+                    self.spin_road.append(self.voloka)
+                    break
+        else:
+            # на старой волочилке может быть много маршрутов
+            for road in roads:
+                if abs(self.voloka - road[0][-1]) <= WireDrawingMachine.diameter_range: #Находится ли текущая волока в допустимом диапазоне
+                    self.spin_road = road
+                    break
 
     def __repr__(self):
         return 'Корзина (Время работы заказов = {}ч. {}мин.; Длина {}): {} \n'.format(

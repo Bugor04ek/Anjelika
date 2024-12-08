@@ -68,8 +68,8 @@ class WireDrawingMachine(Equipment):
     def is_suitable(self, task: "WireDrawingTask"):
         return (task.material in self.supported_materials and
                 self.min_diameter <= task.voloka <= self.max_diameter and
-                (not (task.order.__class__.__name__ == 'Basket') or (
-                            task.order.__class__.__name__ == 'Basket' and self.basket)))
+                (not (task.__class__.__name__ == 'Basket') or (
+                            task.__class__.__name__ == 'Basket' and self.basket)))
 
     # @classmethod
     # def get_all_instances(cls, names=None):
