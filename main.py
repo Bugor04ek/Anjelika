@@ -60,27 +60,6 @@ def main():
     # Шаг 1: Инициализация заказов
     create_orders()  # создаем заказы, хранятся в OrderMeta
 
-    # Шаг 2: Получаем все заказы с использованием метакласса OrderMeta
-    orders = OrderMeta.get_all_instances()
-    # print(f"Создано {len(orders)} заказов")
-
-    # Шаг 3: Получаем задания из экземпляров Order, например:
-    # tasks = [task for order in orders for task in order.task]
-    # tasks_drawing = TaskMeta.get_instances_by_type('wiredrawing')
-    # tasks_multivare = TaskMeta.get_instances_by_type('multivare')
-    # # print(*tasks_draggers, sep='\n')
-    # Task.assign_tasks_to_equipment(tasks_multivare)
-    #
-    # for i in range(1, len(tasks_multivare) ):
-    #     prev = tasks_multivare[i-1]
-    #     current = tasks_multivare[i]
-    #     MultivareTask.calculate_setup_time(current, prev)
-
-    # Task.assign_tasks_to_equipment(tasks_drawing, available_equipments=WireDrawingMachine.get_all_instances('wiredrawing'))
-    # print(TaskMeta.get_instances_by_type('wiredrawing'))
-    # # print(TaskMeta.get_instances_by_type('multivare'))
-    # Шаг 4: Запуск генетического алгоритма с выбранными заданиями
-
     time_begin = datetime.now()
     best_orders = new_genetika.run()
     time_end = datetime.now()
@@ -90,7 +69,7 @@ def main():
         for equipment_type in eq.equipment_type:
             if result_json.get(equipment_type, None) is None:
                 result_json[equipment_type] = {}
-            result_json[equipment_type][eq.equipment_name] = [{"UUID": task.order.UUID,"Маршрут": task.spin_road, "Комментарий": task.comment_setup} for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, [])]
+            result_json[equipment_type][eq.equipment_name] = [{"UUID": task.order.account_number,"Маршрут": task.spin_road, "Комментарий": task.comment_setup} for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, [])]
             # result_json.append({"UUID": task.order.UUID,"Маршрут": task.spin_road, "Комментарий": task.comment_setup} for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, []))
 
     total_time = time_end - time_begin
@@ -117,7 +96,6 @@ def shuffle_json(payload: JsonArray):
 
     # Возвращаем перемешанный массив
     return {"Order": main()}
-
 
 
 if __name__ == "__main__":

@@ -51,7 +51,7 @@ class WireDrawingMachine(Equipment):
     CHANGE_WIRE = 1.5  # снятие/натягивание проволочки на 1 фильере
     STRETCHING_WIRE = 5  # протягивание проволочки в отжиге
     W = 12 * 60  # время изготовления 8 корзин
-    diameter_range = 0.02 # Допустимое отклонение от точного диаметра
+    diameter_range = 0.02  # Допустимое отклонение от точного диаметра
 
     def __init__(
         self, name: str, machine_type: [''], supported_materials: [''], basket: bool, spinners_road: [],
@@ -68,8 +68,8 @@ class WireDrawingMachine(Equipment):
     def is_suitable(self, task: "WireDrawingTask"):
         return (task.material in self.supported_materials and
                 self.min_diameter <= task.voloka <= self.max_diameter and
-                (not (task.order.__class__.__name__ == 'Basket') or (
-                            task.order.__class__.__name__ == 'Basket' and self.basket)))
+                (not (task.__class__.__name__ == 'Basket') or (
+                            task.__class__.__name__ == 'Basket' and self.basket)))
 
     # @classmethod
     # def get_all_instances(cls, names=None):
