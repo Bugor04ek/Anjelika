@@ -51,6 +51,20 @@ def varAnd(population, toolbox, cxpb, mutpb):
                         )
             del offspring[i].fitness.values
 
+            # Пересчет корзин, если изменилось задание на мультике
+            # for eq in offspring['multivare']:
+            #     multivare_tasks = offspring[i][eq]
+            #
+            #     # Пересчитываем состав корзин
+            #     updated_baskets = calculating_basket(multivare_tasks)
+            #
+            #     # Обновляем задания на волочилке
+            #     for eq1 in offspring['wiredrawing']:
+            #         if any(isinstance(task, Basket) for task in offspring['wiredrawing'][eq1]):
+            #             for i in range(offspring['wiredrawing'][eq1]):
+            #                 if isinstance(offspring['wiredrawing'][eq1][i], Basket):
+            #                     offspring['wiredrawing'][eq1][i] = updated_baskets[i]
+
         executor.map(apply_crossover_and_mutation, range(len(offspring) - 1))
 
     return offspring
@@ -100,31 +114,13 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, hall
     return population, logbook
 
 
-
 def mutate(individual, mutation_rate=0.05):
-    """Кастомная мутация для индивидов."""
-
-    def mutate(individual, mutation_rate=0.05):
-        # Генерируем заранее случайные числа для мутации
-        mutation_flags = numpy.random.rand(len(individual.keys())) < mutation_rate
-        for i, (equipment, flag) in enumerate(zip(individual.keys(), mutation_flags)):
-            if flag:
-                random.shuffle(individual[equipment])
-        return individual
-
-
-def convert_tasks_to_indices(tasks, all_tasks):
-    """
-    Конвертирует список заданий в индексы, основываясь на всем списке задач.
-    """
-    return [all_tasks.index(task) for task in tasks]
-
-
-# def convert_indices_to_tasks(indices, all_tasks):
-#     """
-#     Конвертирует список индексов обратно в задачи.
-#     """
-#     return [all_tasks[i] for i in indices]
+    # Генерируем заранее случайные числа для мутации
+    mutation_flags = numpy.random.rand(len(individual.keys())) < mutation_rate
+    for i, (equipment, flag) in enumerate(zip(individual.keys(), mutation_flags)):
+        if flag:
+            random.shuffle(individual[equipment])
+    return individual
 
 
 def cxOrderedCustom(ind1, ind2):
@@ -159,8 +155,8 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     TASKS = Task.get_instances_all()
 
     # константы задачи
-    HALL_OF_FAME_SIZE = len(TASKS) * 0.1  # количеству индивидуумов, которых мы хотим хранить в зале славы
-    POPULATION_SIZE = len(TASKS)   # количество индивидуумов в популяции
+    HALL_OF_FAME_SIZE = len(TASKS) * 0.01  # количеству индивидуумов, которых мы хотим хранить в зале славы
+    POPULATION_SIZE = len(TASKS) // 10  # количество индивидуумов в популяции
     MAX_GENERATIONS = len(TASKS)  # максимальное количество поколений
     P_CROSSOVER = 1  # вероятность скрещивания
     P_MUTATION = 0.05  # вероятность мутации индивидуума
@@ -182,7 +178,7 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     population = toolbox.population(n=POPULATION_SIZE)
 
     toolbox.register("evaluate", evaluate_fitness)
-    toolbox.register("select", tools.selTournament, tournsize=15)
+    toolbox.register("select", tools.selTournament, tournsize=3)
     toolbox.register("mate", cxOrderedCustom)
     toolbox.register("mutate", mutate, P_MUTATION)
 
@@ -243,16 +239,15 @@ def generate_individual():
             task_c = copy.deepcopy(TaskMeta.get_instances_by_type(equipment=eq))
             individual[equipment_type][eq.equipment_name] = random.sample(task_c, len(task_c))
 
+    updated_baskets = []
     for eq in individual['multivare']:
         task_m = copy.deepcopy(individual['multivare'][eq])
         MultivareTask.calculate_setup_time_all(individual['multivare'][eq])
-        calculating_basket(individual, task_m)
+        updated_baskets.extend(calculating_basket(task_m))
 
-    for eq in individual['wiredrawing']:
-        task_w = individual['wiredrawing'][eq]
-        random.shuffle(task_w)
-        WireDrawingTask.calculate_setup_time_all(task_w)
-
+    for basket in updated_baskets:
+        ind = individual[basket.equipment_type][basket.equipment.equipment_name]
+        ind.insert(random.randint(0, len(ind)), basket)
 
     time_end = datetime.now()
     print(time_end - time_start)
@@ -271,7 +266,7 @@ def get_cost_multivare(ind):
     return time
 
 
-def calculating_basket(ind, task):
+def calculating_basket(task):
     """
     Для оптимально расставленных заказов на мультике считаются корзины. Корзина набивается заказами, которые сами по себе не формируют полноценные 8,
     если такие заказы есть, то заказ должен занимать нужное количество корзин в одиночку, а остаток делить с остальными заказами
@@ -279,8 +274,9 @@ def calculating_basket(ind, task):
     """
 
     temp_basket: Basket = copy.deepcopy(Basket(None))
+    updated_baskets = []
+    # individual = ind[temp_basket.equipment_type][temp_basket.equipment.equipment_name]
     for order in task:
-        individual = ind[temp_basket.equipment_type][temp_basket.equipment.equipment_name]
 
         if order.equipment.capacity - order.num_basket >= 0:
             temp_basket.append(order, order.num_basket)
@@ -288,19 +284,13 @@ def calculating_basket(ind, task):
             # Если со следующим заказом получается меньше 8 корзин, но он занимает сам по себе больше 8 корзин
         else:
             temp_basket.append(order, order.equipment.capacity)
-
-
-
-
-            # Task.assign_tasks_to_equipment(temp_basket)
-            # ind[temp_basket.equipment_type][temp_basket.equipment.equipment_name].append(temp_basket)
-            individual.insert(random.randint(0, len(individual)),temp_basket)
-
+            # ind[temp_basket.equipment_type][temp_basket.equipment.equipment_name].insert(random.randint(0, len(individual)), temp_basket)
+            updated_baskets.append(temp_basket)
             num_basket = order.num_basket - order.equipment.capacity
             while num_basket > 8:
-                b = copy.deepcopy(Basket(order, 8))
-                # Task.assign_tasks_to_equipment(b)
-                individual.append(b)
+                temp_basket = copy.deepcopy(Basket(order, 8))
+                # ind[temp_basket.equipment_type][temp_basket.equipment.equipment_name].insert(random.randint(0, len(individual)), temp_basket)
+                updated_baskets.append(temp_basket)
                 num_basket -= 8
 
             order.equipment.capacity = 8 - num_basket
@@ -308,7 +298,10 @@ def calculating_basket(ind, task):
     else:
         if len(temp_basket.orders) > 0:
             # Task.assign_tasks_to_equipment(temp_basket)
-            individual.append(temp_basket)
+            # individual.insert(random.randint(0, len(individual)), temp_basket)
+            updated_baskets.append(temp_basket)
+
+    return updated_baskets
 
 
 # Функция для обработки spin_road и добавления новых фильер
@@ -341,6 +334,7 @@ def add_missing_filters(filters_dict, tasks):
                     }
                 }
                 # print(f"Добавлена фильера с диаметром {filter_diameter}")
+
 
 def get_cost_drawing(ind, print_logs=False):
     # return 0
@@ -398,6 +392,7 @@ def get_cost_drawing(ind, print_logs=False):
             time_total += get_cost_basket(tasks)
 
     return time_total
+
 
 def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=False):
     """Вычисление времени переналадки на одном оборудовании с учётом фильер."""
@@ -483,6 +478,7 @@ def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=Fals
         print(f"Задания для оборудования {eq_type} просчитаны")
     return time_total
 
+
 def get_cost_basket(tasks_with_basket):
 
     total_time = 0  # суммарное время перенастроек
@@ -503,18 +499,17 @@ def get_cost_basket(tasks_with_basket):
             total_time += 5000000
             break
         elif num_task == 0:
-            continue
-
+            num_downtime += baskets[route + 1].time_on_multivare
 
         if reserve_time < time_route_to_basket < reserve_time + baskets[route + 1].time_on_multivare:
             reserve_time = baskets[route + 1].time_on_multivare - (time_route_to_basket - reserve_time)
             if reserve_time < WireDrawingMachine.W:
-                num_downtime += 1
+                num_downtime += WireDrawingMachine.W - reserve_time
         elif time_route_to_basket < reserve_time:
-            num_downtime += 1
+            num_downtime += reserve_time - time_route_to_basket
             reserve_time = baskets[route + 1].time_on_multivare
         elif time_route_to_basket > reserve_time + baskets[route + 1].time_on_multivare - WireDrawingMachine.W:
-            num_uptime += 1
+            num_uptime += time_route_to_basket - (reserve_time + baskets[route + 1].time_on_multivare - WireDrawingMachine.W)
             reserve_time = baskets[route + 1].time_on_multivare
 
         # total_time += time_route_to_basket
@@ -529,11 +524,11 @@ def get_cost_basket(tasks_with_basket):
         if reserve_time < time_route_to_basket < reserve_time + baskets[-1].time_on_multivare:
             pass
         elif time_route_to_basket < reserve_time:
-            num_downtime += 1
+            num_downtime += reserve_time - time_route_to_basket
         elif time_route_to_basket > reserve_time:
-            num_uptime += 1
+            num_uptime += time_route_to_basket - reserve_time
 
-    return total_time + (20000 * num_downtime) + (20000 * num_uptime)
+    return total_time + num_downtime + num_uptime
 
 
 def get_routes(tasks):
@@ -581,6 +576,7 @@ def get_time_route(tasks: [WireDrawingTask], number_route: int):
     time += (WireDrawingMachine.W if number_route else 0)
 
     return time
+
 
 def evaluate_fitness(individual):
     multivare_time = get_cost_multivare(individual)
