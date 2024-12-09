@@ -2,6 +2,7 @@ import time
 from datetime import datetime
 from pickle import GLOBAL
 from concurrent.futures import ThreadPoolExecutor
+from multiprocessing import Pool
 
 
 import time
@@ -25,98 +26,91 @@ TASKS = []
 
 
 def varAnd(population, toolbox, cxpb, mutpb):
+    # Клонирование популяции
     offspring = [toolbox.clone(ind) for ind in population]
 
-    # Apply crossover and mutation on the offspring
-    for i in range(1, len(offspring), 2):
-        if random.random() < cxpb:
-            toolbox.mate(offspring[i - 1], offspring[i])
-            del offspring[i - 1].fitness.values  # Удаление старого значения fitness
-            del offspring[i].fitness.values  # Удаление старого значения fitness
+    # Сгенерируем заранее случайные числа для скрещивания
+    crossover_flags = numpy.random.rand(len(offspring) - 1) < cxpb
 
-    for i in range(len(offspring)):
-        for equipment_type in offspring[i].keys():
-            for equipment in offspring[i][equipment_type]:
-                tools.mutShuffleIndexes(
-                    offspring[i][equipment_type][equipment], indpb=1.0 / len(offspring[i][equipment_type][equipment])
-                    )
-        del offspring[i].fitness.values
+    # Параллельное выполнение операций
+    with ThreadPoolExecutor() as executor:
+        def apply_crossover_and_mutation(i):
+            # Скрещивание
+            if crossover_flags[i]:
+                toolbox.mate(offspring[i], offspring[i + 1])
+                del offspring[i].fitness.values
+                del offspring[i + 1].fitness.values
+
+            # Мутация
+            for equipment_type in offspring[i].keys():
+                for equipment in offspring[i][equipment_type]:
+                    if len(offspring[i][equipment_type][equipment]) > 1:
+                        tools.mutShuffleIndexes(
+                            offspring[i][equipment_type][equipment],
+                            indpb=1.0 / len(offspring[i][equipment_type][equipment])
+                        )
+            del offspring[i].fitness.values
+
+        executor.map(apply_crossover_and_mutation, range(len(offspring) - 1))
 
     return offspring
 
 
 def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, halloffame=None, verbose=__debug__):
-    """This algorithm is similar to DEAP eaSimple() algorithm, with the modification that
-    halloffame is used to implement an elitism mechanism. The individuals contained in the
-    halloffame are directly injected into the next generation and are not subject to the
-    genetic operators of selection, crossover and mutation.
-    """
     logbook = tools.Logbook()
     logbook.header = ['gen', 'nevals'] + (stats.fields if stats else [])
 
-    # Evaluate the individuals with an invalid fitness
-    invalid_ind = [ind for ind in population if not ind.fitness.valid]
-    fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
-    for ind, fit in zip(invalid_ind, fitnesses):
-        ind.fitness.values = fit
+    def evaluate_invalid(individuals):
+        invalid_ind = [ind for ind in individuals if not ind.fitness.valid]
+        if invalid_ind:
+            fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+            for ind, fit in zip(invalid_ind, fitnesses):
+                ind.fitness.values = fit
+        return invalid_ind
 
     if halloffame is None:
         raise ValueError("halloffame parameter must not be empty!")
 
+    evaluate_invalid(population)
     halloffame.update(population)
     hof_size = len(halloffame.items) if halloffame.items else 0
 
     record = stats.compile(population) if stats else {}
-    logbook.record(gen=0, nevals=len(invalid_ind), **record)
+    logbook.record(gen=0, nevals=len(population), **record)
     if verbose:
         print(logbook.stream)
 
-    # Begin the generational process
     for gen in range(1, ngen + 1):
-
-        # Select the next generation individuals
         offspring = toolbox.select(population, len(population) - hof_size)
 
-        # Vary the pool of individuals
-        if isinstance(offspring[0], dict):
-            offspring = varAnd(offspring, toolbox, cxpb, mutpb)
-        else:
-            offspring = algorithms.varAnd(offspring, toolbox, cxpb, mutpb)
+        # Вызов varAnd для обработки потомков
+        offspring = varAnd(offspring, toolbox, cxpb, mutpb)
 
-        # Evaluate the individuals with an invalid fitness
-        invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
-        fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
-        for ind, fit in zip(invalid_ind, fitnesses):
-            ind.fitness.values = fit
+        evaluate_invalid(offspring)
 
-        # add the best back to population:
         offspring.extend(halloffame.items)
-
-        # Update the hall of fame with the generated individuals
         halloffame.update(offspring)
-
-        # Replace the current population by the offspring
         population[:] = offspring
 
-        # Append the current generation statistics to the logbook
         record = stats.compile(population) if stats else {}
-        logbook.record(gen=gen, nevals=len(invalid_ind), **record)
+        logbook.record(gen=gen, nevals=len(offspring) - hof_size, **record)
         if verbose:
             print(logbook.stream)
 
     return population, logbook
 
 
+
 def mutate(individual, mutation_rate=0.05):
     """Кастомная мутация для индивидов."""
-    # Проходим по каждому типу оборудования
-    for equipment in individual.keys():
-        # Проверяем, следует ли мутировать текущее задание
-        if random.random() < mutation_rate:
-            # Перемешиваем список заданий на данном оборудовании
-            random.shuffle(individual[equipment])
 
-    return individual
+    def mutate(individual, mutation_rate=0.05):
+        # Генерируем заранее случайные числа для мутации
+        mutation_flags = numpy.random.rand(len(individual.keys())) < mutation_rate
+        for i, (equipment, flag) in enumerate(zip(individual.keys(), mutation_flags)):
+            if flag:
+                random.shuffle(individual[equipment])
+        return individual
 
 
 def convert_tasks_to_indices(tasks, all_tasks):
@@ -126,11 +120,11 @@ def convert_tasks_to_indices(tasks, all_tasks):
     return [all_tasks.index(task) for task in tasks]
 
 
-def convert_indices_to_tasks(indices, all_tasks):
-    """
-    Конвертирует список индексов обратно в задачи.
-    """
-    return [all_tasks[i] for i in indices]
+# def convert_indices_to_tasks(indices, all_tasks):
+#     """
+#     Конвертирует список индексов обратно в задачи.
+#     """
+#     return [all_tasks[i] for i in indices]
 
 
 def cxOrderedCustom(ind1, ind2):
@@ -143,31 +137,27 @@ def cxOrderedCustom(ind1, ind2):
     child1, child2 = {}, {}
 
     for equipment_type in ind1.keys():
-
-        # Перебираем каждое оборудование
         for equipment in ind1[equipment_type]:
             tasks_ind1 = ind1[equipment_type][equipment]
             tasks_ind2 = ind2[equipment_type][equipment]
-            # Проверяем, есть ли задания для текущего оборудования
             if len(tasks_ind1) < 2 or len(tasks_ind2) < 2:
-                # Нет смысла применять скрещивание, если недостаточно заданий для скрещивания
                 continue
-            # Конвертируем задания в индексы
+
             indices1 = list(range(len(tasks_ind1)))
             indices2 = list(range(len(tasks_ind2)))
 
-            # Применяем стандартный cxOrdered на индексы
             tools.cxUniformPartialyMatched(indices1, indices2, indpb=2.0 / 150)
 
-            # Конвертируем индексы обратно в задания
-            child1[equipment] = [copy.deepcopy(tasks_ind1[i]) for i in indices1]
-            child2[equipment] = [copy.deepcopy(tasks_ind2[i]) for i in indices2]
+            child1[equipment] = [tasks_ind1[i] for i in indices1]
+            child2[equipment] = [tasks_ind2[i] for i in indices2]
 
     return child1, child2
 
 # Основная функция запуска алгоритма
 def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
+
     TASKS = Task.get_instances_all()
+
     # константы задачи
     HALL_OF_FAME_SIZE = len(TASKS) * 0.1  # количеству индивидуумов, которых мы хотим хранить в зале славы
     POPULATION_SIZE = len(TASKS)   # количество индивидуумов в популяции
@@ -175,10 +165,13 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     P_CROSSOVER = 1  # вероятность скрещивания
     P_MUTATION = 0.05  # вероятность мутации индивидуума
     TASKS_len = len(Task.get_instances_all())
+
     toolbox = base.Toolbox()
     print(POPULATION_SIZE)
+
     # Настройка среды DEAP для минимизации времени
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
+
     # creator.create("Basket", list)
     creator.create("Task", list)
     creator.create("Individual", dict, fitness=creator.FitnessMin, Task=creator.Task)
@@ -189,9 +182,14 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     population = toolbox.population(n=POPULATION_SIZE)
 
     toolbox.register("evaluate", evaluate_fitness)
-    toolbox.register("select", tools.selTournament, tournsize=3)
+    toolbox.register("select", tools.selTournament, tournsize=15)
     toolbox.register("mate", cxOrderedCustom)
     toolbox.register("mutate", mutate, P_MUTATION)
+
+    # Создаем пул процессов
+    pool = Pool()
+    toolbox.register("map", pool.map)  # Регистрируем параллельную карту
+
     hof = tools.HallOfFame(HALL_OF_FAME_SIZE)
 
     stats = tools.Statistics(lambda ind: ind.fitness.values)
@@ -209,6 +207,10 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
         halloffame=hof,
         verbose=True
     )
+
+    # Закрываем пул
+    pool.close()
+    pool.join()
 
     print("- Лучшие решения:")
     # Запуск генетического алгоритма с элитизмом
@@ -250,13 +252,11 @@ def generate_individual():
         task_w = individual['wiredrawing'][eq]
         random.shuffle(task_w)
         WireDrawingTask.calculate_setup_time_all(task_w)
+
+
     time_end = datetime.now()
     print(time_end - time_start)
     return individual
-
-
-def get_task_indices(tasks, task_c):
-    return list(next(i for i, task2 in enumerate(tasks) if task2.order.UUID == task1.order.UUID) for task1 in task_c)
 
 
 # Функция оценки приспособленности — для вычисления общего времени выполнения задач
@@ -280,6 +280,8 @@ def calculating_basket(ind, task):
 
     temp_basket: Basket = copy.deepcopy(Basket(None))
     for order in task:
+        individual = ind[temp_basket.equipment_type][temp_basket.equipment.equipment_name]
+
         if order.equipment.capacity - order.num_basket >= 0:
             temp_basket.append(order, order.num_basket)
             order.equipment.capacity -= order.num_basket  # сколько нужно до 8 корзин
@@ -287,23 +289,58 @@ def calculating_basket(ind, task):
         else:
             temp_basket.append(order, order.equipment.capacity)
 
-            Task.assign_tasks_to_equipment(temp_basket)
-            ind[temp_basket.equipment_type][temp_basket.equipment.equipment_name].append(temp_basket)
+
+
+
+            # Task.assign_tasks_to_equipment(temp_basket)
+            # ind[temp_basket.equipment_type][temp_basket.equipment.equipment_name].append(temp_basket)
+            individual.insert(random.randint(0, len(individual)),temp_basket)
 
             num_basket = order.num_basket - order.equipment.capacity
             while num_basket > 8:
                 b = copy.deepcopy(Basket(order, 8))
-                Task.assign_tasks_to_equipment(b)
-                ind[temp_basket.equipment_type][temp_basket.equipment.equipment_name].append(b)
+                # Task.assign_tasks_to_equipment(b)
+                individual.append(b)
                 num_basket -= 8
 
             order.equipment.capacity = 8 - num_basket
             temp_basket = copy.deepcopy(Basket(order, num_basket))
     else:
         if len(temp_basket.orders) > 0:
-            Task.assign_tasks_to_equipment(temp_basket)
-            ind[temp_basket.equipment_type][temp_basket.equipment.equipment_name].append(temp_basket)
+            # Task.assign_tasks_to_equipment(temp_basket)
+            individual.append(temp_basket)
 
+
+# Функция для обработки spin_road и добавления новых фильер
+def add_missing_filters(filters_dict, tasks):
+    # Получаем сегодняшний день в 0:00
+    today_midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    for task in tasks:
+        spin_road = task.spin_road
+        # Если spin_road содержит вложенный список (для old), разворачиваем его
+        if isinstance(spin_road, list) and isinstance(spin_road[0], list):
+            spin_road = [diameter for sublist in spin_road for diameter in sublist]
+        elif not isinstance(spin_road, list):
+            spin_road = [spin_road]
+
+        # Проверяем и добавляем отсутствующие фильеры
+        for filter_diameter in spin_road:
+            if filter_diameter == 0:  # Пропускаем диаметры равные 0
+                continue
+            if filter_diameter not in filters_dict:
+                # Добавляем фильеру с минимальными параметрами
+                filters_dict[filter_diameter] = {
+                    "Информация": {
+                        "Диаметр": filter_diameter,
+                        "ИспользуетсяВоборудованиях": [],
+                        "Вработе": False,
+                        "Количество": 1,
+                        "БудетНаходитьсяВРаботе": 0,
+                        "ВремяОсвобождения": today_midnight
+                    }
+                }
+                # print(f"Добавлена фильера с диаметром {filter_diameter}")
 
 def get_cost_drawing(ind, print_logs=False):
     # return 0
@@ -338,6 +375,7 @@ def get_cost_drawing(ind, print_logs=False):
         random.shuffle(equipment_types)
 
         for eq_type in equipment_types:
+            add_missing_filters(filters_dict, ind['wiredrawing'][eq_type])
             future = executor.submit(
                 calculate_setup_time_for_tasks,
                 ind['wiredrawing'][eq_type],
@@ -350,42 +388,16 @@ def get_cost_drawing(ind, print_logs=False):
         # Ждём завершения всех потоков и суммируем результаты
         for future in futures:
             time_total += future.result()
-            
+
     for eq in ind['wiredrawing']:
         tasks = ind['wiredrawing'][eq]
         if not any(isinstance(task, Basket) for task in tasks):
             for task in tasks:
-                time += task.time_setup
+                time_total += task.time_setup
         else:
-            time += get_cost_new(tasks)
+            time_total += get_cost_basket(tasks)
 
-    return time
-
-
-def process_spin_road(task):
-    """Обработка spin_road в зависимости от оборудования."""
-    if task.equipment.equipment_name == "old":
-        # Если оборудование old, выбираем случайный подсписок
-        if isinstance(task.spin_road, list) and isinstance(task.spin_road[0], list):
-            spin_road = random.choice(task.spin_road)
-        else:
-            spin_road = task.spin_road
-    else:
-        # Для al и new оставляем как есть
-        spin_road = task.spin_road
-
-    # Разворачиваем вложенные списки в один список
-    if isinstance(spin_road, list):
-        flat_spin_road = []
-        for item in spin_road:
-            if isinstance(item, list):
-                flat_spin_road.extend(item)
-            else:
-                flat_spin_road.append(item)
-        return flat_spin_road
-    else:
-        return [spin_road]
-
+    return time_total
 
 def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=False):
     """Вычисление времени переналадки на одном оборудовании с учётом фильер."""
@@ -396,7 +408,7 @@ def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=Fals
         current_task = tasks[i]
 
         # Обработка spin_road
-        current_task.spin_road = process_spin_road(current_task)
+        current_task.spin_road = current_task.spin_road[0] if isinstance(current_task.spin_road[0], list) else current_task.spin_road
 
         # Вывод списка фильеров, необходимых для текущего заказа
         if print_logs:
@@ -425,6 +437,7 @@ def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=Fals
                     0,
                     (filter_info["ВремяОсвобождения"] - equipment_time).total_seconds() / 60
                 )
+
                 local_penalty_time += remaining_time
                 if print_logs:
                     print(f"Фильера {filter_diameter} занята, штраф за ожидание: {remaining_time} минут.")
@@ -492,16 +505,17 @@ def get_cost_basket(tasks_with_basket):
         elif num_task == 0:
             continue
 
-        if reserve_time < time_route_to_basket < reserve_time + baskets[route + 1].time_work:
-            reserve_time = baskets[route + 1].time_work - (time_route_to_basket - reserve_time)
+
+        if reserve_time < time_route_to_basket < reserve_time + baskets[route + 1].time_on_multivare:
+            reserve_time = baskets[route + 1].time_on_multivare - (time_route_to_basket - reserve_time)
             if reserve_time < WireDrawingMachine.W:
                 num_downtime += 1
         elif time_route_to_basket < reserve_time:
             num_downtime += 1
-            reserve_time = baskets[route + 1].time_work
-        elif time_route_to_basket > reserve_time + baskets[route + 1].time_work - WireDrawingMachine.W:
+            reserve_time = baskets[route + 1].time_on_multivare
+        elif time_route_to_basket > reserve_time + baskets[route + 1].time_on_multivare - WireDrawingMachine.W:
             num_uptime += 1
-            reserve_time = baskets[route + 1].time_work
+            reserve_time = baskets[route + 1].time_on_multivare
 
         # total_time += time_route_to_basket
         time_route_to_basket = 0
@@ -510,9 +524,9 @@ def get_cost_basket(tasks_with_basket):
 
         time_route_to_basket += get_time_route(routes[-2], routes.index(routes[-2]))
 
-        reserve_time = baskets[-1].time_work
+        reserve_time = baskets[-1].time_on_multivare
 
-        if reserve_time < time_route_to_basket < reserve_time + baskets[-1].time_work:
+        if reserve_time < time_route_to_basket < reserve_time + baskets[-1].time_on_multivare:
             pass
         elif time_route_to_basket < reserve_time:
             num_downtime += 1
@@ -565,7 +579,7 @@ def get_time_route(tasks: [WireDrawingTask], number_route: int):
 
     # добавляем время на изготовление 8 корзин
     time += (WireDrawingMachine.W if number_route else 0)
-    
+
     return time
 
 def evaluate_fitness(individual):
