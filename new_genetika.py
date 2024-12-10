@@ -169,10 +169,6 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     toolbox.register("mate", cxOrderedCustom)
     toolbox.register("mutate", mutate, P_MUTATION)
 
-    # Создаем пул процессов
-    pool = Pool()
-    toolbox.register("map", pool.map)  # Регистрируем параллельную карту
-
     hof = tools.HallOfFame(HALL_OF_FAME_SIZE)
 
     stats = tools.Statistics(lambda ind: ind.fitness.values)
@@ -191,10 +187,6 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
         verbose=True
     )
 
-    # Закрываем пул
-    pool.close()
-    pool.join()
-
     print("- Лучшие решения:")
     # Запуск генетического алгоритма с элитизмом
     best_order = hof.items[0]  # массив заказов в виде индексов
@@ -202,6 +194,7 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     formatted_solution = format_best_solution(best_order)
     print(formatted_solution)
     return best_order
+
 
 def format_best_solution(best_order):
     """Форматирует вывод для лучшего решения."""
@@ -274,17 +267,6 @@ def generate_individual():
             individual[equipment_type][eq.equipment_name] = random.sample(task_c, len(task_c))
 
     updated_baskets = []
-    for eq in individual['multivare']:
-        task_m = copy.deepcopy(individual['multivare'][eq])
-        MultivareTask.calculate_setup_time_all(individual['multivare'][eq])
-        updated_baskets.extend(calculating_basket(task_m))
-
-    for basket in updated_baskets:
-        ind = individual[basket.equipment_type][basket.equipment.equipment_name]
-        ind.insert(random.randint(0, len(ind)), basket)
-
-     # Обновляем корзины для multivare
-    updated_baskets = []
     updated_baskets.extend(calculating_basket(individual))
 
     for i, basket in enumerate(updated_baskets):
@@ -305,13 +287,12 @@ def evaluate_fitness(individual: dict):
     return multivare_time + drawing_time,
 
 
-
 # Функция оценки приспособленности — для вычисления общего времени выполнения задач
 def get_cost_multivare(ind):
     time_total = 0
     # map(lambda x: x.capacity * 0 + 8, Equipment.get_instances_by_type(equipment_type='multivare'))
     for eq in ind['multivare']:
-        tasks = copy.deepcopy(ind['multivare'][eq])
+        tasks = ind['multivare'][eq]
         time_total += sum([task.time_setup for task in tasks])
 
     return time_total
@@ -354,7 +335,7 @@ def get_cost_drawing(ind, print_logs=False):
             add_missing_filters(filters_dict, ind['wiredrawing'][eq_type])
             future = executor.submit(
                 calculate_setup_time_for_tasks,
-                ind['wiredrawing'][eq_type],
+                copy.deepcopy(ind['wiredrawing'][eq_type]),
                 filters_dict,
                 eq_type,
                 print_logs  # Передаем флаг логирования
@@ -376,8 +357,8 @@ def calculating_basket(ind):
     """
     updated_baskets = []
     for eq in ind['multivare']:
-        task_m = copy.deepcopy(ind['multivare'][eq])
-        MultivareTask.calculate_setup_time_all(ind['multivare'][eq])
+        task_m = ind['multivare'][eq]
+        MultivareTask.calculate_setup_time_all(task_m)
         temp_basket: Basket = copy.deepcopy(Basket(None))
         # individual = ind[temp_basket.equipment_type][temp_basket.equipment.equipment_name]
         for order in task_m:
@@ -438,65 +419,6 @@ def add_missing_filters(filters_dict, tasks):
                     }
                 }
                 # print(f"Добавлена фильера с диаметром {filter_diameter}")
-
-
-def get_cost_drawing(ind, print_logs=False):
-    # return 0
-    # indexes_baskets = individual.basket
-    total_time = 0  # суммарное время перенастроек
-    num_downtime = 0  # количество простоев волочилки
-    num_uptime = 0  # количесвто простоев мультика
-    time_route_to_basket = 0
-
-    time_total = 0
-    for eq in ind['wiredrawing']:
-        tasks = ind['wiredrawing'][eq]
-        WireDrawingTask.calculate_setup_time_all(tasks)
-        if not any(isinstance(task, Basket) for task in tasks):
-            time_total += sum([task.time_setup for task in tasks])
-        else:
-            time_total += get_cost_basket(tasks, ind.Basket)
-            
-    filters_json = 'Оборудование/Фильеры.json'
-   # Чтение JSON-файла в массив
-    with open(filters_json, 'r', encoding='utf-8') as file:
-        filters_array = json.load(file)
-
-    # Получаем сегодняшний день в 0:00
-    today_midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-
-    # Создаем словарь фильер с ключом "Диаметр"
-    filters_dict = {}
-    for filter_item in filters_array:
-        filter_item["ВремяОсвобождения"] = today_midnight
-        filters_dict[filter_item['Диаметр']] = {"Информация": filter_item}
-
-    time_total = 0
-
-    # Параллельно запускаем расчёты для каждого оборудования
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        futures = []
-        equipment_types = ['old', 'new', 'al']
-
-        # Перемешиваем волочилки в случайном порядке
-        random.shuffle(equipment_types)
-
-        for eq_type in equipment_types:
-            add_missing_filters(filters_dict, ind['wiredrawing'][eq_type])
-            future = executor.submit(
-                calculate_setup_time_for_tasks,
-                ind['wiredrawing'][eq_type],
-                filters_dict,
-                eq_type,
-                print_logs  # Передаем флаг логирования
-            )
-            futures.append(future)
-
-        # Ждём завершения всех потоков и суммируем результаты
-        for future in futures:
-            time_total += future.result()
-
-    return time_total
 
  
 def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=False):
