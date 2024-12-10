@@ -3,6 +3,7 @@ from datetime import datetime
 from pickle import GLOBAL
 from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import Pool
+from collections import defaultdict
 
 import threading
 from threading import Lock
@@ -143,8 +144,8 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
 
     # константы задачи
     HALL_OF_FAME_SIZE = len(TASKS) * 0.01  # количеству индивидуумов, которых мы хотим хранить в зале славы
-    POPULATION_SIZE = len(TASKS) // 10  # количество индивидуумов в популяции
-    MAX_GENERATIONS = len(TASKS)  # максимальное количество поколений
+    POPULATION_SIZE = len(TASKS)//6  # количество индивидуумов в популяции
+    MAX_GENERATIONS = len(TASKS)//10  # максимальное количество поколений
     P_CROSSOVER = 1  # вероятность скрещивания
     P_MUTATION = 0.05  # вероятность мутации индивидуума
     TASKS_len = len(Task.get_instances_all())
@@ -164,7 +165,7 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     population = toolbox.population(n=POPULATION_SIZE)
 
     toolbox.register("evaluate", evaluate_fitness)
-    toolbox.register("select", tools.selTournament, tournsize=3)
+    toolbox.register("select", tools.selTournament, tournsize=10)
     toolbox.register("mate", cxOrderedCustom)
     toolbox.register("mutate", mutate, P_MUTATION)
 
@@ -197,11 +198,58 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     print("- Лучшие решения:")
     # Запуск генетического алгоритма с элитизмом
     best_order = hof.items[0]  # массив заказов в виде индексов
-    print(best_order)
+    # print(best_order)
+    formatted_solution = format_best_solution(best_order)
+    print(formatted_solution)
     return best_order
 
+def format_best_solution(best_order):
+    """Форматирует вывод для лучшего решения."""
+    formatted_output = []
 
-# Создание начальной популяции на основе заданий
+    for equipment_type, equipment_data in best_order.items():
+        formatted_output.append(f"Тип оборудования: {equipment_type}")
+        for equipment_name, tasks in equipment_data.items():
+            formatted_output.append(f"  Оборудование: {equipment_name}")
+            for task in tasks:
+                if isinstance(task, Basket):
+                    # Форматируем данные корзины
+                    basket_details = (
+                        f"    Корзина (длина: {task.sum_basket}, диаметр: {task.diameter}, "
+                        f"время работы заказов: {task.time_on_multivare}):"
+                    )
+                    formatted_output.append(basket_details)
+                    for basket_task in task.orders:
+                        formatted_output.append(
+                            f"      - Заказ: {basket_task.account_number}, "
+                            f"Диаметр: {basket_task.diameter}, "
+                            f"Маршрут фильер: {basket_task.spin_road}, "
+                            f"Комментарий к перенастройке: {basket_task.comment_setup}"
+                        )
+                elif isinstance(task, MultivareTask):
+                    # Форматируем данные заказа на мультивайер
+                    formatted_output.append(
+                        f"    Заказ: {task.account_number}, "
+                        f"Диаметр: {task.diameter}, "
+                        f"Жил: {task.number_of_veins}, "
+                        f"Корзины: {round(task.num_basket, 2)}, "
+                        f"Маршрут фильер: {task.spin_road}, "
+                        f"Комментарий к перенастройке: {task.comment_setup}"
+                    )
+                else:
+                    # Форматируем обычный заказ
+                    diameter = getattr(task, "voloka", "Не указано")
+                    spin_road = getattr(task, "spin_road", [])
+                    comment_setup = getattr(task, "comment_setup", "Нет комментария")
+                    formatted_output.append(
+                        f"    Заказ: {task.order.account_number}, Диаметр: {diameter}, "
+                        f"Маршрут фильер: {spin_road}, Комментарий к перенастройке: {comment_setup}"
+                    )
+
+    return "\n".join(formatted_output)
+
+
+# # Создание начальной популяции на основе заданий
 def generate_individual():
     """Создает индивида с распределением задач по оборудованию."""
     # Task_c = copy.deepcopy(Task)
@@ -226,6 +274,17 @@ def generate_individual():
             individual[equipment_type][eq.equipment_name] = random.sample(task_c, len(task_c))
 
     updated_baskets = []
+    for eq in individual['multivare']:
+        task_m = copy.deepcopy(individual['multivare'][eq])
+        MultivareTask.calculate_setup_time_all(individual['multivare'][eq])
+        updated_baskets.extend(calculating_basket(task_m))
+
+    for basket in updated_baskets:
+        ind = individual[basket.equipment_type][basket.equipment.equipment_name]
+        ind.insert(random.randint(0, len(ind)), basket)
+
+     # Обновляем корзины для multivare
+    updated_baskets = []
     updated_baskets.extend(calculating_basket(individual))
 
     for i, basket in enumerate(updated_baskets):
@@ -234,7 +293,7 @@ def generate_individual():
 
     individual['basket'] = updated_baskets
     time_end = datetime.now()
-    print(time_end - time_start)
+    print(f"Время выполнения generate_individual: {time_end - time_start}")
     return individual
 
 
@@ -244,6 +303,7 @@ def evaluate_fitness(individual: dict):
     multivare_time = get_cost_multivare(individual)
     drawing_time = get_cost_drawing(individual)
     return multivare_time + drawing_time,
+
 
 
 # Функция оценки приспособленности — для вычисления общего времени выполнения задач
@@ -380,6 +440,65 @@ def add_missing_filters(filters_dict, tasks):
                 # print(f"Добавлена фильера с диаметром {filter_diameter}")
 
 
+def get_cost_drawing(ind, print_logs=False):
+    # return 0
+    # indexes_baskets = individual.basket
+    total_time = 0  # суммарное время перенастроек
+    num_downtime = 0  # количество простоев волочилки
+    num_uptime = 0  # количесвто простоев мультика
+    time_route_to_basket = 0
+
+    time_total = 0
+    for eq in ind['wiredrawing']:
+        tasks = ind['wiredrawing'][eq]
+        WireDrawingTask.calculate_setup_time_all(tasks)
+        if not any(isinstance(task, Basket) for task in tasks):
+            time_total += sum([task.time_setup for task in tasks])
+        else:
+            time_total += get_cost_basket(tasks, ind.Basket)
+            
+    filters_json = 'Оборудование/Фильеры.json'
+   # Чтение JSON-файла в массив
+    with open(filters_json, 'r', encoding='utf-8') as file:
+        filters_array = json.load(file)
+
+    # Получаем сегодняшний день в 0:00
+    today_midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Создаем словарь фильер с ключом "Диаметр"
+    filters_dict = {}
+    for filter_item in filters_array:
+        filter_item["ВремяОсвобождения"] = today_midnight
+        filters_dict[filter_item['Диаметр']] = {"Информация": filter_item}
+
+    time_total = 0
+
+    # Параллельно запускаем расчёты для каждого оборудования
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = []
+        equipment_types = ['old', 'new', 'al']
+
+        # Перемешиваем волочилки в случайном порядке
+        random.shuffle(equipment_types)
+
+        for eq_type in equipment_types:
+            add_missing_filters(filters_dict, ind['wiredrawing'][eq_type])
+            future = executor.submit(
+                calculate_setup_time_for_tasks,
+                ind['wiredrawing'][eq_type],
+                filters_dict,
+                eq_type,
+                print_logs  # Передаем флаг логирования
+            )
+            futures.append(future)
+
+        # Ждём завершения всех потоков и суммируем результаты
+        for future in futures:
+            time_total += future.result()
+
+    return time_total
+
+ 
 def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=False):
     """Вычисление времени переналадки на одном оборудовании с учётом фильер."""
     time_total = 0
@@ -478,14 +597,8 @@ def get_cost_basket(tasks_with_basket, baskets):
     reserve_time = baskets[0].time_on_multivare
     num_task = len(tasks_with_basket) - len(baskets)
     for route in range(len(baskets) - 1):
-        # if len(routes[route]) != 0:
         time_route_to_basket += get_time_route(routes[route], route)
         num_task -= len(routes[route])
-        # elif num_task != 0:
-        #     total_time += 5000000
-        #     break
-        # elif num_task == 0:
-        #     num_downtime += baskets[route + 1].time_on_multivare
 
         if reserve_time < time_route_to_basket < reserve_time + baskets[route + 1].time_on_multivare:
             reserve_time = baskets[route + 1].time_on_multivare - (time_route_to_basket - reserve_time)
