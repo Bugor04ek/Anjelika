@@ -105,36 +105,36 @@ def cxOrderedCustom(ind1, ind2, indpb):
     """
 
     # Создаем копии родителей для потомков
-    child1, child2 = ind1, ind2
+    child1, child2 = copy.deepcopy(ind1), copy.deepcopy(ind2)
     # child1, child2 = {}, {}
 
     for equipment_type in ind1.keys():
         for equipment in ind1[equipment_type]:
-            tasks_ind1 = ind1[equipment_type][equipment]
-            tasks_ind2 = ind2[equipment_type][equipment]
+            tasks_ind1 = copy.deepcopy(ind1[equipment_type][equipment])
+            tasks_ind2 = copy.deepcopy(ind2[equipment_type][equipment])
             if len(tasks_ind1) < 2 or len(tasks_ind2) < 2:
                 continue
 
             indices1 = list(range(len(tasks_ind1)))
             indices2 = list(range(len(tasks_ind2)))
 
-            tools.cxUniformPartialyMatched(indices1, indices2, indpb)
+            indices1_t, indices2_t = tools.cxUniformPartialyMatched(indices1, indices2, indpb)
 
-            child1[equipment_type][equipment] = [tasks_ind1[i] for i in indices1]
-            child2[equipment_type][equipment] = [tasks_ind2[i] for i in indices2]
+            child1[equipment_type][equipment] = [tasks_ind1[i] for i in indices1_t]
+            child2[equipment_type][equipment] = [tasks_ind2[i] for i in indices2_t]
 
     return child1, child2
 
 
-def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
+def run_genetic_algorithm():
 
     TASKS = Task.get_instances_all()
 
     # константы задачи
-    HALL_OF_FAME_SIZE = len(TASKS) // 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
-    POPULATION_SIZE = len(TASKS) // 2  # количество индивидуумов в популяции
-    MAX_GENERATIONS = len(TASKS)// 2 # максимальное количество поколений
-    P_CROSSOVER = 1  # вероятность скрещивания
+    HALL_OF_FAME_SIZE = len(TASKS)  # количеству индивидуумов, которых мы хотим хранить в зале славы
+    POPULATION_SIZE = len(TASKS) * 10  # количество индивидуумов в популяции
+    MAX_GENERATIONS = len(TASKS)  # максимальное количество поколений
+    P_CROSSOVER = 0.9  # вероятность скрещивания
     P_MUTATION = 0.05  # вероятность мутации индивидуума
     TASKS_len = len(Task.get_instances_all())
 
@@ -153,7 +153,7 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     population = toolbox.population(n=POPULATION_SIZE)
 
     toolbox.register("evaluate", evaluate_fitness)
-    toolbox.register("select", tools.selTournament, tournsize=50)
+    toolbox.register("select", tools.selTournament, tournsize=20)
     toolbox.register("mate", cxOrderedCustom)
     toolbox.register("mutate", mutate)
 
@@ -337,7 +337,6 @@ def get_cost_drawing(ind, print_logs=False):
         for future in futures:
             time_total += future.result()
 
-
     return time_total
 
 
@@ -349,12 +348,11 @@ def calculating_basket(ind):
     """
     updated_baskets = []
     for eq in ind['multivare']:
-        e = Equipment.get_instances_by_type(equipment_name=eq)[0]
-        e.capacity = e.remaining_basket_length
         task_m = ind['multivare'][eq]
+        for order in task_m:
+            order.equipment.capacity = order.equipment.remaining_basket_length
         MultivareTask.calculate_setup_time_all(task_m)
         temp_basket: Basket = copy.deepcopy(Basket(None))
-        # individual = ind[temp_basket.equipment_type][temp_basket.equipment.equipment_name]
         for order in task_m:
 
             if order.equipment.capacity - order.num_basket >= 0:
@@ -509,7 +507,7 @@ def get_cost_basket(tasks_with_basket, baskets):
     time_route_to_basket = 0  # время между корзинами на волочилке
 
     # baskets = [task for task in tasks_with_basket if isinstance(task, str)]
-    routes = get_routes(tasks_with_basket)
+    routes = get_routes(tasks_with_basket, baskets)
 
     reserve_time = baskets[0].time_on_multivare
     num_task = len(tasks_with_basket) - len(baskets)
@@ -546,10 +544,10 @@ def get_cost_basket(tasks_with_basket, baskets):
 
         total_time += time_route_to_basket
 
-    return total_time + num_downtime + num_uptime
+    return total_time + num_downtime * 1.5 + num_uptime * 1.5
 
 
-def get_routes(tasks):
+def get_routes(tasks, baskets):
     """
         Разбиваем индивида (очередь) на маршруты от корзины до корзины
         :param tasks: текущая очередь
@@ -558,8 +556,10 @@ def get_routes(tasks):
     routes = []
     route = []
 
+    # итератор для вставки корзин вместо пустых заглушек
+    b = 0
     # loop over all indices in the list:
-    for task in tasks:
+    for i, task in enumerate(tasks):
 
         # index is part of the current route:
         if not isinstance(task, Basket):
@@ -567,6 +567,8 @@ def get_routes(tasks):
 
         # separator index - route is complete:
         else:
+            tasks[i] = baskets[b]
+            b += 1
             routes.append(route)
             route = []  # reset route
 

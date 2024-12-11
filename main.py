@@ -85,6 +85,9 @@ def main():
     best_orders = new_genetika.run()
     time_end = datetime.now()
 
+    total_time = time_end - time_begin
+    print(total_time)
+
     result_json = {}
     for eq in Equipment.get_all_instances():
         for equipment_type in eq.equipment_type:
@@ -93,8 +96,6 @@ def main():
             result_json[equipment_type][eq.equipment_name] = [{"UUID": task.order.UUID,"Маршрут": task.spin_road, "Комментарий": task.comment_setup} for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, [])]
             # result_json.append({"UUID": task.order.UUID,"Маршрут": task.spin_road, "Комментарий": task.comment_setup} for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, []))
 
-    total_time = time_end - time_begin
-    print(total_time)
 
     print("Генетический алгоритм завершен")
 

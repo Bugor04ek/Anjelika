@@ -703,6 +703,7 @@ class Basket:
         self.len_basket = MultivareMachine.KM_IN_1_BASKET * 8
         self.sum_basket = sum_basket
         self.equipment_type = 'wiredrawing'
+        self.equipment = ''
         self.time_work = WireDrawingMachine.W
         self.acceptable_equipment = []
         self.set_acceptable_equipment()
