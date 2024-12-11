@@ -20,40 +20,28 @@ import Equipments
 import Tasks
 from Tasks import Task, TaskMeta, MultivareTask, WireDrawingTask, Basket
 from Equipments import MultivareMachine, WireDrawingMachine, Equipment
+from main import equipments
 
 TASKS = []
 
 
 def varAnd(population, toolbox, cxpb, mutpb):
-    # Клонирование популяции
-    offspring = [toolbox.clone(ind) for ind in population]
 
-    # Сгенерируем заранее случайные числа для скрещивания
-    crossover_flags = numpy.random.rand(len(offspring) - 1) < cxpb
+    offspring = [copy.deepcopy(ind) for ind in population]
 
-    # Параллельное выполнение операций
-    with ThreadPoolExecutor() as executor:
-        def apply_crossover_and_mutation(i):
-            # Скрещивание
-            if crossover_flags[i]:
-                toolbox.mate(offspring[i], offspring[i + 1])
-                del offspring[i].fitness.values
-                del offspring[i + 1].fitness.values
-                offspring[i].Basket = calculating_basket(offspring[i])
-                offspring[i + 1].Basket = calculating_basket(offspring[i])
+    for i in range(1, len(offspring), 2):
+        offspring[i - 1], offspring[i] = toolbox.mate(offspring[i - 1], offspring[i], cxpb)
+        del offspring[i - 1].fitness.values
+        del offspring[i].fitness.values
+        offspring[i].Basket = calculating_basket(offspring[i])
+        offspring[i - 1].Basket = calculating_basket(offspring[i - 1])
 
-            # Мутация
-            for equipment_type in offspring[i].keys():
-                for equipment in offspring[i][equipment_type]:
-                    if len(offspring[i][equipment_type][equipment]) > 1:
-                        tools.mutShuffleIndexes(
-                            offspring[i][equipment_type][equipment],
-                            indpb=1.0 / len(offspring[i][equipment_type][equipment])
-                        )
-            del offspring[i].fitness.values
-            offspring[i].Basket = calculating_basket(offspring[i])
+    for i in range(len(offspring)):
+        offspring[i] = toolbox.mutate(offspring[i], mutpb)
+        del offspring[i].fitness.values
+        offspring[i].Basket = calculating_basket(offspring[i])
 
-        executor.map(apply_crossover_and_mutation, range(len(offspring) - 1))
+        # executor.map(apply_crossover_and_mutation, range(len(offspring) - 1))
 
     return offspring
 
@@ -102,38 +90,38 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, hall
     return population, logbook
 
 
-def mutate(individual, mutation_rate=0.05):
+def mutate(individual, indpb):
     # Генерируем заранее случайные числа для мутации
-    mutation_flags = numpy.random.rand(len(individual.keys())) < mutation_rate
-    for i, (equipment, flag) in enumerate(zip(individual.keys(), mutation_flags)):
-        if flag:
-            random.shuffle(copy.deepcopy(individual[equipment]))
-    return individual
+    ind = copy.deepcopy(individual)
+    for equipment_type in ind.keys():
+        for equipment in ind[equipment_type]:
+            ind[equipment_type][equipment], = tools.mutShuffleIndexes(individual[equipment_type][equipment], indpb)
+    return ind
 
 
-def cxOrderedCustom(ind1, ind2):
+def cxOrderedCustom(ind1, ind2, indpb):
     """
     Кастомный оператор скрещивания на основе cxOrdered для сложной структуры.
     """
 
     # Создаем копии родителей для потомков
-    # child1, child2 = copy.deepcopy(ind1), copy.deepcopy(ind2)
-    child1, child2 = {}, {}
+    child1, child2 = ind1, ind2
+    # child1, child2 = {}, {}
 
     for equipment_type in ind1.keys():
         for equipment in ind1[equipment_type]:
-            tasks_ind1 = copy.deepcopy(ind1[equipment_type][equipment])
-            tasks_ind2 = copy.deepcopy(ind2[equipment_type][equipment])
+            tasks_ind1 = ind1[equipment_type][equipment]
+            tasks_ind2 = ind2[equipment_type][equipment]
             if len(tasks_ind1) < 2 or len(tasks_ind2) < 2:
                 continue
 
             indices1 = list(range(len(tasks_ind1)))
             indices2 = list(range(len(tasks_ind2)))
 
-            tools.cxUniformPartialyMatched(indices1, indices2, indpb=2.0 / 150)
+            tools.cxUniformPartialyMatched(indices1, indices2, indpb)
 
-            child1[equipment] = [tasks_ind1[i] for i in indices1]
-            child2[equipment] = [tasks_ind2[i] for i in indices2]
+            child1[equipment_type][equipment] = [tasks_ind1[i] for i in indices1]
+            child2[equipment_type][equipment] = [tasks_ind2[i] for i in indices2]
 
     return child1, child2
 
@@ -143,9 +131,9 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     TASKS = Task.get_instances_all()
 
     # константы задачи
-    HALL_OF_FAME_SIZE = len(TASKS) * 0.01  # количеству индивидуумов, которых мы хотим хранить в зале славы
-    POPULATION_SIZE = len(TASKS)*2 # количество индивидуумов в популяции
-    MAX_GENERATIONS = len(TASKS)//10 # максимальное количество поколений
+    HALL_OF_FAME_SIZE = len(TASKS) // 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
+    POPULATION_SIZE = len(TASKS) // 2  # количество индивидуумов в популяции
+    MAX_GENERATIONS = len(TASKS)// 2 # максимальное количество поколений
     P_CROSSOVER = 1  # вероятность скрещивания
     P_MUTATION = 0.05  # вероятность мутации индивидуума
     TASKS_len = len(Task.get_instances_all())
@@ -165,9 +153,9 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     population = toolbox.population(n=POPULATION_SIZE)
 
     toolbox.register("evaluate", evaluate_fitness)
-    toolbox.register("select", tools.selTournament, tournsize=20)
+    toolbox.register("select", tools.selTournament, tournsize=50)
     toolbox.register("mate", cxOrderedCustom)
-    toolbox.register("mutate", mutate, P_MUTATION)
+    toolbox.register("mutate", mutate)
 
     hof = tools.HallOfFame(HALL_OF_FAME_SIZE)
 
@@ -175,6 +163,7 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
 
     stats.register("avg", numpy.mean)
     stats.register("min", numpy.min)
+    # stats.register("std", numpy.std) # Дисперсия помогает понять разброс значений приспособленности в популяции, что может быть индикатором разнообразия.
 
     # Инициализация популяции
     population, logbook = eaSimpleWithElitism(
@@ -360,6 +349,8 @@ def calculating_basket(ind):
     """
     updated_baskets = []
     for eq in ind['multivare']:
+        e = Equipment.get_instances_by_type(equipment_name=eq)[0]
+        e.capacity = e.remaining_basket_length
         task_m = ind['multivare'][eq]
         MultivareTask.calculate_setup_time_all(task_m)
         temp_basket: Basket = copy.deepcopy(Basket(None))
