@@ -144,8 +144,8 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
 
     # константы задачи
     HALL_OF_FAME_SIZE = len(TASKS) * 0.01  # количеству индивидуумов, которых мы хотим хранить в зале славы
-    POPULATION_SIZE = len(TASKS)//6  # количество индивидуумов в популяции
-    MAX_GENERATIONS = len(TASKS)//10  # максимальное количество поколений
+    POPULATION_SIZE = len(TASKS)*2 # количество индивидуумов в популяции
+    MAX_GENERATIONS = len(TASKS)//10 # максимальное количество поколений
     P_CROSSOVER = 1  # вероятность скрещивания
     P_MUTATION = 0.05  # вероятность мутации индивидуума
     TASKS_len = len(Task.get_instances_all())
@@ -165,7 +165,7 @@ def run_genetic_algorithm(pop_size=50, cxpb=0.7, mutpb=0.2, ngen=50):
     population = toolbox.population(n=POPULATION_SIZE)
 
     toolbox.register("evaluate", evaluate_fitness)
-    toolbox.register("select", tools.selTournament, tournsize=10)
+    toolbox.register("select", tools.selTournament, tournsize=20)
     toolbox.register("mate", cxOrderedCustom)
     toolbox.register("mutate", mutate, P_MUTATION)
 
@@ -235,7 +235,7 @@ def format_best_solution(best_order):
                     spin_road = getattr(task, "spin_road", [])
                     comment_setup = getattr(task, "comment_setup", "Нет комментария")
                     formatted_output.append(
-                        f"    Заказ: {task.order.account_number}, Диаметр: {diameter}, "
+                        f"    Заказ: {task.order.account_number}, Диаметр: {diameter}, Штраф за ожидание: {task.time_penalty} "
                         f"Маршрут фильер: {spin_road}, Комментарий к перенастройке: {comment_setup}"
                     )
 
@@ -301,6 +301,7 @@ def get_cost_multivare(ind):
 def get_cost_drawing(ind, print_logs=False):
 
     time_total = 0
+
     for eq in ind['wiredrawing']:
         tasks = ind['wiredrawing'][eq]
         WireDrawingTask.calculate_setup_time_all(tasks)
@@ -308,6 +309,7 @@ def get_cost_drawing(ind, print_logs=False):
             time_total += sum([task.time_setup for task in tasks])
         else:
             time_total += get_cost_basket(tasks, ind.Basket)
+
 
     filters_json = 'Оборудование/Фильеры.json'
     # Чтение JSON-файла в массив
@@ -335,7 +337,7 @@ def get_cost_drawing(ind, print_logs=False):
             add_missing_filters(filters_dict, ind['wiredrawing'][eq_type])
             future = executor.submit(
                 calculate_setup_time_for_tasks,
-                copy.deepcopy(ind['wiredrawing'][eq_type]),
+                ind['wiredrawing'][eq_type],
                 filters_dict,
                 eq_type,
                 print_logs  # Передаем флаг логирования
@@ -345,6 +347,7 @@ def get_cost_drawing(ind, print_logs=False):
         # Ждём завершения всех потоков и суммируем результаты
         for future in futures:
             time_total += future.result()
+
 
     return time_total
 
@@ -427,7 +430,7 @@ def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=Fals
     equipment_time = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
     for i in range(len(tasks)):
-        current_task = tasks[i]
+        current_task = copy.deepcopy(tasks[i])
 
         # Обработка spin_road
         current_task.spin_road = current_task.spin_road[0] if isinstance(current_task.spin_road[0], list) else current_task.spin_road
@@ -461,6 +464,7 @@ def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=Fals
                 )
 
                 local_penalty_time += remaining_time
+                tasks[i].time_penalty += local_penalty_time
                 if print_logs:
                     print(f"Фильера {filter_diameter} занята, штраф за ожидание: {remaining_time} минут.")
                 break

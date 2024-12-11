@@ -287,6 +287,8 @@ class WireDrawingTask(Task):
         self.comment_setup = ''
         self.time_setup = 0
         self.spin_road = []
+        self.time_penalty = 0
+
 
     def assign_equipment(self, equipment):
         if self.equipment_type in equipment.equipment_type:
@@ -356,6 +358,8 @@ class WireDrawingTask(Task):
 
         else:  # Старая волочилка
             best_road = {}
+
+
             for road1 in current_task.spin_road:
                 spin_road2 = previous_task.spin_road
 
