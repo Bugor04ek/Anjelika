@@ -131,8 +131,8 @@ def run_genetic_algorithm():
     TASKS = Task.get_instances_all()
 
     # константы задачи
-    HALL_OF_FAME_SIZE = len(TASKS)  # количеству индивидуумов, которых мы хотим хранить в зале славы
-    POPULATION_SIZE = len(TASKS) * 10  # количество индивидуумов в популяции
+    HALL_OF_FAME_SIZE = len(TASKS) // 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
+    POPULATION_SIZE = len(TASKS) // 5  # количество индивидуумов в популяции
     MAX_GENERATIONS = len(TASKS)  # максимальное количество поколений
     P_CROSSOVER = 0.9  # вероятность скрещивания
     P_MUTATION = 0.05  # вероятность мутации индивидуума
@@ -153,7 +153,7 @@ def run_genetic_algorithm():
     population = toolbox.population(n=POPULATION_SIZE)
 
     toolbox.register("evaluate", evaluate_fitness)
-    toolbox.register("select", tools.selTournament, tournsize=20)
+    toolbox.register("select", tools.selTournament, tournsize=3)
     toolbox.register("mate", cxOrderedCustom)
     toolbox.register("mutate", mutate)
 
@@ -326,7 +326,7 @@ def get_cost_drawing(ind, print_logs=False):
             add_missing_filters(filters_dict, ind['wiredrawing'][eq_type])
             future = executor.submit(
                 calculate_setup_time_for_tasks,
-                ind['wiredrawing'][eq_type],
+                ind,
                 filters_dict,
                 eq_type,
                 print_logs  # Передаем флаг логирования
@@ -413,26 +413,26 @@ def add_missing_filters(filters_dict, tasks):
                 # print(f"Добавлена фильера с диаметром {filter_diameter}")
 
  
-def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=False):
+def calculate_setup_time_for_tasks(ind, filters_dict, eq_type, print_logs=False):
     """Вычисление времени переналадки на одном оборудовании с учётом фильер."""
     time_total = 0
     equipment_time = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
-    for i in range(len(tasks)):
-        current_task = copy.deepcopy(tasks[i])
+    for i in range(len(ind['wiredrawing'][eq_type])):
+        current_task = ind['wiredrawing'][eq_type][i]
 
         # Обработка spin_road
-        current_task.spin_road = current_task.spin_road[0] if isinstance(current_task.spin_road[0], list) else current_task.spin_road
+        spin_road = current_task.spin_road[0] if isinstance(current_task.spin_road[0], list) else current_task.spin_road
 
         # Вывод списка фильеров, необходимых для текущего заказа
         if print_logs:
             print(
-                f"Для текущего заказа нужны фильеры: {current_task.spin_road} и время его выполнения - {current_task.time_work} минут.")
+                f"Для текущего заказа нужны фильеры: {spin_road} и время его выполнения - {current_task.time_work} минут.")
 
         # Проверяем доступность фильер
         all_filters_available = True
         local_penalty_time = 0
-        for filter_diameter in current_task.spin_road:
+        for filter_diameter in spin_road:
             # Пропускаем фильеры с диаметром 0
             if filter_diameter == 0:
                 continue
@@ -447,13 +447,10 @@ def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=Fals
             # Проверяем, доступна ли фильера
             if filter_info["Количество"] <= 0:
                 all_filters_available = False
-                remaining_time = max(
-                    0,
-                    (filter_info["ВремяОсвобождения"] - equipment_time).total_seconds() / 60
-                )
+                remaining_time = max(0, (filter_info["ВремяОсвобождения"] - equipment_time).total_seconds() / 60)
 
                 local_penalty_time += remaining_time
-                tasks[i].time_penalty += local_penalty_time
+                ind['wiredrawing'][eq_type][i].time_penalty += local_penalty_time
                 if print_logs:
                     print(f"Фильера {filter_diameter} занята, штраф за ожидание: {remaining_time} минут.")
                 break
@@ -466,10 +463,10 @@ def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=Fals
         # Обновляем время выполнения оборудования
         task_time = current_task.time_work
         equipment_time += timedelta(minutes=task_time)
-        time_total += task_time
+        # time_total += task_time
 
         # Обновляем информацию о фильерах
-        for filter_diameter in current_task.spin_road:
+        for filter_diameter in spin_road:
             if filter_diameter == 0:  # Пропускаем фильеры с диаметром 0
                 continue
             if filter_diameter in filters_dict:
@@ -480,7 +477,7 @@ def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=Fals
                     print(f"Фильера {filter_diameter} используется, осталось {filter_info['Количество']}.")
 
         # Освобождаем фильеры после выполнения задания
-        for filter_diameter in current_task.spin_road:
+        for filter_diameter in spin_road:
             if filter_diameter == 0:  # Пропускаем фильеры с диаметром 0
                 continue
             if filter_diameter in filters_dict:
