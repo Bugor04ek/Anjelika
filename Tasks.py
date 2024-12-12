@@ -122,9 +122,8 @@ class Order(metaclass=OrderMeta):
         if self.number_of_sliver_extra:
             task.append(
                 MultivareTask(
-                    self, self.diameter, self.number_of_veins, self.wires_in_sliver_extra,
-                    self.number_of_sliver_extra,
-                    self.wires_in_sliver_extra, 'e', self.time_on_multivare
+                    self, self.diameter, self.number_of_veins, self.number_of_strands,
+                    self.number_of_sliver_extra, self.wires_in_sliver_extra, 'e', self.time_on_multivare
                 )
             )
 
@@ -425,7 +424,7 @@ class WireDrawingTask(Task):
 
     def __repr__(self):
         if issubclass(Order, type(self.order)):
-            return '{} {} -- {} \n'.format(self.account_number, self.order.mark.mark, self.equipment)
+            return '{} {} -- {} время простоя {} \n'.format(self.account_number, self.order.mark.mark, self.equipment, self.time_penalty)
         elif issubclass(Basket, type(self.order)):
             return '{}\n'.format(self.order.__repr__())
 
@@ -489,7 +488,7 @@ class MultivareTask(Task):
         self.spin = MultivareMachine.dictionary_spinners[min(MultivareMachine.dictionary_spinners, key=lambda x: abs(self.diameter - x))]
 
     def calculating_length(self):
-        # суммарная длина проволочек
+        # суммарная вес проволочек
 
         self.total_weight_delays = ((self.number_of_sliver * self.wires_in_sliver) * self.number_of_strands *
                                     self.number_of_veins * self.order.order_length) * pi * 8.89 * (
@@ -706,6 +705,7 @@ class Basket:
         self.equipment = ''
         self.time_work = WireDrawingMachine.W
         self.acceptable_equipment = []
+        self.time_setup = 0
         self.set_acceptable_equipment()
         WireDrawingTask.assign_tasks_to_equipment(self)
 
