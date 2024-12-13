@@ -27,10 +27,10 @@ TASKS = []
 
 def varAnd(population, toolbox, cxpb, mutpb):
 
-    offspring = [copy.deepcopy(ind) for ind in population]
+    offspring = [toolbox.clone(ind) for ind in population]
 
     for i in range(1, len(offspring), 2):
-        offspring[i - 1], offspring[i] = toolbox.mate(offspring[i - 1], offspring[i], cxpb)
+        toolbox.mate(offspring[i - 1], offspring[i], cxpb)
         del offspring[i - 1].fitness.values
         del offspring[i].fitness.values
         offspring[i].Basket = calculating_basket(offspring[i])
@@ -99,31 +99,30 @@ def mutate(individual, indpb):
     return ind
 
 
-def cxOrderedCustom(ind1, ind2, indpb):
+def mate(ind1, ind2, indpb):
     """
     Кастомный оператор скрещивания на основе cxOrdered для сложной структуры.
     """
 
     # Создаем копии родителей для потомков
-    child1, child2 = copy.deepcopy(ind1), copy.deepcopy(ind2)
-    # child1, child2 = {}, {}
+    child1, child2 = ind1, ind2
 
     for equipment_type in ind1.keys():
         for equipment in ind1[equipment_type]:
-            tasks_ind1 = copy.deepcopy(ind1[equipment_type][equipment])
-            tasks_ind2 = copy.deepcopy(ind2[equipment_type][equipment])
+            tasks_ind1 = ind1[equipment_type][equipment]
+            tasks_ind2 = ind2[equipment_type][equipment]
             if len(tasks_ind1) < 2 or len(tasks_ind2) < 2:
                 continue
 
-            indices1 = list(range(len(tasks_ind1)))
-            indices2 = list(range(len(tasks_ind2)))
+            new_indices_ind1 = list(range(len(tasks_ind1)))
+            new_indices_ind2 = list(range(len(tasks_ind2)))
 
-            indices1_t, indices2_t = tools.cxUniformPartialyMatched(indices1, indices2, indpb)
+            new_indices_ind1, new_indices_ind2 = tools.cxOrdered(new_indices_ind1, new_indices_ind2)
 
-            child1[equipment_type][equipment] = [tasks_ind1[i] for i in indices1_t]
-            child2[equipment_type][equipment] = [tasks_ind2[i] for i in indices2_t]
+            ind1[equipment_type][equipment] = [tasks_ind1[i] for i in new_indices_ind1]
+            ind2[equipment_type][equipment] = [tasks_ind2[i] for i in new_indices_ind2]
 
-    return child1, child2
+    # return child1, child2
 
 
 def run_genetic_algorithm():
@@ -131,11 +130,11 @@ def run_genetic_algorithm():
     TASKS = Task.get_instances_all()
 
     # константы задачи
-    HALL_OF_FAME_SIZE = len(TASKS) // 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
-    POPULATION_SIZE = len(TASKS) // 5  # количество индивидуумов в популяции
-    MAX_GENERATIONS = len(TASKS)  # максимальное количество поколений
-    P_CROSSOVER = 0.9  # вероятность скрещивания
-    P_MUTATION = 0.05  # вероятность мутации индивидуума
+    HALL_OF_FAME_SIZE = len(TASKS) // 8  # количеству индивидуумов, которых мы хотим хранить в зале славы
+    POPULATION_SIZE = len(TASKS)  # количество индивидуумов в популяции
+    MAX_GENERATIONS = len(TASKS) // 8  # максимальное количество поколений
+    P_CROSSOVER = 1  # вероятность скрещивания
+    P_MUTATION = 0  # вероятность мутации индивидуума
     TASKS_len = len(Task.get_instances_all())
 
     toolbox = base.Toolbox()
@@ -154,7 +153,7 @@ def run_genetic_algorithm():
 
     toolbox.register("evaluate", evaluate_fitness)
     toolbox.register("select", tools.selTournament, tournsize=3)
-    toolbox.register("mate", cxOrderedCustom)
+    toolbox.register("mate", mate)
     toolbox.register("mutate", mutate)
 
     hof = tools.HallOfFame(HALL_OF_FAME_SIZE)
@@ -188,7 +187,7 @@ def run_genetic_algorithm():
 def format_best_solution(best_order):
     """Форматирует вывод для лучшего решения."""
     formatted_output = []
-
+    total_time = 0
     for equipment_type, equipment_data in best_order.items():
         formatted_output.append(f"Тип оборудования: {equipment_type}")
         for equipment_name, tasks in equipment_data.items():
@@ -197,7 +196,7 @@ def format_best_solution(best_order):
                 if isinstance(task, Basket):
                     # Форматируем данные корзины
                     basket_details = (
-                        f"    Корзина (длина: {task.sum_basket}, диаметр: {task.diameter}, "
+                        f"  Время работы группы заказов {total_time} \n  Корзина (длина: {task.sum_basket}, диаметр: {task.diameter}, "
                         f"время работы заказов: {task.time_on_multivare}):"
                     )
                     formatted_output.append(basket_details)
@@ -208,6 +207,8 @@ def format_best_solution(best_order):
                             f"Маршрут фильер: {basket_task.spin_road}, "
                             f"Комментарий к перенастройке: {basket_task.comment_setup}"
                         )
+                    total_time = 0
+                    total_time += WireDrawingMachine.W
                 elif isinstance(task, MultivareTask):
                     # Форматируем данные заказа на мультивайер
                     formatted_output.append(
@@ -219,6 +220,8 @@ def format_best_solution(best_order):
                         f"Комментарий к перенастройке: {task.comment_setup}"
                     )
                 else:
+                    if equipment_name == 'new':
+                        total_time += task.time_work + task.time_setup
                     # Форматируем обычный заказ
                     diameter = getattr(task, "voloka", "Не указано")
                     spin_road = getattr(task, "spin_road", [])
