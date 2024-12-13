@@ -1,6 +1,6 @@
 import weakref
 from typing import Any, Union, List
-
+from datetime import datetime, timedelta
 
 from gosts import Mark
 import random
@@ -288,6 +288,8 @@ class WireDrawingTask(Task):
         self.time_setup = 0
         self.spin_road = []
         self.time_penalty = 0
+        self.time_begin = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        self.time_ending = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
 
     def assign_equipment(self, equipment):
@@ -707,7 +709,12 @@ class Basket:
         self.time_work = WireDrawingMachine.W
         self.acceptable_equipment = []
         self.set_acceptable_equipment()
+        self.time_setup = 10 # При Мерже, сделать 0
         WireDrawingTask.assign_tasks_to_equipment(self)
+        self.time_penalty = 0
+        self.time_begin = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        self.time_ending = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
 
     def set_acceptable_equipment(self):
         equipments = MachineMeta.get_all_instances()
