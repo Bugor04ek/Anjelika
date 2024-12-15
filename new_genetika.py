@@ -8,7 +8,7 @@ from collections import defaultdict
 import threading
 from threading import Lock
 import json
-import numpy
+import numpy as np
 from deap import base, creator, tools, algorithms
 from datetime import datetime, timedelta
 import random
@@ -41,8 +41,6 @@ def varAnd(population, toolbox, cxpb, mutpb):
         del offspring[i].fitness.values
         offspring[i].Basket = calculating_basket(offspring[i])
 
-        # executor.map(apply_crossover_and_mutation, range(len(offspring) - 1))
-
     return offspring
 
 
@@ -50,23 +48,19 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, hall
     logbook = tools.Logbook()
     logbook.header = ['gen', 'nevals'] + (stats.fields if stats else [])
 
-    def evaluate_invalid(individuals):
-        invalid_ind = [ind for ind in individuals if not ind.fitness.valid]
-        if invalid_ind:
-            fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
-            for ind, fit in zip(invalid_ind, fitnesses):
-                ind.fitness.values = fit
-        return invalid_ind
+    invalid_ind = [ind for ind in population if not ind.fitness.valid]
+    fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+    for ind, fit in zip(invalid_ind, fitnesses):
+        ind.fitness.values = fit
 
     if halloffame is None:
         raise ValueError("halloffame parameter must not be empty!")
 
-    evaluate_invalid(population)
     halloffame.update(population)
     hof_size = len(halloffame.items) if halloffame.items else 0
 
     record = stats.compile(population) if stats else {}
-    logbook.record(gen=0, nevals=len(population), **record)
+    logbook.record(gen=0, nevals=len(invalid_ind), **record)
     if verbose:
         print(logbook.stream)
 
@@ -75,15 +69,20 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, hall
 
         # Вызов varAnd для обработки потомков
         offspring = varAnd(offspring, toolbox, cxpb, mutpb)
+        for ind, fit in zip(invalid_ind, fitnesses):
+            ind.fitness.values = fit
 
-        evaluate_invalid(offspring)
+        invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
+        fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+        for ind, fit in zip(invalid_ind, fitnesses):
+            ind.fitness.values = fit
 
         offspring.extend(halloffame.items)
         halloffame.update(offspring)
         population[:] = offspring
 
         record = stats.compile(population) if stats else {}
-        logbook.record(gen=gen, nevals=len(offspring) - hof_size, **record)
+        logbook.record(gen=gen, nevals=len(invalid_ind), **record)
         if verbose:
             print(logbook.stream)
 
@@ -99,7 +98,7 @@ def mutate(individual, indpb):
     return ind
 
 
-def cxOrderedCustom(ind1, ind2, indpb):
+def mate(ind1, ind2, indpb):
     """
     Кастомный оператор скрещивания на основе cxOrdered для сложной структуры.
     """
@@ -114,14 +113,19 @@ def cxOrderedCustom(ind1, ind2, indpb):
             tasks_ind2 = copy.deepcopy(ind2[equipment_type][equipment])
             if len(tasks_ind1) < 2 or len(tasks_ind2) < 2:
                 continue
+            unique_nums = list(np.unique(tasks_ind1 + tasks_ind2, True))
 
-            indices1 = list(range(len(tasks_ind1)))
-            indices2 = list(range(len(tasks_ind2)))
+            indices1 = [np.where(unique_nums[0] == task)[0][0] for task in tasks_ind1]
+            indices2 = [np.where(unique_nums[0] == task)[0][0] for task in tasks_ind2]
+            if len(indices1) != len(indices2):
+                continue
+            try:
+                tools.cxOrdered(indices1, indices2)
+            except:
+                continue
 
-            indices1_t, indices2_t = tools.cxUniformPartialyMatched(indices1, indices2, indpb)
-
-            child1[equipment_type][equipment] = [tasks_ind1[i] for i in indices1_t]
-            child2[equipment_type][equipment] = [tasks_ind2[i] for i in indices2_t]
+            child1[equipment_type][equipment] = [unique_nums[0][index] for index in indices1]
+            child2[equipment_type][equipment] = [unique_nums[0][index] for index in indices1]
 
     return child1, child2
 
@@ -132,10 +136,10 @@ def run_genetic_algorithm():
 
     # константы задачи
     HALL_OF_FAME_SIZE = len(TASKS) // 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
-    POPULATION_SIZE = len(TASKS) // 5  # количество индивидуумов в популяции
+    POPULATION_SIZE = len(TASKS) * 10  # количество индивидуумов в популяции
     MAX_GENERATIONS = len(TASKS)  # максимальное количество поколений
     P_CROSSOVER = 0.9  # вероятность скрещивания
-    P_MUTATION = 0 # вероятность мутации индивидуума
+    P_MUTATION = 0.05  # вероятность мутации индивидуума
     TASKS_len = len(Task.get_instances_all())
 
     toolbox = base.Toolbox()
@@ -154,15 +158,15 @@ def run_genetic_algorithm():
 
     toolbox.register("evaluate", evaluate_fitness)
     toolbox.register("select", tools.selTournament, tournsize=3)
-    toolbox.register("mate", cxOrderedCustom)
+    toolbox.register("mate", mate)
     toolbox.register("mutate", mutate)
 
     hof = tools.HallOfFame(HALL_OF_FAME_SIZE)
 
     stats = tools.Statistics(lambda ind: ind.fitness.values)
 
-    stats.register("avg", numpy.mean)
-    stats.register("min", numpy.min)
+    stats.register("avg", np.mean)
+    stats.register("min", np.min)
     # stats.register("std", numpy.std) # Дисперсия помогает понять разброс значений приспособленности в популяции, что может быть индикатором разнообразия.
 
     # Инициализация популяции
