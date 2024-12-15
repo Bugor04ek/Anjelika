@@ -1,6 +1,6 @@
 import weakref
 from typing import Any, Union, List
-
+from datetime import datetime, timedelta
 
 from gosts import Mark
 import random
@@ -201,6 +201,7 @@ class Task(metaclass=TaskMeta):
     """
 
     def __init__(self, order, account_number, time_work, equipment_type=None, part_type=''):
+        self.index = len(TaskMeta.get_instances_all())
         self.acceptable_equipment: [Equipment] = []
         self.part_type = part_type  # '', '+', 'support'
         self.order = order
@@ -287,6 +288,8 @@ class WireDrawingTask(Task):
         self.time_setup = 0
         self.spin_road = []
         self.time_penalty = 0
+        self.time_begin = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        self.time_ending = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
 
     def assign_equipment(self, equipment):
@@ -439,7 +442,9 @@ class MultivareTask(Task):
         # self.volume_bobbin = order.volume_bobbin
         # 350 - Ограничение по массе барабана для гибкой жилы на 630 барабан
         # 8.89 - Плотность меди
-        self.velocity = 0
+        self.linear_velocity = 10
+        self.velocity_basket = 0
+        self.total_length_delays = 0
         self.volume_bobbin = 350 / (
                 pi * 0.25 * 8.89 * order.diameter ** 2 * max(order.wires_in_sliver, order.wires_in_sliver_extra))
         self.IDZak = order.IDZak
@@ -493,10 +498,12 @@ class MultivareTask(Task):
         self.total_weight_delays = ((self.number_of_sliver * self.wires_in_sliver) * self.number_of_strands *
                                     self.number_of_veins * self.order.order_length) * pi * 8.89 * (
                                            self.diameter ** 2) * 0.25
+        self.total_length_delays = self.number_of_sliver * self.number_of_strands * self.number_of_veins * self.order.order_length
+        self.time_on_multivare = round(((self.total_length_delays / ((self.linear_velocity * 60 / 1000) * 60)) * 60), 2)
         self.length_piece = round(self.total_weight_delays * (self.diameter ** 2 / MultivareMachine.d_mult ** 2), 3)
 
         self.num_basket = self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET
-        self.velocity = self.num_basket / self.time_on_multivare 
+        self.velocity_basket = self.num_basket / self.time_on_multivare
 
         # длина заказа в расчете на одну прядь (весь заказ это length_strands *
         # (number_of_sliver + number_of_sliver_extra))
@@ -678,7 +685,7 @@ class Basket:
         if order is not None:
             # Если заказ указан при инициализации, значит что это остаток с другой корзины, значит время перенастройки было уже учтенео
             self.orders: [MultivareTask] = [order]
-            self.time_on_multivare = sum_basket * order.velocity
+            self.time_on_multivare = sum_basket * order.velocity_basket
         else:
             self.orders: [MultivareTask] = []
             self.time_on_multivare = 0
@@ -694,7 +701,12 @@ class Basket:
         self.acceptable_equipment = []
         self.time_setup = 0
         self.set_acceptable_equipment()
+        self.time_setup = 10 # При Мерже, сделать 0
         WireDrawingTask.assign_tasks_to_equipment(self)
+        self.time_penalty = 0
+        self.time_begin = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        self.time_ending = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
 
     def set_acceptable_equipment(self):
         equipments = MachineMeta.get_all_instances()
@@ -713,7 +725,7 @@ class Basket:
         self.orders.append(order)
         # if num_basket is None:
         # Тут берем траты корзины из заказа
-        self.time_on_multivare += num_basket / order.velocity + order.time_setup
+        self.time_on_multivare += num_basket / order.velocity_basket + order.time_setup
         self.sum_basket += num_basket
         # else:
         #     # Тут берем траты корзины из параметра
