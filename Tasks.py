@@ -495,21 +495,8 @@ class MultivareTask(Task):
                                            self.diameter ** 2) * 0.25
         self.length_piece = round(self.total_weight_delays * (self.diameter ** 2 / MultivareMachine.d_mult ** 2), 3)
 
-        # 0 - сколько корзин по 8 штук нужно, если заказ очень большой и требуется много корзин
-        # 1 - сколько корзин еще заполнится (набирается число до 8)
-        self.num_basket1 = (
-             int(self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET // 8),
-             self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET % 8
-        )
         self.num_basket = self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET
-        self.velocity = self.num_basket / self.time_on_multivare  #(self.num_basket[0] + self.num_basket[1])
-
-        # Пока у нас не назначено оборудование просто создаем класс корзины и считаем длину.
-        # Не записываем ни оборудование, ни список заказов
-        # basket = None
-        # if self.equipment is None:
-        #     basket = Basket()
-        # self.update_basket_status()
+        self.velocity = self.num_basket / self.time_on_multivare 
 
         # длина заказа в расчете на одну прядь (весь заказ это length_strands *
         # (number_of_sliver + number_of_sliver_extra))

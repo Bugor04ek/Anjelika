@@ -135,7 +135,7 @@ def run_genetic_algorithm():
     POPULATION_SIZE = len(TASKS) // 5  # количество индивидуумов в популяции
     MAX_GENERATIONS = len(TASKS)  # максимальное количество поколений
     P_CROSSOVER = 0.9  # вероятность скрещивания
-    P_MUTATION = 0.05  # вероятность мутации индивидуума
+    P_MUTATION = 0 # вероятность мутации индивидуума
     TASKS_len = len(Task.get_instances_all())
 
     toolbox = base.Toolbox()
