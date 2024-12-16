@@ -6,7 +6,6 @@ from multiprocessing import Pool
 from collections import defaultdict
 import multiprocessing
 
-
 import threading
 from threading import Lock
 import json
@@ -15,7 +14,6 @@ from deap import base, creator, tools, algorithms
 from datetime import datetime, timedelta
 import random
 import copy
-
 
 from numpy.random.mtrand import choice
 
@@ -29,11 +27,10 @@ TASKS = []
 
 
 def varAnd(population, toolbox, cxpb, mutpb):
-
-    offspring = [toolbox.clone(ind) for ind in population]
+    offspring = [copy.deepcopy(ind) for ind in population]
 
     for i in range(1, len(offspring), 2):
-        toolbox.mate(offspring[i - 1], offspring[i], cxpb)
+        offspring[i - 1], offspring[i] = toolbox.mate(offspring[i - 1], offspring[i], cxpb)
         del offspring[i - 1].fitness.values
         del offspring[i].fitness.values
         offspring[i].Basket = calculating_basket(offspring[i])
@@ -141,33 +138,31 @@ def mate(ind1, ind2, indpb):
 
     for equipment_type in ind1.keys():
         for equipment in ind1[equipment_type]:
-            # print(equipment_type)
-            # print(equipment)
-            tasks_ind1 = ind1[equipment_type][equipment]
-            tasks_ind2 = ind2[equipment_type][equipment]
-            if len(tasks_ind1) < 2 or len(tasks_ind2) < 2:
-                continue
+            if random.random() < indpb:
+              tasks_ind1 = ind1[equipment_type][equipment]
+              tasks_ind2 = ind2[equipment_type][equipment]
+              if len(tasks_ind1) < 2 or len(tasks_ind2) < 2:
+                  continue
 
-            new_indices_ind1 = list(range(len(tasks_ind1)))
-            new_indices_ind2 = list(range(len(tasks_ind2)))
+              new_indices_ind1 = list(range(len(tasks_ind1)))
+              new_indices_ind2 = list(range(len(tasks_ind2)))
 
-            new_indices_ind1, new_indices_ind2 = tools.cxOrdered(new_indices_ind1, new_indices_ind2)
+              new_indices_ind1, new_indices_ind2 = tools.cxOrdered(new_indices_ind1, new_indices_ind2)
 
-            ind1[equipment_type][equipment] = [tasks_ind1[i] for i in new_indices_ind1]
-            ind2[equipment_type][equipment] = [tasks_ind2[i] for i in new_indices_ind2]
+              ind1[equipment_type][equipment] = [tasks_ind1[i] for i in new_indices_ind1]
+              ind2[equipment_type][equipment] = [tasks_ind2[i] for i in new_indices_ind2]
 
-    # return child1, child2
+    return child1, child2
 
 
 def run_genetic_algorithm():
-
     TASKS = Task.get_instances_all()
 
     # константы задачи
-    HALL_OF_FAME_SIZE = len(TASKS) //8 # количеству индивидуумов, которых мы хотим хранить в зале славы
+    HALL_OF_FAME_SIZE = len(TASKS) // 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
     POPULATION_SIZE = len(TASKS)  # количество индивидуумов в популяции
-    MAX_GENERATIONS = len(TASKS) //12   # максимальное количество поколений
-    P_CROSSOVER = 1  # вероятность скрещивания
+    MAX_GENERATIONS = len(TASKS)  # максимальное количество поколений
+    P_CROSSOVER = 0.5  # вероятность скрещивания
     P_MUTATION = 0.05  # вероятность мутации индивидуума
 
     TASKS_len = len(Task.get_instances_all())
@@ -201,14 +196,11 @@ def run_genetic_algorithm():
     stats.register("min", numpy.min)
     # stats.register("std", numpy.std) # Дисперсия помогает понять разброс значений приспособленности в популяции, что может быть индикатором разнообразия.
 
-
-
     # # Создание пула процессов для параллельной оценки
     # pool = multiprocessing.Pool()
     #
     # # Регистрация метода map из пула процессов
     # toolbox.register("map", pool.map)
-
 
     # Инициализация популяции
     population, logbook = eaSimpleWithElitism(
@@ -353,7 +345,6 @@ def setup_time_begin_end(tasks):
 
 
 def get_cost_drawing(ind, print_logs=False):
-
     time_total = 0
 
     for eq in ind['wiredrawing']:
@@ -363,7 +354,6 @@ def get_cost_drawing(ind, print_logs=False):
             time_total += sum([task.time_setup for task in tasks])
         else:
             time_total += get_cost_basket(tasks, ind.Basket)
-
 
     filters_json = 'Оборудование/Фильеры.json'
     # Чтение JSON-файла в массив
@@ -387,8 +377,6 @@ def get_cost_drawing(ind, print_logs=False):
     # Получаем все заказы в индивиде по опр оборудованию
     for eq_type in list(ind['wiredrawing'].keys()):
         setup_time_begin_end(ind['wiredrawing'][eq_type])
-
-
 
     # Параллельно запускаем расчёты для каждого оборудования
     with ThreadPoolExecutor(max_workers=3) as executor:
@@ -456,13 +444,14 @@ def calculating_basket(ind):
                 updated_baskets.append(temp_basket)
 
     return updated_baskets
+
+
 # Функция для обработки spin_road и добавления новых фильер
 
 
 def add_missing_filters(filters_dict, ind):
     # Получаем сегодняшний день в 0:00
     today_midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-
 
     for eq in ind.keys():
 
@@ -505,7 +494,7 @@ def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=Fals
 
             for spin in road:
 
-                if spin == 0: continue
+              if spin == 0: continue
 
                 if filters_dict[spin]['ВремяОкончанияРаботы'] == empty_time:
                     pass
@@ -544,12 +533,19 @@ def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=Fals
     return ((tasks[-1].time_ending - tasks[0].time_ending).total_seconds()/60) + general_penalty # Общее время = Время от начала первого до конца последнего + сумма всех штрафов
     # return general_penalty
     
+    for filters in filters_in_use:
+        filters_dict[filters]['ВремяОкончанияРаботы'] = tasks[i].time_ending + timedelta(
+            minutes=tasks[i].time_penalty)  # Фильера освободиться через время окончания заказа + штраф
+
+        general_penalty += tasks[i].time_penalty  # Общий штраф всей очереди
+
+    return ((tasks[-1].time_ending - tasks[0].time_ending).total_seconds() / 60) + general_penalty  # Общее время = Время от начала первого до конца последнего + сумма всех штрафов
+
 
 def get_cost_basket(tasks_with_basket, baskets):
-
-    total_time = 0            # суммарное время перенастроек
-    num_downtime = 0          # время простоев волочилки
-    num_uptime = 0            # время простоев мультика
+    total_time = 0  # суммарное время перенастроек
+    num_downtime = 0  # время простоев волочилки
+    num_uptime = 0  # время простоев мультика
     time_route_to_basket = 0  # время между корзинами на волочилке
 
     # baskets = [task for task in tasks_with_basket if isinstance(task, str)]
@@ -569,7 +565,8 @@ def get_cost_basket(tasks_with_basket, baskets):
             num_downtime += reserve_time - time_route_to_basket
             reserve_time = baskets[route + 1].time_on_multivare
         elif time_route_to_basket > reserve_time + baskets[route + 1].time_on_multivare - WireDrawingMachine.W:
-            num_uptime += time_route_to_basket - (reserve_time + baskets[route + 1].time_on_multivare - WireDrawingMachine.W)
+            num_uptime += time_route_to_basket - (
+                        reserve_time + baskets[route + 1].time_on_multivare - WireDrawingMachine.W)
             reserve_time = baskets[route + 1].time_on_multivare
 
         total_time += time_route_to_basket
