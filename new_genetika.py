@@ -9,7 +9,7 @@ import multiprocessing
 import threading
 from threading import Lock
 import json
-import numpy
+import numpy as np
 from deap import base, creator, tools, algorithms
 from datetime import datetime, timedelta
 import random
@@ -27,21 +27,20 @@ TASKS = []
 
 
 def varAnd(population, toolbox, cxpb, mutpb):
-    offspring = [copy.deepcopy(ind) for ind in population]
+    offspring = [toolbox.clone(ind) for ind in population]
 
     for i in range(1, len(offspring), 2):
-        offspring[i - 1], offspring[i] = toolbox.mate(offspring[i - 1], offspring[i], cxpb)
-        del offspring[i - 1].fitness.values
-        del offspring[i].fitness.values
-        offspring[i].Basket = calculating_basket(offspring[i])
-        offspring[i - 1].Basket = calculating_basket(offspring[i - 1])
+        if random.random() < cxpb:
+            offspring[i - 1], offspring[i] = toolbox.mate(offspring[i - 1], offspring[i], cxpb)
+            del offspring[i - 1].fitness.values
+            del offspring[i].fitness.values
+            offspring[i].Basket = calculating_basket(offspring[i])
+            offspring[i - 1].Basket = calculating_basket(offspring[i - 1])
 
     for i in range(len(offspring)):
         offspring[i] = toolbox.mutate(offspring[i], mutpb)
         del offspring[i].fitness.values
         offspring[i].Basket = calculating_basket(offspring[i])
-
-        # executor.map(apply_crossover_and_mutation, range(len(offspring) - 1))
 
     return offspring
 
@@ -69,17 +68,14 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, hall
     logbook = tools.Logbook()
     logbook.header = ['gen', 'nevals'] + (stats.fields if stats else [])
 
-    # Валидация параметров
-    if halloffame is None:
-        raise ValueError("halloffame parameter must not be empty!")
-
-    # Оценка приспособленности начальной популяции
     invalid_ind = [ind for ind in population if not ind.fitness.valid]
     fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
     for ind, fit in zip(invalid_ind, fitnesses):
         ind.fitness.values = fit
 
-    # Обновление Hall of Fame и определение его размера
+    if halloffame is None:
+        raise ValueError("halloffame parameter must not be empty!")
+
     halloffame.update(population)
     hof_size = len(halloffame.items)
 
@@ -96,6 +92,8 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, hall
 
         # Применение скрещивания и мутации
         offspring = varAnd(offspring, toolbox, cxpb, mutpb)
+        for ind, fit in zip(invalid_ind, fitnesses):
+            ind.fitness.values = fit
 
         # Оценка приспособленности новых потомков
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
@@ -135,22 +133,28 @@ def mate(ind1, ind2, indpb):
 
     # Создаем копии родителей для потомков
     child1, child2 = ind1, ind2
+    # child1, child2 = {}, {}
 
     for equipment_type in ind1.keys():
         for equipment in ind1[equipment_type]:
-            if random.random() < indpb:
-              tasks_ind1 = ind1[equipment_type][equipment]
-              tasks_ind2 = ind2[equipment_type][equipment]
-              if len(tasks_ind1) < 2 or len(tasks_ind2) < 2:
-                  continue
+            tasks_ind1 = copy.deepcopy(ind1[equipment_type][equipment])
+            tasks_ind2 = copy.deepcopy(ind2[equipment_type][equipment])
 
-              new_indices_ind1 = list(range(len(tasks_ind1)))
-              new_indices_ind2 = list(range(len(tasks_ind2)))
+            if len(tasks_ind1) < 2 or len(tasks_ind2) < 2:
+                continue
+            unique_nums = list(np.unique(tasks_ind1 + tasks_ind2, True))
 
-              new_indices_ind1, new_indices_ind2 = tools.cxOrdered(new_indices_ind1, new_indices_ind2)
+            indices1 = [np.where(unique_nums[0] == task)[0][0] for task in tasks_ind1]
+            indices2 = [np.where(unique_nums[0] == task)[0][0] for task in tasks_ind2]
+            if len(indices1) != len(indices2):
+                continue
+            try:
+                tools.cxOrdered(indices1, indices2)
+            except:
+                continue
 
-              ind1[equipment_type][equipment] = [tasks_ind1[i] for i in new_indices_ind1]
-              ind2[equipment_type][equipment] = [tasks_ind2[i] for i in new_indices_ind2]
+            child1[equipment_type][equipment] = [unique_nums[0][index] for index in indices1]
+            child2[equipment_type][equipment] = [unique_nums[0][index] for index in indices1]
 
     return child1, child2
 
@@ -161,11 +165,9 @@ def run_genetic_algorithm():
     # константы задачи
     HALL_OF_FAME_SIZE = len(TASKS) // 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
     POPULATION_SIZE = len(TASKS)  # количество индивидуумов в популяции
-    MAX_GENERATIONS = len(TASKS)  # максимальное количество поколений
-    P_CROSSOVER = 0.5  # вероятность скрещивания
+    MAX_GENERATIONS = 10    # максимальное количество поколений
+    P_CROSSOVER = 1  # вероятность скрещивания
     P_MUTATION = 0.05  # вероятность мутации индивидуума
-
-    TASKS_len = len(Task.get_instances_all())
 
     toolbox = base.Toolbox()
     print(POPULATION_SIZE)
@@ -182,18 +184,16 @@ def run_genetic_algorithm():
     population = toolbox.population(n=POPULATION_SIZE)
 
     toolbox.register("evaluate", evaluate_fitness)
-
     toolbox.register("select", tools.selTournament, tournsize=3)
     toolbox.register("mate", mate)
-
     toolbox.register("mutate", mutate)
 
     hof = tools.HallOfFame(HALL_OF_FAME_SIZE)
 
     stats = tools.Statistics(lambda ind: ind.fitness.values)
 
-    stats.register("avg", numpy.mean)
-    stats.register("min", numpy.min)
+    stats.register("avg", np.mean)
+    stats.register("min", np.min)
     # stats.register("std", numpy.std) # Дисперсия помогает понять разброс значений приспособленности в популяции, что может быть индикатором разнообразия.
 
     # # Создание пула процессов для параллельной оценки
@@ -229,9 +229,10 @@ def run_genetic_algorithm():
 def format_best_solution(best_order):
     """Форматирует вывод для лучшего решения."""
     formatted_output = []
-    total_time = 0
+
     for equipment_type, equipment_data in best_order.items():
         formatted_output.append(f"Тип оборудования: {equipment_type}")
+        total_time = 0
         for equipment_name, tasks in equipment_data.items():
             formatted_output.append(f"  Оборудование: {equipment_name}")
             for task in tasks:
@@ -268,9 +269,8 @@ def format_best_solution(best_order):
                     diameter = getattr(task, "voloka", "Не указано")
                     spin_road = getattr(task, "spin_road", [])
                     comment_setup = getattr(task, "comment_setup", "Нет комментария")
-                    time_penalty = getattr(task, "time_penalty", "Нет штрафа")
                     formatted_output.append(
-                        f"    Заказ: {task.order.account_number}, Диаметр: {diameter}, Штраф за ожидание: {time_penalty} "
+                        f"    Заказ: {task.order.account_number}, Диаметр: {diameter}, Штраф за ожидание: {task.time_penalty} "
                         f"Маршрут фильер: {spin_road}, Комментарий к перенастройке: {comment_setup}"
                     )
 
@@ -319,7 +319,6 @@ def evaluate_fitness(individual: dict):
         individual.Basket = individual.pop('basket', [])
     multivare_time = get_cost_multivare(individual)
     drawing_time = get_cost_drawing(individual)
-    # print(f"Оценка приспособленности пройдена")
     return multivare_time + drawing_time,
 
 
@@ -331,17 +330,7 @@ def get_cost_multivare(ind):
         tasks = ind['multivare'][eq]
         time_total += sum([task.time_setup for task in tasks])
 
-
     return time_total
-
-# Функция для установки времени начала и конца заказа
-def setup_time_begin_end(tasks):
-    for i in range(len(tasks)):
-        tasks[i].time_begin  = tasks[i - 1].time_ending + timedelta(minutes = tasks[i].time_setup) # Время начала заказа - время конца предыдущего заказа + время перенастройки
-        tasks[i].time_ending = tasks[i].time_begin + timedelta(minutes = tasks[i].time_work)       # Время конца заказа - время начала текущего заказа + время в работе
-    return tasks
-
-
 
 
 def get_cost_drawing(ind, print_logs=False):
@@ -367,7 +356,8 @@ def get_cost_drawing(ind, print_logs=False):
     filters_dict = {}
     for filter_item in filters_array:
         filter_item["ВремяОсвобождения"] = today_midnight
-        filters_dict[filter_item['Диаметр']] = {"ВремяОкончанияРаботы": today_midnight, "ИспользуетсяОборудованием": "", "ИспользуетсяЗаказом": ""}
+        filters_dict[filter_item['Диаметр']] = {"ВремяОкончанияРаботы": today_midnight, "ИспользуетсяОборудованием": "",
+                                                "ИспользуетсяЗаказом": ""}
         # filters_dict[filter_item['Диаметр']] = {"Информация": filter_item}
 
     # Заполняет словарь фильер, фильерам из заказов (в заказах могут быть такие, которых нет в словаре)
@@ -472,10 +462,17 @@ def add_missing_filters(filters_dict, ind):
                     filters_dict[filter_diameter] = {"ВремяОкончанияРаботы": today_midnight,"ИспользуетсяОборудованием": "", "ИспользуетсяЗаказом": "" }
                     # print(f"Добавлена фильера с диаметром {filter_diameter}")
 
+
+# Функция для установки времени начала и конца заказа
+def setup_time_begin_end(tasks):
+    for i in range(len(tasks)):
+        tasks[i].time_begin = tasks[i - 1].time_ending + timedelta(minutes = tasks[i].time_setup) # Время начала заказа - время конца предыдущего заказа + время перенастройки
+        tasks[i].time_ending = tasks[i].time_begin + timedelta(minutes = tasks[i].time_work)       # Время конца заказа - время начала текущего заказа + время в работе
+    return tasks
+
+
 def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=False):
-
     """Вычисление времени переналадки на одном оборудовании с учётом фильер."""
-
     time_total = 0
     general_penalty = 0
     empty_time = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -494,15 +491,14 @@ def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=Fals
 
             for spin in road:
 
-              if spin == 0: continue
+                if spin == 0: continue
 
                 if filters_dict[spin]['ВремяОкончанияРаботы'] == empty_time:
                     pass
                 else:
-                   # мб тут захватить и отдать в all_free else что бы пока собирали список занятых, его не переписали
-                   all_free = False
-                   filters_in_use[spin] = spin
-
+                    # мб тут захватить и отдать в all_free else что бы пока собирали список занятых, его не переписали
+                    all_free = False
+                    filters_in_use[spin] = spin
 
             if all_free:
                 for spin in road:
@@ -520,26 +516,21 @@ def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=Fals
                 filters_time = {}
 
                 for filters in filters_in_use:
-                    filters_time[filters] = (filters_dict[filters]['ВремяОкончанияРаботы'] - tasks[i].time_begin).total_seconds()/60 # Время между концом работы фильеры и началом заказа (сколько ждать)
+                    filters_time[filters] = (filters_dict[filters]['ВремяОкончанияРаботы'] - tasks[
+                        i].time_begin).total_seconds() / 60  # Время между концом работы фильеры и началом заказа (сколько ждать)
 
                 if max(filters_time.values()) > 0:
-                    tasks[i].time_penalty = max(filters_time.values())  # Максимальное время из занятых, т.к её придется ждать для полного маршрута
+                    tasks[i].time_penalty = max(
+                        filters_time.values())  # Максимальное время из занятых, т.к её придется ждать для полного маршрута
 
                 for filters in filters_in_use:
-                    filters_dict[filters]['ВремяОкончанияРаботы'] = tasks[i].time_ending + timedelta(minutes=tasks[i].time_penalty) # Фильера освободиться через время окончания заказа + штраф
-
-        general_penalty += tasks[i].time_penalty # Общий штраф всей очереди
-
-    return ((tasks[-1].time_ending - tasks[0].time_ending).total_seconds()/60) + general_penalty # Общее время = Время от начала первого до конца последнего + сумма всех штрафов
-    # return general_penalty
-    
-    for filters in filters_in_use:
-        filters_dict[filters]['ВремяОкончанияРаботы'] = tasks[i].time_ending + timedelta(
-            minutes=tasks[i].time_penalty)  # Фильера освободиться через время окончания заказа + штраф
+                    filters_dict[filters]['ВремяОкончанияРаботы'] = tasks[i].time_ending + timedelta(
+                        minutes=tasks[i].time_penalty)  # Фильера освободиться через время окончания заказа + штраф
 
         general_penalty += tasks[i].time_penalty  # Общий штраф всей очереди
 
-    return ((tasks[-1].time_ending - tasks[0].time_ending).total_seconds() / 60) + general_penalty  # Общее время = Время от начала первого до конца последнего + сумма всех штрафов
+    return ((tasks[-1].time_ending - tasks[
+        0].time_ending).total_seconds() / 60) + general_penalty  # Общее время = Время от начала первого до конца последнего + сумма всех штрафов
 
 
 def get_cost_basket(tasks_with_basket, baskets):
