@@ -1,9 +1,11 @@
 import time
 from datetime import datetime
 from pickle import GLOBAL
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from multiprocessing import Pool
 from collections import defaultdict
+import multiprocessing
+
 
 import threading
 from threading import Lock
@@ -13,6 +15,7 @@ from deap import base, creator, tools, algorithms
 from datetime import datetime, timedelta
 import random
 import copy
+
 
 from numpy.random.mtrand import choice
 
@@ -46,44 +49,73 @@ def varAnd(population, toolbox, cxpb, mutpb):
     return offspring
 
 
-def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, halloffame=None, verbose=__debug__):
+def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, halloffame=None, verbose=True):
+    """
+    Реализует генетический алгоритм с элитизмом.
+
+    Параметры:
+    - population: начальная популяция.
+    - toolbox: объект Toolbox, содержащий зарегистрированные операторы.
+    - cxpb: вероятность скрещивания.
+    - mutpb: вероятность мутации.
+    - ngen: количество поколений.
+    - stats: объект Statistics для сбора статистики.
+    - halloffame: объект HallOfFame для сохранения элитных индивидов.
+    - verbose: флаг для вывода логов.
+
+    Возвращает:
+    - population: финальная популяция.
+    - logbook: логбук с собранной статистикой.
+    """
+
+    # Инициализация логбука
     logbook = tools.Logbook()
     logbook.header = ['gen', 'nevals'] + (stats.fields if stats else [])
 
-    def evaluate_invalid(individuals):
-        invalid_ind = [ind for ind in individuals if not ind.fitness.valid]
-        if invalid_ind:
-            fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
-            for ind, fit in zip(invalid_ind, fitnesses):
-                ind.fitness.values = fit
-        return invalid_ind
-
+    # Валидация параметров
     if halloffame is None:
         raise ValueError("halloffame parameter must not be empty!")
 
-    evaluate_invalid(population)
-    halloffame.update(population)
-    hof_size = len(halloffame.items) if halloffame.items else 0
+    # Оценка приспособленности начальной популяции
+    invalid_ind = [ind for ind in population if not ind.fitness.valid]
+    fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+    for ind, fit in zip(invalid_ind, fitnesses):
+        ind.fitness.values = fit
 
+    # Обновление Hall of Fame и определение его размера
+    halloffame.update(population)
+    hof_size = len(halloffame.items)
+
+    # Запись статистики начального поколения
     record = stats.compile(population) if stats else {}
-    logbook.record(gen=0, nevals=len(population), **record)
+    logbook.record(gen=0, nevals=len(invalid_ind), **record)
     if verbose:
         print(logbook.stream)
 
+    # Основной цикл по поколениям
     for gen in range(1, ngen + 1):
+        # Селекция потомков (за вычетом элиты)
         offspring = toolbox.select(population, len(population) - hof_size)
 
-        # Вызов varAnd для обработки потомков
+        # Применение скрещивания и мутации
         offspring = varAnd(offspring, toolbox, cxpb, mutpb)
 
-        evaluate_invalid(offspring)
+        # Оценка приспособленности новых потомков
+        invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
+        fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+        for ind, fit in zip(invalid_ind, fitnesses):
+            ind.fitness.values = fit
 
+        # Добавление элитных индивидов из Hall of Fame
         offspring.extend(halloffame.items)
         halloffame.update(offspring)
+
+        # Обновление популяции
         population[:] = offspring
 
+        # Сбор и запись статистики
         record = stats.compile(population) if stats else {}
-        logbook.record(gen=gen, nevals=len(offspring) - hof_size, **record)
+        logbook.record(gen=gen, nevals=len(invalid_ind), **record)
         if verbose:
             print(logbook.stream)
 
@@ -109,6 +141,8 @@ def mate(ind1, ind2, indpb):
 
     for equipment_type in ind1.keys():
         for equipment in ind1[equipment_type]:
+            # print(equipment_type)
+            # print(equipment)
             tasks_ind1 = ind1[equipment_type][equipment]
             tasks_ind2 = ind2[equipment_type][equipment]
             if len(tasks_ind1) < 2 or len(tasks_ind2) < 2:
@@ -130,11 +164,11 @@ def run_genetic_algorithm():
     TASKS = Task.get_instances_all()
 
     # константы задачи
-    HALL_OF_FAME_SIZE = len(TASKS) // 8  # количеству индивидуумов, которых мы хотим хранить в зале славы
+    HALL_OF_FAME_SIZE = len(TASKS) //8 # количеству индивидуумов, которых мы хотим хранить в зале славы
     POPULATION_SIZE = len(TASKS)  # количество индивидуумов в популяции
-    MAX_GENERATIONS = len(TASKS) // 8  # максимальное количество поколений
+    MAX_GENERATIONS = len(TASKS)   # максимальное количество поколений
     P_CROSSOVER = 1  # вероятность скрещивания
-    P_MUTATION = 0  # вероятность мутации индивидуума
+    P_MUTATION = 0.05  # вероятность мутации индивидуума
 
     TASKS_len = len(Task.get_instances_all())
 
@@ -167,6 +201,15 @@ def run_genetic_algorithm():
     stats.register("min", numpy.min)
     # stats.register("std", numpy.std) # Дисперсия помогает понять разброс значений приспособленности в популяции, что может быть индикатором разнообразия.
 
+
+
+    # # Создание пула процессов для параллельной оценки
+    # pool = multiprocessing.Pool()
+    #
+    # # Регистрация метода map из пула процессов
+    # toolbox.register("map", pool.map)
+
+
     # Инициализация популяции
     population, logbook = eaSimpleWithElitism(
         population, toolbox,
@@ -177,6 +220,10 @@ def run_genetic_algorithm():
         halloffame=hof,
         verbose=True
     )
+
+    # # Закрытие пула процессов
+    # pool.close()
+    # pool.join()
 
     print("- Лучшие решения:")
     # Запуск генетического алгоритма с элитизмом
@@ -354,7 +401,7 @@ def get_cost_drawing(ind, print_logs=False):
         for eq_type in equipment_types:
             future = executor.submit(
                 calculate_setup_time_for_tasks,
-                ind,
+                ind['wiredrawing'][eq_type],
                 filters_dict,
                 eq_type,
                 print_logs  # Передаем флаг логирования
@@ -495,7 +542,7 @@ def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=Fals
         general_penalty += tasks[i].time_penalty # Общий штраф всей очереди
 
     return ((tasks[-1].time_ending - tasks[0].time_ending).total_seconds()/60) + general_penalty # Общее время = Время от начала первого до конца последнего + сумма всех штрафов
-    # return general_penalty # Общее время = Время от начала первого до конца последнего + сумма всех штрафов
+    # return general_penalty
     
 
 def get_cost_basket(tasks_with_basket, baskets):
