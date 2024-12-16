@@ -267,6 +267,18 @@ class Task(metaclass=TaskMeta):
     def __str__(self):
         return f"{self.account_number}{self.part_type} | {self.equipment_type or 'Не назначено'}"
 
+    def __lt__(self, other):
+        return True
+
+    def __eq__(self, other):
+        if isinstance(other, Task):
+            return self.account_number == other.account_number
+        else:
+            return self.account_number == other
+
+    def __hash__(self):
+        return hash(self.account_number)
+
 
 class WireDrawingTask(Task):
     """
@@ -633,6 +645,7 @@ class MultivareTask(Task):
     def time_setup(self, value):
         self.__time_setup = value
 
+
     # def __str__(self) -> str:
     #     # return "{} | {} | {} | {} | {} | {} | {} | {} | {}".format(
     #     #     self.id, self.account_number, self.num_group, self.order.release_date, self.length_strands, self.group,
@@ -774,3 +787,14 @@ class Basket:
             self.sum_basket,
             self.orders.__repr__()
         )
+
+    def __lt__(self, other):
+        return True
+
+    def __eq__(self, other):
+        if isinstance(other, Basket):
+            return self.orders == other.orders
+
+    def __hash__(self):
+        return hash(self.orders)
+
