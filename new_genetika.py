@@ -166,7 +166,7 @@ def run_genetic_algorithm():
     # константы задачи
     HALL_OF_FAME_SIZE = len(TASKS) //8 # количеству индивидуумов, которых мы хотим хранить в зале славы
     POPULATION_SIZE = len(TASKS)  # количество индивидуумов в популяции
-    MAX_GENERATIONS = len(TASKS)   # максимальное количество поколений
+    MAX_GENERATIONS = len(TASKS) //12   # максимальное количество поколений
     P_CROSSOVER = 1  # вероятность скрещивания
     P_MUTATION = 0.05  # вероятность мутации индивидуума
 
