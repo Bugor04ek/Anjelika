@@ -302,6 +302,9 @@ class WireDrawingTask(Task):
         self.time_penalty = 0
         self.time_begin = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         self.time_ending = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        self.waiting_for_order = ""
+        self.waiting_for_equipment = ""
+        self.waiting_for_filter = ""
 
 
     def assign_equipment(self, equipment):
@@ -481,6 +484,12 @@ class MultivareTask(Task):
         # self.counting_spinners()
         # self.set_group()
         self.calculating_length()
+        self.time_penalty = 0
+        self.time_begin = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        self.time_ending = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        self.waiting_for_order = ""
+        self.waiting_for_equipment = ""
+        self.waiting_for_filter = ""
 
     def set_group(self) -> None:
         """
@@ -719,6 +728,9 @@ class Basket:
         self.time_penalty = 0
         self.time_begin = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         self.time_ending = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        self.waiting_for_order = ""
+        self.waiting_for_equipment = ""
+        self.waiting_for_filter = ""
 
 
     def set_acceptable_equipment(self):
