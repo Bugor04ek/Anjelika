@@ -170,6 +170,7 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, hall
         offspring = varAnd(offspring, toolbox, cxpb, mutpb)
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
 
+
         # Загрузка настроек из JSON-файла
         settings = load_settings()
         multithreading = settings.get("MULTITHREADING", 1)
@@ -207,6 +208,10 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, hall
             print(logbook.stream)
 
     return population, logbook
+
+
+def asd(ind, toolbox):
+    ind.fitness.values = toolbox.evaluate(ind)
 
 
 def mutate(individual, indpb):
@@ -600,15 +605,18 @@ def add_missing_filters(filters_dict, ind):
                     continue
                 if filter_diameter not in filters_dict:
                     # Добавляем фильеру с минимальными параметрами
-                    filters_dict[filter_diameter] = {"ВремяОкончанияРаботы": today_midnight,"ИспользуетсяОборудованием": "", "ИспользуетсяЗаказом": "" }
+                    filters_dict[filter_diameter] = {"ВремяОкончанияРаботы": today_midnight,
+                                                     "ИспользуетсяОборудованием": "", "ИспользуетсяЗаказом": ""}
                     # print(f"Добавлена фильера с диаметром {filter_diameter}")
 
 
 # Функция для установки времени начала и конца заказа
 def setup_time_begin_end(tasks):
     for i in range(len(tasks)):
-        tasks[i].time_begin = tasks[i - 1].time_ending + timedelta(minutes = tasks[i].time_setup) # Время начала заказа - время конца предыдущего заказа + время перенастройки
-        tasks[i].time_ending = tasks[i].time_begin + timedelta(minutes = tasks[i].time_work)       # Время конца заказа - время начала текущего заказа + время в работе
+        tasks[i].time_begin = tasks[i - 1].time_ending + timedelta(
+            minutes=tasks[i].time_setup)  # Время начала заказа - время конца предыдущего заказа + время перенастройки
+        tasks[i].time_ending = tasks[i].time_begin + timedelta(
+            minutes=tasks[i].time_work)  # Время конца заказа - время начала текущего заказа + время в работе
     return tasks
 
 
@@ -680,50 +688,43 @@ def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=Fals
 
 def get_cost_basket(tasks_with_basket, baskets):
     total_time = 0  # суммарное время перенастроек
-    num_downtime = 0  # время простоев волочилки
-    num_uptime = 0  # время простоев мультика
+    downtime = 0  # время простоев волочилки
+    uptime = 0  # время простоев мультика
     time_route_to_basket = 0  # время между корзинами на волочилке
-
+    if len(baskets) == 0:
+        return 0
     # baskets = [task for task in tasks_with_basket if isinstance(task, str)]
     routes = get_routes(tasks_with_basket, baskets)
 
-    reserve_time = baskets[0].time_on_multivare
-    num_task = len(tasks_with_basket) - len(baskets)
-    for route in range(len(baskets) - 1):
-        time_route_to_basket += get_time_route(routes[route], route)
-        num_task -= len(routes[route])
+    # reserve_time = baskets[0].time_on_multivare
+    # num_task = len(tasks_with_basket) - len(baskets)
 
-        if reserve_time < time_route_to_basket < reserve_time + baskets[route + 1].time_on_multivare:
-            reserve_time = baskets[route + 1].time_on_multivare - (time_route_to_basket - reserve_time)
-            if reserve_time < WireDrawingMachine.W:
-                num_downtime += WireDrawingMachine.W - reserve_time
-        elif time_route_to_basket < reserve_time:
-            num_downtime += reserve_time - time_route_to_basket
-            reserve_time = baskets[route + 1].time_on_multivare
-        elif time_route_to_basket > reserve_time + baskets[route + 1].time_on_multivare - WireDrawingMachine.W:
-            num_uptime += time_route_to_basket - (
-                        reserve_time + baskets[route + 1].time_on_multivare - WireDrawingMachine.W)
-            reserve_time = baskets[route + 1].time_on_multivare
+    time_baskets = copy.copy([basket.time_on_multivare for basket in baskets])
+    time_routes = copy.copy([get_time_route(route) for route in routes])
 
-        total_time += time_route_to_basket
-        time_route_to_basket = 0
+    for i, time_ in enumerate(time_baskets):
+        t_time_drawing = time_routes[i] - time_
+        if t_time_drawing < 0:
+            downtime += -t_time_drawing
+        else:
+            try:
+                t_time_multik = time_baskets[i + 1] - t_time_drawing
+                # Для первой корзины не сможем посчитать простой мультика, т.к. есть еще время из запаса второй корзины
+                if i:
+                    if t_time_multik < 0:
+                        uptime = t_time_multik
+                else:
+                    time_baskets[i + 1] -= t_time_multik
+            except IndexError:
+                continue
 
-    else:
+        # Если корзина будет последней, чтобы не было ошибок
+        try:
+            time_routes[i + 1] += WireDrawingMachine.W
+        except IndexError:
+            continue
 
-        time_route_to_basket += get_time_route(routes[-2], routes.index(routes[-2]))
-
-        reserve_time = baskets[-1].time_on_multivare
-
-        if reserve_time < time_route_to_basket < reserve_time + baskets[-1].time_on_multivare:
-            pass
-        elif time_route_to_basket < reserve_time:
-            num_downtime += reserve_time - time_route_to_basket
-        elif time_route_to_basket > reserve_time:
-            num_uptime += time_route_to_basket - reserve_time
-
-        total_time += time_route_to_basket
-
-    return total_time + num_downtime * 1.5 + num_uptime * 1.5
+    return sum(time_routes) + downtime * 1.5 + uptime * 1.5
 
 
 def get_routes(tasks, baskets):
@@ -758,7 +759,7 @@ def get_routes(tasks, baskets):
     return routes
 
 
-def get_time_route(tasks: [WireDrawingTask], number_route: int):
+def get_time_route(tasks: [WireDrawingTask]):
     """
     Считается время работы + перенастройки между корзинами. route имеет вид [[],[],[]], поэтому, если number_route == 0,
     то перенастройки с корзины не будет, т.к. это первый путь. Запятые символизируют корзины
@@ -772,7 +773,7 @@ def get_time_route(tasks: [WireDrawingTask], number_route: int):
         time += task.time_work + task.time_setup
 
     # добавляем время на изготовление 8 корзин
-    time += (WireDrawingMachine.W if number_route else 0)
+    # time += (WireDrawingMachine.W if number_route else 0)
 
     return time
 
