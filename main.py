@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import TextIO
 
 from Equipments import initialize_equipments, MultivareMachine, Equipment
-from Tasks import Order, TaskMeta, OrderMeta, Task, WireDrawingMachine, WireDrawingTask, MultivareTask
+from Tasks import Order, TaskMeta, OrderMeta, Task, WireDrawingMachine, WireDrawingTask, MultivareTask, Basket
 
 import new_genetika  # Алгоритмы для генетической оптимизации
 
@@ -77,8 +77,31 @@ def main():
         for equipment_type in eq.equipment_type:
             if result_json.get(equipment_type, None) is None:
                 result_json[equipment_type] = {}
-            result_json[equipment_type][eq.equipment_name] = [{"UUID": task.order.UUID,"Маршрут": task.spin_road, "Комментарий": task.comment_setup} for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, [])]
-            # result_json.append({"UUID": task.order.UUID,"Маршрут": task.spin_road, "Комментарий": task.comment_setup} for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, []))
+
+            result_json[equipment_type][eq.equipment_name] = [
+                # Для НЕ корзин
+                {"ЭтоКорзина": False,
+                 "UUID": task.order.UUID,
+                 "Маршрут": task.spin_road,
+                 "Комментарий": task.comment_setup,
+                 "Штраф": task.time_penalty,
+                 "ВремяВРаботе": task.time_work,
+                 "ВремяПеренастройки":task.time_setup}
+                if not isinstance(task, Basket) else
+                # Для корзин
+                {"ЭтоКорзина": True,
+                 "Штраф": task.time_penalty,
+                 "Маршрут": task.spin_road,
+                 "Диаметр": task.diameter,
+                 "ВремяВРаботе": task.time_work,
+                 "ВремяЗаказовДоКорзины": task.total_time}
+                for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, [])
+            ]
+
+            # result_json[equipment_type][eq.equipment_name] = [{"Штраф": task.time_penalty, "Маршрут": task.spin_road, "ВремяВРаботе": task.time_work} for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, [])]
+
+
+        # result_json.append({"UUID": task.order.UUID,"Маршрут": task.spin_road, "Комментарий": task.comment_setup} for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, []))
 
 
     print("Генетический алгоритм завершен")

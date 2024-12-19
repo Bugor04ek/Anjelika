@@ -94,19 +94,30 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, hall
         # Применение скрещивания и мутации
         offspring = varAnd(offspring, toolbox, cxpb, mutpb)
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
-        # fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
-        # for ind, fit in zip(invalid_ind, fitnesses):
-        # ind.fitness.values = fit
-        with ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
-            futures = []
 
-            for ind in invalid_ind:
-                future = executor.submit(asd, ind, toolbox)
-                futures.append(future)
 
-            for _ in futures:
-                pass
-            # Оценка приспособленности новых потомков
+        # Загрузка настроек из JSON-файла
+        settings = load_settings()
+        multithreading = settings.get("MULTITHREADING", 1)
+
+        Cores = settings.get("CORES", 1)
+        if Cores == 0: #or Cores > multiprocessing.cpu_count():
+            Cores = multiprocessing.cpu_count()
+
+        if multithreading:
+            with ThreadPoolExecutor(max_workers=Cores) as executor:
+                futures = []
+
+                for ind in invalid_ind:
+                    future = executor.submit(asd, ind, toolbox)
+                    futures.append(future)
+
+                for _ in futures:
+                    pass
+        else:
+            fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+            for ind, fit in zip(invalid_ind, fitnesses):
+                ind.fitness.values = fit # toolbox.evaluate(ind)
 
         # Добавление элитных индивидов из Hall of Fame
         offspring.extend(halloffame.items)
@@ -176,15 +187,30 @@ def mate(ind1):
 def run_genetic_algorithm():
     TASKS = Task.get_instances_all()
 
+    # Загрузка настроек из JSON-файла
+    settings = load_settings()
+
+
     # константы задачи
-    HALL_OF_FAME_SIZE = len(TASKS) // 10  # количеству индивидуумов, которых мы хотим хранить в зале славы
-    POPULATION_SIZE = len(TASKS)  # количество индивидуумов в популяции
-    MAX_GENERATIONS = 20  # максимальное количество поколений
-    P_CROSSOVER = 0  # вероятность скрещивания
-    P_MUTATION = 0.05  # вероятность мутации индивидуума
+    HALL_OF_FAME_SIZE = round((len(TASKS) * settings.get("HALL_OF_FAME_SIZE", 2)))  # Количество лучших индивидуумов
+    POPULATION_SIZE = round(len(TASKS) * settings.get("POPULATION_SIZE", 1))  # количество индивидуумов в популяции
+    MAX_GENERATIONS = round(len(TASKS) * settings.get("MAX_GENERATIONS", 10))  # Максимальное количество поколений
+    P_CROSSOVER = settings.get("P_CROSSOVER", 0.8)  # Вероятность скрещивания
+    P_MUTATION = settings.get("P_MUTATION", 0.05)  # Вероятность мутации
+    MULTITHREADING = settings.get("MULTITHREADING", 1)  # Многопоточность
+
+    print("Настройки:")
+    print(f"HALL_OF_FAME_SIZE: {HALL_OF_FAME_SIZE}")
+    print(f"POPULATION_SIZE: {POPULATION_SIZE}")
+    print(f"MAX_GENERATIONS: {MAX_GENERATIONS}")
+    print(f"P_CROSSOVER: {P_CROSSOVER}")
+    print(f"P_MUTATION: {P_MUTATION}")
+    print(f"MULTITHREADING: {MULTITHREADING}")
+    print(f"REMAINING_BASKET_LENGTH: {settings.get('REMAINING_BASKET_LENGTH', 8)}")
+    print(f"CORES: {settings.get('CORES', 2)}\n")
 
     toolbox = base.Toolbox()
-    print(POPULATION_SIZE)
+    # print(POPULATION_SIZE)
 
     # Настройка среды DEAP для минимизации времени
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
@@ -210,11 +236,6 @@ def run_genetic_algorithm():
     stats.register("min", np.min)
     # stats.register("std", numpy.std) # Дисперсия помогает понять разброс значений приспособленности в популяции, что может быть индикатором разнообразия.
 
-    # # Создание пула процессов для параллельной оценки
-    # pool = multiprocessing.Pool()
-    #
-    # # Регистрация метода map из пула процессов
-    # toolbox.register("map", pool.map)
 
     # Инициализация популяции
     population, logbook = eaSimpleWithElitism(
@@ -227,16 +248,13 @@ def run_genetic_algorithm():
         verbose=True
     )
 
-    # # Закрытие пула процессов
-    # pool.close()
-    # pool.join()
-
     print("- Лучшие решения:")
     # Запуск генетического алгоритма с элитизмом
     best_order = hof.items[0]  # массив заказов в виде индексов
     # print(best_order)
     formatted_solution = format_best_solution(best_order)
     print(formatted_solution)
+    update_remaining_basket_length((8 - best_order.Basket[-1].sum_basket))
     return best_order
 
 
@@ -252,39 +270,80 @@ def format_best_solution(best_order):
             for task in tasks:
                 if isinstance(task, Basket):
                     # Форматируем данные корзины
-                    basket_details = (
-                        f"  Время работы группы заказов {total_time} \n  Корзина (длина: {task.sum_basket}, диаметр: {task.diameter}, "
-                        f"время работы заказов: {task.time_on_multivare}):"
+
+                    Name = "Корзина"
+                    diameter                = getattr(task, "voloka", "Не указано")
+                    spin_road               = getattr(task, "spin_road", [])
+                    comment_setup           = getattr(task, "comment_setup", "Нет комментария")
+                    penalty                 = getattr(task, "time_penalty", "")
+                    waiting_order           = getattr(task, "waiting_for_order", "")
+                    waiting_equipment       = getattr(task, "waiting_for_equipment", "")
+                    waiting_filter          = getattr(task, "waiting_for_filter", "")
+                    time_on_multivare       = getattr(task, "time_on_multivare", "")
+                    remaining_basket_length = getattr(task, "sum_basket", "")
+                    time_work               = getattr(task, "time_work", "")
+                    time_setup              = getattr(task, "time_setup", "")
+                    task.total_time         = total_time
+
+                    formatted_output.append(
+                        f"    Время работы группы заказов: {total_time}, Диаметр: {diameter}, Время работы: {time_work}, Время перенастройки: {time_setup}, Корзина (длина: {task.sum_basket}, Штраф за ожидание: {penalty}, Ожидает Фильеру: {waiting_filter}, На оборудовании: {waiting_equipment}, В заказе: {waiting_order} "
+                        f"Маршрут фильер: {spin_road}, Комментарий к перенастройке: {comment_setup}, Время работы заказов на мультике: {time_on_multivare}"
                     )
-                    formatted_output.append(basket_details)
+
+                    # formatted_output.append(basket_details)
                     for basket_task in task.orders:
+
+                        Name              = getattr(basket_task, "order.account_number", "")
+                        diameter          = getattr(basket_task, "diameter", "Не указано")
+                        spin_road         = getattr(basket_task, "spin_road", [])
+                        comment_setup     = getattr(basket_task, "comment_setup", "Нет комментария")
+                        penalty           = getattr(basket_task, "time_penalty", "")
+                        waiting_order     = getattr(basket_task, "waiting_for_order", "")
+                        waiting_equipment = getattr(basket_task, "waiting_for_equipment", "")
+                        waiting_filter    = getattr(basket_task, "waiting_for_filter", "")
+                        time_work = getattr(task, "time_work", "")
+                        time_setup = getattr(task, "time_setup", "")
+
                         formatted_output.append(
-                            f"      - Заказ: {basket_task.account_number}, "
-                            f"Диаметр: {basket_task.diameter}, "
-                            f"Маршрут фильер: {basket_task.spin_road}, "
-                            f"Комментарий к перенастройке: {basket_task.comment_setup}"
+                            f"      Заказ: {Name}, Диаметр: {diameter}, Время работы: {time_work}, Время перенастройки: {time_setup}, Штраф за ожидание: {penalty}, Ожидает Фильеру: {waiting_filter}, На оборудовании: {waiting_equipment}, В заказе: {waiting_order} "
+                            f"Маршрут фильер: {spin_road}, Комментарий к перенастройке: {comment_setup}"
                         )
                     total_time = 0
                     total_time += WireDrawingMachine.W
                 elif isinstance(task, MultivareTask):
                     # Форматируем данные заказа на мультивайер
+                    diameter          = getattr(task, "diameter", "Не указано")
+                    spin_road         = getattr(task, "spin_road", [])
+                    comment_setup     = getattr(task, "comment_setup", "Нет комментария")
+                    penalty           = getattr(task, "time_penalty", "")
+                    waiting_order     = getattr(task, "waiting_for_order", "")
+                    waiting_equipment = getattr(task, "waiting_for_equipment", "")
+                    waiting_filter    = getattr(task, "waiting_for_filter", "")
+                    number_of_veins   = getattr(task, "number_of_veins", "")
+                    num_basket        = getattr(task, "num_basket", "")
+                    time_work = getattr(task, "time_work", "")
+                    time_setup = getattr(task, "time_setup", "")
+
                     formatted_output.append(
-                        f"    Заказ: {task.account_number}, "
-                        f"Диаметр: {task.diameter}, "
-                        f"Жил: {task.number_of_veins}, "
-                        f"Корзины: {round(task.num_basket, 2)}, "
-                        f"Маршрут фильер: {task.spin_road}, "
-                        f"Комментарий к перенастройке: {task.comment_setup}"
+                        f"    Заказ: {task.order.account_number}, Диаметр: {diameter}, Время работы: {time_work}, Время перенастройки: {time_setup}, Штраф за ожидание: {penalty}, Ожидает Фильеру: {waiting_filter}, На оборудовании: {waiting_equipment}, В заказе: {waiting_order} "
+                        f"Маршрут фильер: {spin_road}, Комментарий к перенастройке: {comment_setup}, Кол-во жил: {number_of_veins}, Корзины: {round(num_basket, 2)}"
                     )
                 else:
                     if equipment_name == 'new':
                         total_time += task.time_work + task.time_setup
                     # Форматируем обычный заказ
-                    diameter = getattr(task, "voloka", "Не указано")
-                    spin_road = getattr(task, "spin_road", [])
-                    comment_setup = getattr(task, "comment_setup", "Нет комментария")
+                    diameter          = getattr(task, "voloka", "Не указано")
+                    spin_road         = getattr(task, "spin_road", [])
+                    comment_setup     = getattr(task, "comment_setup", "Нет комментария")
+                    penalty           = getattr(task, "time_penalty", "")
+                    waiting_order     = getattr(task, "waiting_for_order", "")
+                    waiting_equipment = getattr(task, "waiting_for_equipment", "")
+                    waiting_filter    = getattr(task, "waiting_for_filter", "")
+                    time_work         = getattr(task, "time_work", "")
+                    time_setup         = getattr(task, "time_setup", "")
+
                     formatted_output.append(
-                        f"    Заказ: {task.order.account_number}, Диаметр: {diameter}, Штраф за ожидание: {task.time_penalty} "
+                        f"    Заказ: {task.order.account_number}, Диаметр: {diameter}, Время работы: {time_work}, Время перенастройки: {time_setup}, Штраф за ожидание: {penalty}, Ожидает Фильеру: {waiting_filter}, На оборудовании: {waiting_equipment}, В заказе: {waiting_order} "
                         f"Маршрут фильер: {spin_road}, Комментарий к перенастройке: {comment_setup}"
                     )
 
@@ -334,7 +393,6 @@ def evaluate_fitness(individual: dict):
     multivare_time = get_cost_multivare(individual)
     drawing_time = get_cost_drawing(individual)
     return multivare_time + drawing_time,
-
 
 # Функция оценки приспособленности — для вычисления общего времени выполнения задач
 def get_cost_multivare(ind):
@@ -415,11 +473,14 @@ def calculating_basket(ind):
     если такие заказы есть, то заказ должен занимать нужное количество корзин в одиночку, а остаток делить с остальными заказами
     :return:
     """
+    # Загрузка настроек из JSON-файла для получения остатков по корзинам
+    settings = load_settings()
+
     updated_baskets = []
     for eq in ind['multivare']:
         task_m = ind['multivare'][eq]
         for order in task_m:
-            order.equipment.capacity = order.equipment.remaining_basket_length
+            order.equipment.capacity = settings.get("REMAINING_BASKET_LENGTH", order.equipment.remaining_basket_length)
         MultivareTask.calculate_setup_time_all(task_m)
         temp_basket: Basket = copy.deepcopy(Basket(None))
         for order in task_m:
@@ -533,21 +594,25 @@ def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=Fals
                 filters_time = {}
 
                 for filters in filters_in_use:
-                    filters_time[filters] = (filters_dict[filters]['ВремяОкончанияРаботы'] - tasks[
-                        i].time_begin).total_seconds() / 60  # Время между концом работы фильеры и началом заказа (сколько ждать)
+                    filters_time[filters] = (filters_dict[filters]['ВремяОкончанияРаботы'] - tasks[i].time_begin).total_seconds() / 60  # Время между концом работы фильеры и началом заказа (сколько ждать)
 
                 if max(filters_time.values()) > 0:
-                    tasks[i].time_penalty = max(
-                        filters_time.values())  # Максимальное время из занятых, т.к её придется ждать для полного маршрута
+                    tasks[i].time_penalty = max(filters_time.values())  # Максимальное время из занятых, т.к её придется ждать для полного маршрута
+                    awaiting_filters = list(filters_time.keys())[list(filters_time.values()).index(tasks[i].time_penalty)] # Диаметр ожидаемой фильеры
+                    tasks[i].waiting_for_equipment = filters_dict[awaiting_filters]['ИспользуетсяОборудованием'] # Пишем на каком оборудовании фильера, которая нам нужна
+                    tasks[i].waiting_for_order     = filters_dict[awaiting_filters]['ИспользуетсяЗаказом'] # Пишем какой заказ занимает нашу фильеру
+                    tasks[i].waiting_for_filter    = str(awaiting_filters) # Пишем какую фильеру ждет заказ
 
                 for filters in filters_in_use:
-                    filters_dict[filters]['ВремяОкончанияРаботы'] = tasks[i].time_ending + timedelta(
-                        minutes=tasks[i].time_penalty)  # Фильера освободиться через время окончания заказа + штраф
+                    filters_dict[filters]['ВремяОкончанияРаботы'] = tasks[i].time_ending + timedelta(minutes=tasks[i].time_penalty)  # Фильера освободиться через время окончания заказа + штраф
 
         general_penalty += tasks[i].time_penalty  # Общий штраф всей очереди
 
-    return ((tasks[-1].time_ending - tasks[
-        0].time_ending).total_seconds() / 60) + general_penalty  # Общее время = Время от начала первого до конца последнего + сумма всех штрафов
+    if not tasks:
+        print("tasks[] - пустой ")
+        return 0
+    else:
+        return ((tasks[-1].time_ending - tasks[0].time_ending).total_seconds() / 60) + general_penalty  # Общее время = Время от начала первого до конца последнего + сумма всех штрафов
 
 
 def get_cost_basket(tasks_with_basket, baskets):
