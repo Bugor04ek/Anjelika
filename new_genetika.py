@@ -126,6 +126,7 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, hall
 def asd(ind, toolbox):
     ind.fitness.values = toolbox.evaluate(ind)
 
+
 def mutate(individual, indpb):
     # Генерируем заранее случайные числа для мутации
     ind = copy.deepcopy(individual)
@@ -555,73 +556,35 @@ def get_cost_basket(tasks_with_basket, baskets):
     # baskets = [task for task in tasks_with_basket if isinstance(task, str)]
     routes = get_routes(tasks_with_basket, baskets)
 
-    reserve_time = baskets[0].time_on_multivare
-    num_task = len(tasks_with_basket) - len(baskets)
+    # reserve_time = baskets[0].time_on_multivare
+    # num_task = len(tasks_with_basket) - len(baskets)
 
-    time_baskets = [basket.time_on_multivare for basket in baskets]
-    time_routes = [get_time_route(route) for route in routes]
+    time_baskets = copy.copy([basket.time_on_multivare for basket in baskets])
+    time_routes = copy.copy([get_time_route(route) for route in routes])
 
-    t_time = 0
     for i, time_ in enumerate(time_baskets):
-        t_time = time_routes[i] - time_
-        if t_time < 0:
-            downtime += -t_time
-            # Если корзина будет последней, чтобы не было ошибок
-            try:
-                time_routes[i+1] += WireDrawingMachine.W
-            except IndexError:
-                continue
+        t_time_drawing = time_routes[i] - time_
+        if t_time_drawing < 0:
+            downtime += -t_time_drawing
         else:
             try:
-                time_baskets[i + 1] -= t_time
-                if time_baskets[i + 1] < 0:
-                    uptime += 2
+                t_time_multik = time_baskets[i + 1] - t_time_drawing
+                # Для первой корзины не сможем посчитать простой мультика, т.к. есть еще время из запаса второй корзины
+                if i:
+                    if t_time_multik < 0:
+                        uptime = t_time_multik
+                else:
+                    time_baskets[i + 1] -= t_time_multik
             except IndexError:
                 continue
 
+        # Если корзина будет последней, чтобы не было ошибок
+        try:
+            time_routes[i + 1] += WireDrawingMachine.W
+        except IndexError:
+            continue
 
-
-
-
-    # for route in range(len(baskets) - 1):
-    #     if len(routes[route]) != 0:
-    #         time_route_to_basket += get_time_route(routes[route], route)
-    #         num_task -= len(routes[route])
-    #     elif num_task != 0:
-    #         total_time += 5000000
-    #         break
-    #
-    #     if reserve_time < time_route_to_basket < reserve_time + baskets[route + 1].time_on_multivare:
-    #         reserve_time = baskets[route + 1].time_on_multivare - (time_route_to_basket - reserve_time)
-    #         if reserve_time < WireDrawingMachine.W:
-    #             num_downtime += WireDrawingMachine.W - reserve_time
-    #     elif time_route_to_basket < reserve_time:
-    #         num_downtime += reserve_time - time_route_to_basket
-    #         reserve_time = baskets[route + 1].time_on_multivare
-    #     elif time_route_to_basket > reserve_time + baskets[route + 1].time_on_multivare - WireDrawingMachine.W:
-    #         num_uptime += time_route_to_basket - (
-    #                 reserve_time + baskets[route + 1].time_on_multivare - WireDrawingMachine.W)
-    #         reserve_time = baskets[route + 1].time_on_multivare
-    #
-    #     total_time += time_route_to_basket
-    #     time_route_to_basket = 0
-    #
-    # else:
-    #
-    #     time_route_to_basket += get_time_route(routes[-2], routes.index(routes[-2]))
-    #
-    #     reserve_time = baskets[-1].time_on_multivare
-    #
-    #     if reserve_time < time_route_to_basket < reserve_time + baskets[-1].time_on_multivare:
-    #         pass
-    #     elif time_route_to_basket < reserve_time:
-    #         num_downtime += reserve_time - time_route_to_basket
-    #     elif time_route_to_basket > reserve_time:
-    #         num_uptime += time_route_to_basket - reserve_time
-    #
-    #     total_time += time_route_to_basket
-
-    return total_time + num_downtime * 1.5 + num_uptime * 1.5
+    return sum(time_routes) + downtime * 1.5 + uptime * 1.5
 
 
 def get_routes(tasks, baskets):
