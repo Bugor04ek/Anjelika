@@ -188,7 +188,6 @@ class TaskMeta(type):
         """Возвращает все экземпляры заданий определенного типа оборудования."""
         return [instance for instance in cls._instances for key, val in kwargs.items() if getattr(instance, key) == val]
 
-
     @classmethod
     def get_instances_all(cls):
         """Возвращает все экземпляры заданий определенного типа оборудования."""
@@ -248,22 +247,6 @@ class Task(metaclass=TaskMeta):
         equipments = MachineMeta.get_all_instances()
         self.acceptable_equipment = [eq for eq in equipments if self.equipment_type in eq.equipment_type and eq.is_suitable(self)]
 
-
-    @staticmethod
-    def form_matrix_multivare(tasks):
-        """
-        Функция для создания матрицы времени перенастроек мультика
-        :param tasks: неупорядоченный список заказов на мультик
-        :return: матрица времени перенастроек
-        """
-        temp_matrix1 = []
-        for order1 in tasks:
-            temp_matrix2 = []
-            for order2 in tasks:
-                temp_matrix2.append(order1.calculate_setup_time(order1, order2))
-            temp_matrix1.append(temp_matrix2)
-        return temp_matrix1
-
     def __str__(self):
         return f"{self.account_number}{self.part_type} | {self.equipment_type or 'Не назначено'}"
 
@@ -284,6 +267,7 @@ class WireDrawingTask(Task):
     """
     Класс для заказов на волочение. Тут может быть либо обычный заказ, либо корзина состоящая из заказов на мультик.
     """
+
     # Переменная класса для подсчета индексов
     def __init__(self, order, account_number, diameter, part_type, time_work):
         if issubclass(Order, type(order)):
@@ -294,7 +278,8 @@ class WireDrawingTask(Task):
             # self.time_work = WireDrawingMachine.W
             self.voloka = MultivareMachine.d_mult
             self.material = 'cu'
-        super().__init__(order, account_number=account_number, equipment_type='wiredrawing', part_type=part_type, time_work=time_work)
+        super().__init__(order, account_number=account_number, equipment_type='wiredrawing', part_type=part_type,
+                         time_work=time_work)
 
         self.comment_setup = ''
         self.time_setup = 0
@@ -302,7 +287,6 @@ class WireDrawingTask(Task):
         self.time_penalty = 0
         self.time_begin = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         self.time_ending = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-
 
     def assign_equipment(self, equipment):
         if self.equipment_type in equipment.equipment_type:
@@ -332,7 +316,7 @@ class WireDrawingTask(Task):
         else:
             # на старой волочилке может быть много маршрутов
             for road in roads:
-                if abs(self.voloka - road[0][-1]) <= WireDrawingMachine.diameter_range: #Находится ли текущая волока в допустимом диапазоне
+                if abs(self.voloka - road[0][-1]) <= WireDrawingMachine.diameter_range:  #Находится ли текущая волока в допустимом диапазоне
                     self.spin_road = road
                     break
 
@@ -359,12 +343,14 @@ class WireDrawingTask(Task):
             spin_in_without_0 = [e for e in previous_task.spin_road[-spin_in_with_0:] if e != 0]
             spin_out = len(previous_task.spin_road) - diff_spin  # это всегда будет 1 волока
             current_task.comment_setup = 'снять {} волок ({});'.format(len(spin_in_without_0), spin_in_without_0)
-            setup_time += len(spin_in_without_0) * WireDrawingMachine.CHANGE_WIRE + len(spin_in_without_0) * WireDrawingMachine.REMOVED_SPIN + WireDrawingMachine.STRETCHING_WIRE
+            setup_time += len(spin_in_without_0) * WireDrawingMachine.CHANGE_WIRE + len(
+                spin_in_without_0) * WireDrawingMachine.REMOVED_SPIN + WireDrawingMachine.STRETCHING_WIRE
 
             # вставляем волоки с текущего задания
             spin_in_with_0 = len(current_task.spin_road) - diff_spin
             spin_in_without_0 = sum([1 for e in current_task.spin_road[-spin_in_with_0:] if e != 0])
-            spin_in_values = [e for e in current_task.spin_road[-spin_in_with_0:] if e != 0] # Список значений фильер, которые нужно поставить, без нулей
+            spin_in_values = [e for e in current_task.spin_road[-spin_in_with_0:] if
+                              e != 0]  # Список значений фильер, которые нужно поставить, без нулей
             current_task.comment_setup += 'вставить {} волок ({});'.format(spin_in_without_0, spin_in_values)
             setup_time += spin_in_without_0 * WireDrawingMachine.CHANGE_WIRE + spin_in_without_0 * WireDrawingMachine.INSERT_SPIN + WireDrawingMachine.STRETCHING_WIRE
 
@@ -372,7 +358,6 @@ class WireDrawingTask(Task):
 
         else:  # Старая волочилка
             best_road = {}
-
 
             for road1 in current_task.spin_road:
                 spin_road2 = previous_task.spin_road
@@ -384,7 +369,7 @@ class WireDrawingTask(Task):
                             diff_spin = i
                             break
                     else:
-                        best_road[tuple(road1),tuple(road2)] = 0
+                        best_road[tuple(road1), tuple(road2)] = 0
                         continue
 
                     # снимаем фильеры с предыдущего задания
@@ -396,10 +381,12 @@ class WireDrawingTask(Task):
 
                         # вставляем волоки с текущего задания
                         spin_in = abs(len(road1) - len(road2))
-                        current_task.comment_setup += 'вставить {} волок ({});'.format(spin_in, road1[-(len(road1) - diff_spin):])
-                        setup_time += spin_in * WireDrawingMachine.CHANGE_WIRE + len(road1) * WireDrawingMachine.INSERT_SPIN + WireDrawingMachine.STRETCHING_WIRE
+                        current_task.comment_setup += 'вставить {} волок ({});'.format(spin_in, road1[-(
+                                    len(road1) - diff_spin):])
+                        setup_time += spin_in * WireDrawingMachine.CHANGE_WIRE + len(
+                            road1) * WireDrawingMachine.INSERT_SPIN + WireDrawingMachine.STRETCHING_WIRE
 
-                        best_road[tuple(road1),tuple(road2)] = setup_time
+                        best_road[tuple(road1), tuple(road2)] = setup_time
                     else:
                         spin_out = len(road2) - diff_spin
                         current_task.comment_setup += 'снять {} волок ({});'.format(spin_out, road2[-spin_out:])
@@ -410,7 +397,7 @@ class WireDrawingTask(Task):
                         current_task.comment_setup += 'вставить {} волок ({});'.format(spin_in, road1[-spin_in:])
                         setup_time += spin_in * WireDrawingMachine.CHANGE_WIRE + spin_in * WireDrawingMachine.INSERT_SPIN + WireDrawingMachine.STRETCHING_WIRE
 
-                        best_road[tuple(road1),tuple(road2)] = setup_time
+                        best_road[tuple(road1), tuple(road2)] = setup_time
 
                     setup_time = 0
             else:
@@ -433,15 +420,26 @@ class WireDrawingTask(Task):
     @staticmethod
     def create_basket_refill_task(basket):
         """Создаёт задание на пополнение корзин на волочилке для конкретного оборудования."""
-        refill_task = WireDrawingTask(order=basket, account_number=None, diameter=None, part_type=None, time_work=WireDrawingMachine.W)
+        refill_task = WireDrawingTask(order=basket, account_number=None, diameter=None, part_type=None,
+                                      time_work=WireDrawingMachine.W)
         WireDrawingTask.assign_tasks_to_equipment(refill_task)
         print(f"Создано задание на пополнение {8} корзин для {refill_task.equipment.equipment_name}.")
 
     def __repr__(self):
         if issubclass(Order, type(self.order)):
-            return '{} {} -- {} время простоя {} \n'.format(self.account_number, self.order.mark.mark, self.equipment, self.time_penalty)
+            return '{} {} -- {} время простоя {} \n'.format(self.account_number, self.order.mark.mark, self.equipment,
+                                                            self.time_penalty)
         elif issubclass(Basket, type(self.order)):
             return '{}\n'.format(self.order.__repr__())
+
+    def __eq__(self, other):
+        if isinstance(other, WireDrawingTask):
+            return self.account_number == other.account_number
+        else:
+            return False
+
+    def __hash__(self):
+        return hash(self.account_number)
 
 
 class MultivareTask(Task):
@@ -449,8 +447,10 @@ class MultivareTask(Task):
     Задание на мультик хранит в переменной класса хранит все заказы в массиве, их можно будет найти по IDZak
     """
 
-    def __init__(self, order, diameter, number_of_veins, number_of_strands, number_of_sliver, wires_in_sliver, type, time_work):
-        super().__init__(order, account_number=order.account_number, equipment_type='multivare', part_type=type, time_work=time_work)
+    def __init__(self, order, diameter, number_of_veins, number_of_strands, number_of_sliver, wires_in_sliver, type,
+                 time_work):
+        super().__init__(order, account_number=order.account_number, equipment_type='multivare', part_type=type,
+                         time_work=time_work)
         # self.volume_bobbin = order.volume_bobbin
         # 350 - Ограничение по массе барабана для гибкой жилы на 630 барабан
         # 8.89 - Плотность меди
@@ -502,7 +502,8 @@ class MultivareTask(Task):
         Находим в словаре фильер ближайшие значения к диаметру.
         """
 
-        self.spin = MultivareMachine.dictionary_spinners[min(MultivareMachine.dictionary_spinners, key=lambda x: abs(self.diameter - x))]
+        self.spin = MultivareMachine.dictionary_spinners[
+            min(MultivareMachine.dictionary_spinners, key=lambda x: abs(self.diameter - x))]
 
     def calculating_length(self):
         # суммарная вес проволочек
@@ -514,7 +515,8 @@ class MultivareTask(Task):
         self.time_on_multivare = round(((self.total_length_delays / ((self.linear_velocity * 60 / 1000) * 60)) * 60), 2)
         self.length_piece = round(self.total_weight_delays * (self.diameter ** 2 / MultivareMachine.d_mult ** 2), 3)
 
-        self.num_basket = self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET
+        self.num_basket = self.total_weight_delays * 1 / (
+                    pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET
         self.velocity_basket = self.num_basket / self.time_on_multivare
 
         # длина заказа в расчете на одну прядь (весь заказ это length_strands *
@@ -598,7 +600,7 @@ class MultivareTask(Task):
                         # вставляем волоки с текущего задания
                         spin_in = abs(len(road1) - len(road2))
                         current_task.comment_setup += 'вставить {} волок ({});'.format(spin_in, road1[-(
-                                    len(road1) - diff_spin):])
+                                len(road1) - diff_spin):])
                         setup_time += spin_in * MultivareMachine.CHANGE_WIRE + len(
                             road1) * MultivareMachine.INSERT_SPIN + MultivareMachine.STRETCHING_WIRE
 
@@ -610,8 +612,9 @@ class MultivareTask(Task):
 
                         # вставляем волоки с текущего задания
                         spin_in = len(road1) - diff_spin
-                        non_zero_dies = [value for value in road1[-spin_in:] if value != 0] # Не нулевые фильеры
-                        current_task.comment_setup += 'вставить {} волок ({});'.format(len(non_zero_dies), non_zero_dies)
+                        non_zero_dies = [value for value in road1[-spin_in:] if value != 0]  # Не нулевые фильеры
+                        current_task.comment_setup += 'вставить {} волок ({});'.format(len(non_zero_dies),
+                                                                                       non_zero_dies)
                         setup_time += spin_in * MultivareMachine.CHANGE_WIRE + spin_in * MultivareMachine.INSERT_SPIN + MultivareMachine.STRETCHING_WIRE
 
                         best_road[tuple(road1), tuple(road2)] = setup_time
@@ -644,7 +647,6 @@ class MultivareTask(Task):
     @time_setup.setter
     def time_setup(self, value):
         self.__time_setup = value
-
 
     # def __str__(self) -> str:
     #     # return "{} | {} | {} | {} | {} | {} | {} | {} | {}".format(
@@ -714,16 +716,16 @@ class Basket:
         self.acceptable_equipment = []
         self.time_setup = 0
         self.set_acceptable_equipment()
-        self.time_setup = 10 # При Мерже, сделать 0
+        self.time_setup = 10  # При Мерже, сделать 0
         WireDrawingTask.assign_tasks_to_equipment(self)
         self.time_penalty = 0
         self.time_begin = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         self.time_ending = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
-
     def set_acceptable_equipment(self):
         equipments = MachineMeta.get_all_instances()
-        self.acceptable_equipment = [eq for eq in equipments if self.equipment_type in eq.equipment_type and eq.is_suitable(self)]
+        self.acceptable_equipment = [eq for eq in equipments if
+                                     self.equipment_type in eq.equipment_type and eq.is_suitable(self)]
 
     def append(self, order: MultivareTask, num_basket: float, use_time_setup=True):
         """
@@ -776,7 +778,8 @@ class Basket:
         else:
             # на старой волочилке может быть много маршрутов
             for road in roads:
-                if abs(self.voloka - road[0][-1]) <= WireDrawingMachine.diameter_range: #Находится ли текущая волока в допустимом диапазоне
+                if abs(self.voloka - road[0][
+                    -1]) <= WireDrawingMachine.diameter_range:  #Находится ли текущая волока в допустимом диапазоне
                     self.spin_road = road
                     break
 
@@ -797,4 +800,3 @@ class Basket:
 
     def __hash__(self):
         return hash(self.orders)
-
