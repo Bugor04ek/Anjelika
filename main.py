@@ -101,13 +101,16 @@ def main():
                  "Маршрут": task.spin_road,
                  "Комментарий": task.comment_setup,
                  "Штраф": task.time_penalty,
-                 "ВремяВРаботе": task.time_work}
+                 "ВремяВРаботе": task.time_work,
+                 "ВремяПеренастройки":task.time_setup}
                 if not isinstance(task, Basket) else
                 # Для корзин
                 {"ЭтоКорзина": True,
                  "Штраф": task.time_penalty,
                  "Маршрут": task.spin_road,
-                 "ВремяВРаботе": task.time_work}
+                 "Диаметр": task.diameter,
+                 "ВремяВРаботе": task.time_work,
+                 "ВремяЗаказовДоКорзины": task.total_time}
                 for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, [])
             ]
 
