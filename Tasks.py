@@ -375,7 +375,6 @@ class WireDrawingTask(Task):
         else:  # Старая волочилка
             best_road = {}
 
-
             for road1 in current_task.spin_road:
                 spin_road2 = previous_task.spin_road
 
