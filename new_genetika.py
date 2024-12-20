@@ -7,7 +7,7 @@ from multiprocessing import Pool
 from collections import defaultdict
 import multiprocessing
 import concurrent
-
+from tqdm import tqdm
 
 
 import threading
@@ -25,7 +25,6 @@ import Equipments
 import Tasks
 from Tasks import Task, TaskMeta, MultivareTask, WireDrawingTask, Basket
 from Equipments import MultivareMachine, WireDrawingMachine, Equipment
-from main import equipments
 
 TASKS = []
 settings = None
@@ -53,7 +52,8 @@ def update_remaining_basket_length(new_length):
             "P_MUTATION": 0.05,
             "MULTITHREADING": True,
             "REMAINING_BASKET_LENGTH": 8,
-            "CORES": 2
+            "CORES": 2,
+            "LOGS": True
         }
 
         # Создаем директорию, если ее нет
@@ -91,7 +91,8 @@ def load_settings():
         "P_MUTATION": 0.05,
         "MULTITHREADING": True,
         "REMAINING_BASKET_LENGTH": 8,
-        "CORES": 2
+        "CORES": 2,
+        "LOGS": True
     }
 
     # Проверяем, существует ли файл настроек
@@ -174,9 +175,11 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, hall
     logbook.record(gen=0, nevals=len(invalid_ind), **record)
     if verbose:
         print(logbook.stream)
+        pass
 
     # Основной цикл по поколениям
-    for gen in range(1, ngen + 1):
+    # for gen in range(1, ngen + 1):
+    for gen in tqdm(range(1, ngen + 1), desc="Поколения"):
         # Селекция потомков (за вычетом элиты)
         offspring = toolbox.select(population, len(population) - hof_size)
 
@@ -307,6 +310,7 @@ def run_genetic_algorithm():
     print(f"MULTITHREADING: {MULTITHREADING}")
     print(f"REMAINING_BASKET_LENGTH: {settings.get('REMAINING_BASKET_LENGTH', 8)}")
     print(f"CORES: {settings.get('CORES', 2)}")
+    print(f"LOGS: {settings.get('LOGS')}")
     print(f"MAX_CORES: {multiprocessing.cpu_count()}\n")
 
     toolbox = base.Toolbox()
@@ -343,7 +347,7 @@ def run_genetic_algorithm():
         ngen=MAX_GENERATIONS,
         stats=stats,
         halloffame=hof,
-        verbose=True
+        verbose=settings.get('LOGS')
     )
 
     print("- Лучшие решения:")
@@ -351,7 +355,9 @@ def run_genetic_algorithm():
     best_order = hof.items[0]  # массив заказов в виде индексов
     # print(best_order)
     formatted_solution = format_best_solution(best_order)
-    print(formatted_solution)
+    if settings.get('LOGS'):
+        print(formatted_solution)
+
     update_remaining_basket_length((8 - best_order.Basket[-1].sum_basket))
     return best_order
 
@@ -480,7 +486,7 @@ def generate_individual():
 
     individual['basket'] = updated_baskets
     time_end = datetime.now()
-    print(f"Время выполнения generate_individual: {time_end - time_start}")
+    # print(f"Время выполнения generate_individual: {time_end - time_start}")
     return individual
 
 
