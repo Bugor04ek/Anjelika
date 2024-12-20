@@ -6,6 +6,9 @@ from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from multiprocessing import Pool
 from collections import defaultdict
 import multiprocessing
+import concurrent
+
+
 
 import threading
 from threading import Lock
@@ -25,6 +28,8 @@ from Equipments import MultivareMachine, WireDrawingMachine, Equipment
 from main import equipments
 
 TASKS = []
+settings = None
+filters_array = []
 
 
 # Обновление остатка корзин в файле настроек
@@ -104,6 +109,12 @@ def load_settings():
     # print(f"Загружены настройки из файла: {settings_path}")
     return settings
 
+def get_filters():
+    filters_json = 'Оборудование/Фильеры.json'
+    # Чтение JSON-файла в массив
+    with open(filters_json, 'r', encoding='utf-8') as file:
+        filters_array = json.load(file)
+    return filters_array
 
 def varAnd(population, toolbox, cxpb, mutpb):
     offspring = [toolbox.clone(ind) for ind in population]
@@ -171,28 +182,21 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, hall
         offspring = varAnd(offspring, toolbox, cxpb, mutpb)
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
 
-        # Загрузка настроек из JSON-файла
-        settings = load_settings()
-        multithreading = settings.get("MULTITHREADING", 1)
+        # Получаем количество ядер из настроек
+        max_cores = multiprocessing.cpu_count()
+        cores = settings.get("CORES", 1)
+        if cores > max_cores:
+            cores = max_cores
 
-        Cores = settings.get("CORES", 1)
-        if Cores == 0:  #or Cores > multiprocessing.cpu_count():
-            Cores = multiprocessing.cpu_count()
+        # Используем ProcessPoolExecutor для выполнения в нескольких процессах
+        with ProcessPoolExecutor(max_workers=cores) as executor:
+            # map автоматически распределяет задачи между процессами
+            fitnesses = executor.map(fit_fun, invalid_ind, [toolbox] * len(invalid_ind))
 
-        if multithreading:
-            with ProcessPoolExecutor(max_workers=Cores) as executor:
-                futures = []
+        # Присваиваем значения приспособленности каждому индивиду
+        for ind, fit in zip(invalid_ind, fitnesses):
+            ind.fitness.values = fit
 
-                for ind in invalid_ind:
-                    future = executor.submit(fit_fun, ind, toolbox)
-                    futures.append(future)
-
-                for _ in futures:
-                    pass
-        else:
-            fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
-            for ind, fit in zip(invalid_ind, fitnesses):
-                ind.fitness.values = fit  # toolbox.evaluate(ind)
 
         # Добавление элитных индивидов из Hall of Fame
         offspring.extend(halloffame.items)
@@ -260,12 +264,21 @@ def mate(ind1):
 
     return child1
 
+def generate_individual_wrapper():
+    return generate_individual()
+
+def get_fitness_values(ind):
+    return ind.fitness.values
+
 
 def run_genetic_algorithm():
     TASKS = Task.get_instances_all()
 
     # Загрузка настроек из JSON-файла
+    global settings
     settings = load_settings()
+    global filters_array
+    filters_array = get_filters()
 
     # константы задачи
     HALL_OF_FAME_SIZE = round((len(TASKS) * settings.get("HALL_OF_FAME_SIZE", 2)))  # Количество лучших индивидуумов
@@ -275,8 +288,18 @@ def run_genetic_algorithm():
     P_MUTATION = settings.get("P_MUTATION", 0.05)  # Вероятность мутации
     MULTITHREADING = settings.get("MULTITHREADING", 1)  # Многопоточность
 
+    print("Настройки:")
+    print(f"HALL_OF_FAME_SIZE: {HALL_OF_FAME_SIZE}")
+    print(f"POPULATION_SIZE: {POPULATION_SIZE}")
+    print(f"MAX_GENERATIONS: {MAX_GENERATIONS}")
+    print(f"P_CROSSOVER: {P_CROSSOVER}")
+    print(f"P_MUTATION: {P_MUTATION}")
+    print(f"MULTITHREADING: {MULTITHREADING}")
+    print(f"REMAINING_BASKET_LENGTH: {settings.get('REMAINING_BASKET_LENGTH', 8)}")
+    print(f"CORES: {settings.get('CORES', 2)}")
+    print(f"MAX_CORES: {multiprocessing.cpu_count()}\n")
+
     toolbox = base.Toolbox()
-    # print(POPULATION_SIZE)
 
     # Настройка среды DEAP для минимизации времени
     creator.create("FitnessMin", base.Fitness, weights=(-1.0,))
@@ -284,7 +307,7 @@ def run_genetic_algorithm():
     creator.create("Basket", list)
     creator.create("Individual", dict, fitness=creator.FitnessMin, Basket=creator.Basket)
 
-    toolbox.register("individual", tools.initIterate, creator.Individual, lambda: generate_individual())
+    toolbox.register("individual", tools.initIterate, creator.Individual, generate_individual_wrapper)
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
     population = toolbox.population(n=POPULATION_SIZE)
@@ -296,7 +319,7 @@ def run_genetic_algorithm():
 
     hof = tools.HallOfFame(HALL_OF_FAME_SIZE)
 
-    stats = tools.Statistics(lambda ind: ind.fitness.values)
+    stats = tools.Statistics(get_fitness_values)
 
     stats.register("avg", np.mean)
     stats.register("min", np.min)
@@ -481,10 +504,10 @@ def get_cost_drawing(ind, print_logs=False):
         else:
             time_total += get_cost_basket(tasks, ind.Basket)
 
-    filters_json = 'Оборудование/Фильеры.json'
-    # Чтение JSON-файла в массив
-    with open(filters_json, 'r', encoding='utf-8') as file:
-        filters_array = json.load(file)
+    # filters_json = 'Оборудование/Фильеры.json'
+    # # Чтение JSON-файла в массив
+    # with open(filters_json, 'r', encoding='utf-8') as file:
+    #     filters_array = json.load(file)
 
     # Получаем сегодняшний день в 0:00
     today_midnight = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -505,8 +528,19 @@ def get_cost_drawing(ind, print_logs=False):
     for eq_type in list(ind['wiredrawing'].keys()):
         setup_time_begin_end(ind['wiredrawing'][eq_type])
 
+    equipment_types = list(ind['wiredrawing'].keys())
+
+    # # Убираем ThreadPoolExecutor и просто последовательно обрабатываем
+    # for eq_type in equipment_types:
+    #     time_total += calculate_setup_time_for_tasks(
+    #         ind['wiredrawing'][eq_type],
+    #         filters_dict,
+    #         eq_type,
+    #         print_logs
+    #     )
+
     # Параллельно запускаем расчёты для каждого оборудования
-    with ThreadPoolExecutor(max_workers=3) as executor:
+    with ThreadPoolExecutor(max_workers=3) as executor: # Работает только с ThreadPoolExecutor
         futures = []
         equipment_types = list(ind['wiredrawing'].keys())
 
@@ -538,8 +572,6 @@ def calculating_basket(ind):
     если такие заказы есть, то заказ должен занимать нужное количество корзин в одиночку, а остаток делить с остальными заказами
     :return:
     """
-    # Загрузка настроек из JSON-файла для получения остатков по корзинам
-    settings = load_settings()
 
     updated_baskets = []
     for eq in ind['multivare']:
