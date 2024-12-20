@@ -446,6 +446,15 @@ class WireDrawingTask(Task):
         elif issubclass(Basket, type(self.order)):
             return '{}\n'.format(self.order.__repr__())
 
+    def __eq__(self, other):
+        if isinstance(other, WireDrawingTask):
+            return self.account_number == other.account_number
+        else:
+            return False
+
+    def __hash__(self):
+        return hash(self.account_number)
+
 
 class MultivareTask(Task):
     """
