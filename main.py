@@ -86,7 +86,7 @@ def main():
                  "Комментарий": task.comment_setup,
                  "Штраф": task.time_penalty,
                  "ВремяВРаботе": task.time_work,
-                 "ВремяПеренастройки":task.time_setup}
+                 "ВремяПеренастройки": task.time_setup}
                 if not isinstance(task, Basket) else
                 # Для корзин
                 {"ЭтоКорзина": True,
@@ -100,24 +100,21 @@ def main():
 
             # result_json[equipment_type][eq.equipment_name] = [{"Штраф": task.time_penalty, "Маршрут": task.spin_road, "ВремяВРаботе": task.time_work} for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, [])]
 
-
         # result_json.append({"UUID": task.order.UUID,"Маршрут": task.spin_road, "Комментарий": task.comment_setup} for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, []))
-
 
     print("Генетический алгоритм завершен")
 
     return result_json
 
+
 # эндпоинт для перемешивания JSON
 @app.post("/shuffle_json")
 def shuffle_json(payload: JsonArray):
-
     # Путь к файлу
     file_name = 'excel/Заказы.json'
 
     # Получаем JSON из запроса
     json_data = payload.model_dump()
-
 
     # Записываем JSON в файл
     with open(file_name, 'w', encoding='utf-8') as json_file:  # type: TextIO
@@ -127,9 +124,7 @@ def shuffle_json(payload: JsonArray):
     return {"Order": main()}
 
 
-
 if __name__ == "__main__":
     result_json = main()
 
     print(result_json)
-
