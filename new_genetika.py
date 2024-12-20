@@ -1,17 +1,8 @@
 import os
-import time
-from datetime import datetime
-from pickle import GLOBAL
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-from multiprocessing import Pool
-from collections import defaultdict
+
 import multiprocessing
-import concurrent
 
-
-
-import threading
-from threading import Lock
 import json
 import numpy as np
 from deap import base, creator, tools, algorithms
@@ -19,13 +10,8 @@ from datetime import datetime, timedelta
 import random
 import copy
 
-from numpy.random.mtrand import choice
-
-import Equipments
-import Tasks
 from Tasks import Task, TaskMeta, MultivareTask, WireDrawingTask, Basket
 from Equipments import MultivareMachine, WireDrawingMachine, Equipment
-from main import equipments
 
 TASKS = []
 settings = None
@@ -249,26 +235,25 @@ def mate(ind1):
             if len(tasks_ind1) < 2:
                 continue
 
-            t_task1 = random.choice(tasks_ind1)
-            if len(t_task1.acceptable_equipment) == 1:
-                continue
+            t_tasks = np.random.choice(tasks_ind1, size=3, replace=False)
+            for t_task in t_tasks:
+                # if len(t_task.acceptable_equipment) == 1:
+                #     continue
 
-            best_num_group = {}
-            for eq in t_task1.acceptable_equipment:
-                if equipment_type == 'multivare':
-                    best_num_group[eq] = len(
-                        [task for task in tasks_ind1 if task.spin_road[0] == t_task1.spin_road[0]])
-                elif equipment_type == 'wiredrawing':
-                    best_num_group[eq] = len(
-                        [task for task in tasks_ind1 if task.voloka == t_task1.voloka])
+                best_num_group = {}
+                for eq in t_task.acceptable_equipment:
+                    if equipment_type == 'multivare':
+                        best_num_group[eq] = [child1[equipment_type][eq.equipment_name].index(task) for task in child1[equipment_type][eq.equipment_name] if task.spin_road[0] == t_task.spin_road[0]]
+                    elif equipment_type == 'wiredrawing':
+                        best_num_group[eq] = [child1[equipment_type][eq.equipment_name].index(task) for task in child1[equipment_type][eq.equipment_name] if task.voloka == t_task.voloka]
 
-            best_eq = sorted(best_num_group.items(), key=lambda x: x[1])[0][0]
-            if best_eq.equipment_name == t_task1.equipment.equipment_name:
-                continue
+                best_eq = sorted(best_num_group.items(), key=lambda x: len(x[1]), reverse=True)[0][0]
 
-            WireDrawingTask.assign_tasks_to_equipment(t_task1, best_eq)
-            child1[equipment_type][equipment].remove(t_task1)
-            child1[equipment_type][best_eq.equipment_name].append(t_task1)
+                if best_eq.equipment_name != equipment:
+                    WireDrawingTask.assign_tasks_to_equipment(t_task, best_eq)
+
+                child1[equipment_type][equipment].remove(t_task)
+                child1[equipment_type][best_eq.equipment_name].insert(best_num_group[best_eq][0], t_task)
 
     return child1
 
