@@ -109,12 +109,14 @@ def load_settings():
     # print(f"Загружены настройки из файла: {settings_path}")
     return settings
 
+
 def get_filters():
     filters_json = 'Оборудование/Фильеры.json'
     # Чтение JSON-файла в массив
     with open(filters_json, 'r', encoding='utf-8') as file:
         filters_array = json.load(file)
     return filters_array
+
 
 def varAnd(population, toolbox, cxpb, mutpb):
     offspring = [toolbox.clone(ind) for ind in population]
@@ -188,14 +190,19 @@ def eaSimpleWithElitism(population, toolbox, cxpb, mutpb, ngen, stats=None, hall
         if cores > max_cores:
             cores = max_cores
 
-        # Используем ProcessPoolExecutor для выполнения в нескольких процессах
-        with ProcessPoolExecutor(max_workers=cores) as executor:
-            # map автоматически распределяет задачи между процессами
-            fitnesses = executor.map(fit_fun, invalid_ind, [toolbox] * len(invalid_ind))
+        if cores != 1:
+            # Используем ProcessPoolExecutor для выполнения в нескольких процессах
+            with ProcessPoolExecutor(max_workers=cores) as executor:
+                # map автоматически распределяет задачи между процессами
+                fitnesses = executor.map(fit_fun, invalid_ind, [toolbox] * len(invalid_ind))
 
-        # Присваиваем значения приспособленности каждому индивиду
-        for ind, fit in zip(invalid_ind, fitnesses):
-            ind.fitness.values = fit
+            # Присваиваем значения приспособленности каждому индивиду
+            for ind, fit in zip(invalid_ind, fitnesses):
+                ind.fitness.values = fit
+        else:
+            fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
+            for ind, fit in zip(invalid_ind, fitnesses):
+                ind.fitness.values = fit
 
 
         # Добавление элитных индивидов из Hall of Fame
@@ -249,23 +256,26 @@ def mate(ind1):
             best_num_group = {}
             for eq in t_task1.acceptable_equipment:
                 if equipment_type == 'multivare':
-                    best_num_group[eq.equipment_name] = len(
+                    best_num_group[eq] = len(
                         [task for task in tasks_ind1 if task.spin_road[0] == t_task1.spin_road[0]])
                 elif equipment_type == 'wiredrawing':
-                    best_num_group[eq.equipment_name] = len(
+                    best_num_group[eq] = len(
                         [task for task in tasks_ind1 if task.voloka == t_task1.voloka])
 
             best_eq = sorted(best_num_group.items(), key=lambda x: x[1])[0][0]
-            if best_eq == t_task1.equipment.equipment_name:
+            if best_eq.equipment_name == t_task1.equipment.equipment_name:
                 continue
 
+            WireDrawingTask.assign_tasks_to_equipment(t_task1, best_eq)
             child1[equipment_type][equipment].remove(t_task1)
-            child1[equipment_type][best_eq].append(t_task1)
+            child1[equipment_type][best_eq.equipment_name].append(t_task1)
 
     return child1
 
+
 def generate_individual_wrapper():
     return generate_individual()
+
 
 def get_fitness_values(ind):
     return ind.fitness.values

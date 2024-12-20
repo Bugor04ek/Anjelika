@@ -232,16 +232,16 @@ class Task(metaclass=TaskMeta):
             # если старая волочилка, то берем много маршрутов, если другая, то 1
 
     @staticmethod
-    def assign_tasks_to_equipment(tasks: Union[List[Union['MultivareTask', 'WireDrawingTask']], 'Basket']):
+    def assign_tasks_to_equipment(tasks: Union[List[Union['MultivareTask', 'WireDrawingTask']], 'Basket'], equipment=None):
         """
         Назначает оборудование для всех заданий, выбирая подходящее.
         """
         if isinstance(tasks, list):
             for task in tasks:
-                task.equipment = random.choice(task.acceptable_equipment)
+                task.equipment = random.choice(task.acceptable_equipment) if equipment is None else equipment
                 task.set_spin_road()
         else:
-            tasks.equipment = random.choice(tasks.acceptable_equipment)
+            tasks.equipment = random.choice(tasks.acceptable_equipment) if equipment is None else equipment
             tasks.set_spin_road()
 
     def set_acceptable_equipment(self):
@@ -305,7 +305,6 @@ class WireDrawingTask(Task):
         self.waiting_for_order = ""
         self.waiting_for_equipment = ""
         self.waiting_for_filter = ""
-
 
     def assign_equipment(self, equipment):
         if self.equipment_type in equipment.equipment_type:
@@ -662,7 +661,6 @@ class MultivareTask(Task):
     @time_setup.setter
     def time_setup(self, value):
         self.__time_setup = value
-
 
     # def __str__(self) -> str:
     #     # return "{} | {} | {} | {} | {} | {} | {} | {} | {}".format(
