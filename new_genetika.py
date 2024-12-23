@@ -277,7 +277,10 @@ def get_fitness_values(ind):
 
 
 def run_genetic_algorithm():
-    TASKS = Task.get_instances_all()
+    tasks = TaskMeta.get_instances_all()  # Получаем список задач
+    Task.assign_tasks_to_equipment(tasks)
+    len_matrix = len(tasks)
+    matrix_setup_time = Task.form_matrix_setup_time(tasks, len_matrix)
 
     # Загрузка настроек из JSON-файла
     global settings
@@ -313,7 +316,7 @@ def run_genetic_algorithm():
     creator.create("Basket", list)
     creator.create("Individual", dict, fitness=creator.FitnessMin, Basket=creator.Basket)
 
-    toolbox.register("individual", tools.initIterate, creator.Individual, generate_individual_wrapper)
+    toolbox.register("individual", tools.initIterate, creator.Individual, generate_individual(len_matrix))
     toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
     population = toolbox.population(n=POPULATION_SIZE)
@@ -446,7 +449,7 @@ def format_best_solution(best_order):
 
 
 # # Создание начальной популяции на основе заданий
-def generate_individual():
+def generate_individual(len_matrix):
     """Создает индивида с распределением задач по оборудованию."""
     # Task_c = copy.deepcopy(Task)
     # TaskMeta_c = copy.deepcopy(TaskMeta)
@@ -467,14 +470,14 @@ def generate_individual():
             if individual.get(equipment_type, None) is None:
                 individual[equipment_type] = {}
             task_c = copy.deepcopy(TaskMeta.get_instances_by_type(equipment=eq))
-            individual[equipment_type][eq.equipment_name] = random.sample(task_c, len(task_c))
+            individual[equipment_type][eq.equipment_name] = random.sample([i.index for i in task_c], len(task_c))
 
     updated_baskets = []
     updated_baskets.extend(calculating_basket(individual))
 
     for i, basket in enumerate(updated_baskets):
         ind = individual[basket.equipment_type][basket.equipment.equipment_name]
-        ind.insert(random.randint(0, len(ind)), Basket(None))
+        ind.insert(random.randint(0, len(ind)), len_matrix + 1)
 
     individual['basket'] = updated_baskets
     time_end = datetime.now()
@@ -585,11 +588,11 @@ def calculating_basket(ind):
     for eq in ind['multivare']:
         task_m = ind['multivare'][eq]
         for order in task_m:
-            order.equipment.capacity = settings.get("REMAINING_BASKET_LENGTH", order.equipment.remaining_basket_length)
-        MultivareTask.calculate_setup_time_all(task_m)
+            settings.get("REMAINING_BASKET_LENGTH", TaskMeta.get_instances_by_type(index=order).equipment.remaining_basket_length)
+        # MultivareTask.calculate_setup_time_all(task_m)
         temp_basket: Basket = copy.deepcopy(Basket(None))
         for order in task_m:
-
+            order = TaskMeta.get_instances_by_type(index=order)
             if order.equipment.capacity - order.num_basket >= 0:
                 temp_basket.append(order, order.num_basket)
                 order.equipment.capacity -= order.num_basket  # сколько нужно до 8 корзин

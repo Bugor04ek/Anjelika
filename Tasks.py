@@ -1,7 +1,7 @@
 import weakref
 from typing import Any, Union, List
 from datetime import datetime, timedelta
-
+import numpy
 from gosts import Mark
 import random
 from Equipments import MultivareMachine, WireDrawingMachine, Equipment, MachineMeta
@@ -188,7 +188,6 @@ class TaskMeta(type):
         """Возвращает все экземпляры заданий определенного типа оборудования."""
         return [instance for instance in cls._instances for key, val in kwargs.items() if getattr(instance, key) == val]
 
-
     @classmethod
     def get_instances_all(cls):
         """Возвращает все экземпляры заданий определенного типа оборудования."""
@@ -248,20 +247,20 @@ class Task(metaclass=TaskMeta):
         equipments = MachineMeta.get_all_instances()
         self.acceptable_equipment = [eq for eq in equipments if self.equipment_type in eq.equipment_type and eq.is_suitable(self)]
 
-
     @staticmethod
-    def form_matrix_multivare(tasks):
+    def form_matrix_setup_time(tasks, len_matrix):
         """
         Функция для создания матрицы времени перенастроек мультика
         :param tasks: неупорядоченный список заказов на мультик
         :return: матрица времени перенастроек
         """
-        temp_matrix1 = []
-        for order1 in tasks:
-            temp_matrix2 = []
-            for order2 in tasks:
-                temp_matrix2.append(order1.calculate_setup_time(order1, order2))
-            temp_matrix1.append(temp_matrix2)
+        temp_matrix1 = numpy.zeros([len_matrix + 1, len_matrix + 1])
+        for task1 in tasks:
+            for task2 in tasks:
+                if task1.equipment.equipment_name == task2.equipment.equipment_name and isinstance(task1, WireDrawingTask):
+                    temp_matrix1[task1.index][task2.index] = WireDrawingTask.calculate_setup_time(task1, task2)
+                elif task1.equipment.equipment_name == task2.equipment.equipment_name and isinstance(task1, MultivareTask):
+                    temp_matrix1[task1.index][task2.index] = MultivareTask.calculate_setup_time(task1, task2)
         return temp_matrix1
 
     def __str__(self):
@@ -272,12 +271,12 @@ class Task(metaclass=TaskMeta):
 
     def __eq__(self, other):
         if isinstance(other, Task):
-            return self.account_number == other.account_number
+            return self.index == other.index
         else:
-            return self.account_number == other
+            return self.index == other
 
     def __hash__(self):
-        return hash(self.account_number)
+        return hash(self.index)
 
 
 class WireDrawingTask(Task):
