@@ -1,0 +1,10 @@
+{
+    "HALL_OF_FAME_SIZE": 0.06,
+    "POPULATION_SIZE": 1,
+    "MAX_GENERATIONS": 0.09,
+    "P_CROSSOVER": 0,
+    "P_MUTATION": 0.05,
+    "MULTITHREADING": true,
+    "REMAINING_BASKET_LENGTH": 8,
+    "CORES": 2
+}
