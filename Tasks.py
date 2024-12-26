@@ -361,7 +361,7 @@ class WireDrawingTask(Task):
             else:  # Если road — плоский список
                 return [np.array(road)]
 
-        current_spin_road  = to_numpy_array(current_task.spin_road  )
+        current_spin_road  = to_numpy_array(current_task.spin_road)
         previous_spin_road = to_numpy_array(previous_task.spin_road)
 
         def calculate_spin_change(spin_out_values, spin_in_values):
@@ -384,7 +384,7 @@ class WireDrawingTask(Task):
                 current_task.comment_setup += f'снять {len(spin_out_values)} волок ({spin_out_values.tolist()}); '
                 current_task.comment_setup += f'вставить {len(spin_in_values)} волок ({spin_in_values.tolist()});'
 
-            setup_time += WireDrawingMachine.CHANGE_BOBBIN
+            # setup_time += WireDrawingMachine.CHANGE_BOBBIN
 
         else:  # Старая машина
             best_road = {}
@@ -408,7 +408,7 @@ class WireDrawingTask(Task):
 
         current_task.time_setup = setup_time
         current_task.spin_road = [float(x) for x in current_task.spin_road]
-        return setup_time
+
 
     @staticmethod
     def calculate_setup_time_all(tasks: ["WireDrawingTask"]):

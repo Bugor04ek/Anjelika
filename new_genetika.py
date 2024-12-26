@@ -103,7 +103,7 @@ def get_cost_multivare(ind):
     time_total = 0
     for eq in ind['multivare']:
         tasks = ind['multivare'][eq]
-
+        MultivareTask.calculate_setup_time_all(tasks)
         # Предположим, что задачи можно представить как NumPy массивы
         time_setup_array = np.array([task.time_setup for task in tasks])
 
@@ -462,7 +462,7 @@ def run_genetic_algorithm():
     time_start = datetime.now()
 
     # Параметры ГА
-    population_size = 178 # Размер популяции
+    population_size = 500 # Размер популяции
     num_generations = 16  # Число поколений
     elitism_rate = 0.05  # Доля элитных особей, сохраняемых в следующем поколении
     mutation_probability = 0.10
@@ -640,7 +640,7 @@ def mate(elites, population_size):
     offspring = []  # Список для хранения потомков
 
     for ind1 in elites:
-        for _ in range(round((population_size - len(elites)) / len(elites))):
+        for _ in range(round((population_size - len(elites)) / len(elites))-1):
 
             # Создаем копии родителей для потомков
             child1 = copy.deepcopy(ind1)
