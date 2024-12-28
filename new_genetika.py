@@ -1,4 +1,6 @@
-from Tasks import Task, TaskMeta, Basket, MultivareTask, WireDrawingTask, WireDrawingMachine
+from logging import exception
+
+from Tasks import Task, TaskMeta, Basket, MultivareTask, WireDrawingTask, WireDrawingMachine,OrderMeta
 import json
 import os
 from datetime import datetime, timedelta
@@ -112,19 +114,26 @@ def get_cost_multivare(ind):
     return time_total
 
 
-def calculating_basket(ind):
+def calculating_basket(ind, mode=None):
     """
     Для оптимально расставленных заказов на мультике считаются корзины. Корзина набивается заказами, которые сами по себе не формируют полноценные 8,
     если такие заказы есть, то заказ должен занимать нужное количество корзин в одиночку, а остаток делить с остальными заказами
     :return:
     """
+    #Если вызвали это для пересчета корзин, то mode = true
+    if not mode:
+        capacity = (settings or {}).get("REMAINING_BASKET_LENGTH", 8)
+    else:
+
+        capacity = 8
+
 
     updated_baskets = []
 
     for eq, task_m in ind['multivare'].items():
         # Обновляем вместимость оборудования
         for order in task_m:
-            order.equipment.capacity = settings.get("REMAINING_BASKET_LENGTH", order.equipment.remaining_basket_length)
+            order.equipment.capacity = capacity
 
         # Расчет времени перенастройки для всех заданий
         MultivareTask.calculate_setup_time_all(task_m)
@@ -290,8 +299,11 @@ def add_missing_filters(filters_dict, ind):
 # Функция для установки времени начала и конца заказа
 def setup_time_begin_end(tasks):
     # Обработка первой задачи отдельно
+    # try:
     tasks[0].time_begin = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)  # Начало первой задачи
     tasks[0].time_ending = tasks[0].time_begin + timedelta(minutes=tasks[0].time_work)
+    # except:
+    #     print(len(tasks))
 
     # Итерация по задачам начиная со второй
     for i in range(1, len(tasks)):  # Начинаем с 1, чтобы избежать ошибки для первой задачи

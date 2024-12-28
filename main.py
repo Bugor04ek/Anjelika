@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import TextIO
 
 from Equipments import initialize_equipments, Equipment
-from Tasks import Order, OrderMeta, Basket
+from Tasks import Order, OrderMeta, Basket, TaskMeta
 
 import new_genetika  # Алгоритмы для генетической оптимизации
 
@@ -42,15 +42,6 @@ def create_orders():
         orders.append(Order(item))
 
     return orders
-    # file_name = 'excel/Заказы.xlsx'
-    # excel_data = pd.read_excel(file_name, sheet_name="Лист5")
-    # excel_data['Дата выпуска по заказу'] = pd.to_datetime(
-    #     excel_data['Дата выпуска по заказу'],
-    #     format='%d.%m.%Y'
-    #     ).dt.date
-    # data = pd.DataFrame(excel_data).fillna(0)
-    #
-    # return [Order(row) for index, row in data.iterrows()]
 
 
 def main():
@@ -107,11 +98,61 @@ def main():
     return result_json
 
 
+# эндпоинт для замены длины корзины в JSON
+@app.post("/calculate_basket")
+def calculate_basket(payload: JsonArray):
+
+    #Посчитать остаток корзин
+    # Путь к файлам заказов и мультика
+    file_name_for_orders = 'res_Orders/Заказы.json'
+    file_name_for_new_basket_length = 'res_Equipments/Multivare.json'
+
+    # try:
+
+    # Получаем JSON из запроса
+    json_data = payload.model_dump()
+
+    # Записываем JSON в файл
+    with open(file_name_for_orders, 'w', encoding='utf-8') as json_file:  # type: TextIO
+        json.dump(json_data['data'], json_file, ensure_ascii=False, indent=4)
+
+    equipments = initialize_equipments()
+    create_orders()  # создаем заказы, хранятся в OrderMeta
+    orders = OrderMeta.get_all_instances()
+    # Генерация начальной популяции
+    inds = new_genetika.generate_population(TaskMeta.get_instances_all(), 1)
+    baskets = new_genetika.calculating_basket(inds[0], True)
+
+    # try:
+    remaining_basket_length = max(0.1, round((8 - (baskets[-1].sum_basket)),2))
+    # except:
+        # print(len(orders))
+        # print(len(inds))
+        # print(len(inds[0]['multivare']))
+        # print(len(baskets))
+
+
+    with open(file_name_for_new_basket_length, 'r', encoding='utf-8') as file:
+        data = json.load(file)
+
+    # Обновляем значение поля remaining_basket_length
+    data["multivare"]["remaining_basket_length"] = remaining_basket_length
+
+    with open(file_name_for_new_basket_length, 'w', encoding='utf-8') as file:
+        json.dump(data, file, ensure_ascii=False, indent=4)
+
+    # Возвращаем данные обратно клиенту
+    return {"status": remaining_basket_length}
+
+    # #Если не получилось обработать запрос
+    # except Exception as e:
+    #     return {"status": "error", "message": str(e)}
+
 # эндпоинт для перемешивания JSON
 @app.post("/shuffle_json")
 def shuffle_json(payload: JsonArray):
     # Путь к файлу
-    file_name = 'excel/Заказы.json'
+    file_name = 'res_Orders/Заказы.json'
 
     # Получаем JSON из запроса
     json_data = payload.model_dump()
