@@ -249,7 +249,6 @@ class Task(metaclass=TaskMeta):
         equipments = MachineMeta.get_all_instances()
         self.acceptable_equipment = [eq for eq in equipments if self.equipment_type in eq.equipment_type and eq.is_suitable(self)]
 
-
     @staticmethod
     def form_matrix_multivare(tasks):
         """
@@ -268,17 +267,17 @@ class Task(metaclass=TaskMeta):
     def __str__(self):
         return f"{self.account_number}{self.part_type} | {self.equipment_type or 'Не назначено'}"
 
-    def __lt__(self, other):
-        return True
-
-    def __eq__(self, other):
-        if isinstance(other, Task):
-            return self.account_number == other.account_number
-        else:
-            return self.account_number == other
-
-    def __hash__(self):
-        return hash(self.account_number)
+    # def __lt__(self, other):
+    #     return True
+    #
+    # def __eq__(self, other):
+    #     if isinstance(other, Task):
+    #         return self.account_number == other.account_number
+    #     else:
+    #         return self.account_number == other
+    #
+    # def __hash__(self):
+    #     return hash(self.account_number)
 
 
 class WireDrawingTask(Task):
@@ -624,6 +623,15 @@ class MultivareTask(Task):
     #         self.full_bobbin, self.time_on_mult_1_basket
     #     )
 
+    def __eq__(self, other):
+        if isinstance(other, MultivareTask):
+            return self.account_number == other.account_number
+        else:
+            return False
+
+    def __hash__(self):
+        return hash(self.account_number)
+
     def __repr__(self):
         return '{} {} -- {} \n'.format(self.account_number, self.order.mark.mark, self.equipment)
 
@@ -676,10 +684,12 @@ class Basket:
         self.len_basket = MultivareMachine.KM_IN_1_BASKET * 8
         self.sum_basket = sum_basket
         self.equipment_type = 'wiredrawing'
-        self.equipment = ''
+        self.equipment = None
         self.time_work = WireDrawingMachine.W
         self.acceptable_equipment = []
         self.time_setup = 0
+        self.downtime = 0  # простой волочилки
+        self.uptime = 0    # простой мультика
         self.set_acceptable_equipment()
         WireDrawingTask.assign_tasks_to_equipment(self)
         self.time_penalty = 0
@@ -720,7 +730,7 @@ class Basket:
         После того как знаем задание на мультик добавляем ко времени 'self.time_on_multivare' время перестановок из массива внутри корзины
         :return:
         """
-        for order in self.order:
+        for order in self.orders:
             self.time_on_multivare += order.time_on_multivare
 
     def set_spin_road(self):
