@@ -1,4 +1,3 @@
-import fastapi.responses
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -11,7 +10,7 @@ import threading
 from datetime import datetime
 from typing import TextIO
 
-from Equipments import initialize_equipments, Equipment
+from src.Equipments import initialize_equipments, Equipment
 from Tasks import Order, OrderMeta, Basket, TaskMeta
 
 import new_genetika  # Алгоритмы для генетической оптимизации
@@ -27,7 +26,7 @@ class JsonArray(BaseModel):
 
 def create_orders():
 
-    file_name = 'res_Orders/Заказы.json'
+    file_name = 'data/Заказы.json'
 
     with open(file_name, 'r', encoding='utf-8') as file:
         json_data = json.load(file)
@@ -133,8 +132,8 @@ def calculate_basket(payload: JsonArray):
 
     #Посчитать остаток корзин
     # Путь к файлам заказов и мультика
-    file_name_for_orders = 'res_Orders/Заказы.json'
-    file_name_for_new_basket_length = 'res_Equipments/Multivare.json'
+    file_name_for_orders = 'data/Заказы.json'
+    file_name_for_new_basket_length = 'data/Multivare.json'
 
     # try:
 
@@ -181,7 +180,7 @@ def calculate_basket(payload: JsonArray):
 @app.post("/shuffle_json")
 def shuffle_json(payload: JsonArray):
     # Путь к файлу
-    file_name = 'res_Orders/Заказы.json'
+    file_name = 'data/Заказы.json'
 
     # Получаем JSON из запроса
     json_data = payload.model_dump()

@@ -1,15 +1,11 @@
-from logging import exception
-
-from Tasks import Task, TaskMeta, Basket, MultivareTask, WireDrawingTask, WireDrawingMachine,OrderMeta
+from Tasks import Task, TaskMeta, Basket, MultivareTask, WireDrawingTask, WireDrawingMachine
 import json
 import os
 from datetime import datetime, timedelta
-from Equipments import Equipment
+from src.Equipments import Equipment
 import random
 import copy
-from concurrent.futures import ThreadPoolExecutor
 import numpy as np
-from itertools import permutations
 from collections.abc import Iterable
 from tqdm import tqdm
 import time
@@ -23,7 +19,7 @@ filters_array = []
 def load_settings():
     global settings
     # Путь к файлу настроек
-    settings_path = os.path.join("Shared", "settings.json")
+    settings_path = os.path.join("config", "config.json")
 
 
     # Проверяем, существует ли файл настроек
@@ -34,10 +30,6 @@ def load_settings():
             "num_generations": 3,
             "elitism_rate": 0.2,
             "mutation_probability": 0.5,
-            # "num_elites": 0.05,
-            # "MULTITHREADING": True,
-            # "REMAINING_BASKET_LENGTH": 8,
-            # "CORES": 2
         }
         # Создаем файл с дефолтными настройками
         with open(settings_path, "w", encoding="utf-8") as file:  # noinspection PyTypeChecker
@@ -54,7 +46,7 @@ def load_settings():
 
 # Получение значений фильер для ГА
 def get_filters():
-    filters_json = 'res_Equipments/Фильеры.json'
+    filters_json = 'data/Фильеры.json'
     # Чтение JSON-файла в массив
     with open(filters_json, 'r', encoding='utf-8') as file:
         return json.load(file)
@@ -535,6 +527,11 @@ def run_genetic_algorithm():
                     taks.waiting_for_filter = 0
 
     time_end = datetime.now()
+
+    if num_generations == 0:
+        best_individual = best_initial_individual
+        generation = 0
+
     for eq, tasks in best_individual['wiredrawing'].items():
         tasks[0].comment_setup = ""
         #WireDrawingTask.calculate_setup_time_all(tasks)

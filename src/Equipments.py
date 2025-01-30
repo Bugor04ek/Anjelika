@@ -214,7 +214,7 @@ def initialize_equipments():
     equipments = []
 
     # Загрузка данных из Draggers.json
-    with open("res_Equipments/Draggers.json", "r", encoding="utf-8") as dragger_file:
+    with open("data/Draggers.json", "r", encoding="utf-8") as dragger_file:
         dragger_data = json.load(dragger_file)
         for name, data in dragger_data.items():
             equipments.append(
@@ -225,7 +225,7 @@ def initialize_equipments():
                 )
 
     # Загрузка данных из Multivare.json
-    with open("res_Equipments/Multivare.json", "r", encoding="utf-8") as multivare_file:
+    with open("data/Multivare.json", "r", encoding="utf-8") as multivare_file:
         multivare_data = json.load(multivare_file)
         for name, data in multivare_data.items():
             equipments.append(
