@@ -488,8 +488,8 @@ def run_genetic_algorithm():
     time_start = datetime.now()
 
     # Параметры ГА
-    population_size = 1000  # Размер популяции
-    num_generations = 20  # Число поколений
+    population_size = 10  # Размер популяции
+    num_generations = 2  # Число поколений
     elitism_rate = 0.2  # Доля элитных особей, сохраняемых в следующем поколении
     mutation_probability = 0.1
     num_elites = round(population_size * elitism_rate)

@@ -2,6 +2,7 @@ import weakref
 from typing import Any, Union, List
 from datetime import datetime, timedelta
 import numpy as np
+from fontTools.merge.util import first
 
 from gosts import Mark
 import random
@@ -92,6 +93,8 @@ class Order(metaclass=OrderMeta):
         if 'Волочение (мультивайер)' in self.operation_sequence:
             self.time_on_multivare = row['ВремяНаВолочениемультивайер']
             task['multivare']: list = self.set_task_for_multivare()
+        if 'Волочение (мультивайер)' in self.operation_sequence:
+            pass
 
         # self.time_on_streng = row['ВремяНаСкруткастренги']
 
@@ -175,6 +178,26 @@ class Order(metaclass=OrderMeta):
         )
 
 
+class TaskNode:
+    last_node = None
+    first_node = None
+
+    def __init__(self, data):
+        self.data = data  # Значение узла
+        self.next = None  # Ссылка на следующий узел
+        self.prev = None  # Ссылка на предыдущий узел
+
+        if TaskNode.first_node is None:
+            TaskNode.first_node = self
+            TaskNode.last_node = self
+        else:
+            TaskNode.last_node.next = self
+            self.prev = TaskNode.last_node
+            TaskNode.last_node = self
+
+
+
+
 class TaskMeta(type):
     """Метакласс для хранения всех экземпляров заданий на волочилку."""
     _instances = weakref.WeakSet()
@@ -189,19 +212,19 @@ class TaskMeta(type):
         """Возвращает все экземпляры заданий определенного типа оборудования."""
         return [instance for instance in cls._instances for key, val in kwargs.items() if getattr(instance, key) == val]
 
-
     @classmethod
     def get_instances_all(cls):
         """Возвращает все экземпляры заданий определенного типа оборудования."""
         return [instance for instance in cls._instances]
 
 
-class Task(metaclass=TaskMeta):
+class Task(TaskNode):
     """
     Базовый класс для задания на оборудование.
     """
 
     def __init__(self, order, account_number, time_work, equipment_type=None, part_type=''):
+        super().__init__(self)
         self.index = len(TaskMeta.get_instances_all())
         self.acceptable_equipment: [Equipment] = []
         self.part_type = part_type  # '', '+', 'support'
@@ -233,7 +256,9 @@ class Task(metaclass=TaskMeta):
             # если старая волочилка, то берем много маршрутов, если другая, то 1
 
     @staticmethod
-    def assign_tasks_to_equipment(tasks: Union[List[Union['MultivareTask', 'WireDrawingTask']], 'Basket'], equipment=None):
+    def assign_tasks_to_equipment(
+        tasks: Union[List[Union['MultivareTask', 'WireDrawingTask']], 'Basket'], equipment=None
+    ):
         """
         Назначает оборудование для всех заданий, выбирая подходящее.
         """
@@ -247,7 +272,8 @@ class Task(metaclass=TaskMeta):
 
     def set_acceptable_equipment(self):
         equipments = MachineMeta.get_all_instances()
-        self.acceptable_equipment = [eq for eq in equipments if self.equipment_type in eq.equipment_type and eq.is_suitable(self)]
+        self.acceptable_equipment = [eq for eq in equipments if
+                                     self.equipment_type in eq.equipment_type and eq.is_suitable(self)]
 
     @staticmethod
     def form_matrix_multivare(tasks):
@@ -284,6 +310,7 @@ class WireDrawingTask(Task):
     """
     Класс для заказов на волочение. Тут может быть либо обычный заказ, либо корзина состоящая из заказов на мультик.
     """
+
     # Переменная класса для подсчета индексов
     def __init__(self, order, account_number, diameter, part_type, time_work):
         if issubclass(Order, type(order)):
@@ -294,7 +321,9 @@ class WireDrawingTask(Task):
             # self.time_work = WireDrawingMachine.W
             self.voloka = MultivareMachine.d_mult
             self.material = 'cu'
-        super().__init__(order, account_number=account_number, equipment_type='wiredrawing', part_type=part_type, time_work=time_work)
+        super().__init__(
+            order, account_number=account_number, equipment_type='wiredrawing', part_type=part_type, time_work=time_work
+        )
 
         self.comment_setup = ''
         self.time_setup = 0
@@ -334,7 +363,9 @@ class WireDrawingTask(Task):
         else:
             # на старой волочилке может быть много маршрутов
             for road in roads:
-                if abs(self.voloka - road[0][-1]) <= WireDrawingMachine.diameter_range: #Находится ли текущая волока в допустимом диапазоне
+                if abs(
+                        self.voloka - road[0][-1]
+                ) <= WireDrawingMachine.diameter_range:  #Находится ли текущая волока в допустимом диапазоне
                     self.spin_road = road
                     break
 
@@ -360,7 +391,7 @@ class WireDrawingTask(Task):
             else:  # Если road — плоский список
                 return [np.array(road)]
 
-        current_spin_road  = to_numpy_array(current_task.spin_road)
+        current_spin_road = to_numpy_array(current_task.spin_road)
         previous_spin_road = to_numpy_array(previous_task.spin_road)
 
         def calculate_spin_change(spin_out_values, spin_in_values):
@@ -400,14 +431,12 @@ class WireDrawingTask(Task):
                     current_task.comment_setup += f'вставить {len(spin_in_values)} волок ({spin_in_values.tolist()});'
                     best_road[(to_nested_tuple(road1), to_nested_tuple(road2))] = temp_setup_time
 
-
             best_route = min(best_road.items(), key=lambda x: x[1])
             current_task.spin_road = list(best_route[0][0])
             setup_time = best_route[1]
 
         current_task.time_setup = setup_time
         current_task.spin_road = [float(x) for x in current_task.spin_road]
-
 
     @staticmethod
     def calculate_setup_time_all(tasks: ["WireDrawingTask"]):
@@ -417,13 +446,17 @@ class WireDrawingTask(Task):
     @staticmethod
     def create_basket_refill_task(basket):
         """Создаёт задание на пополнение корзин на волочилке для конкретного оборудования."""
-        refill_task = WireDrawingTask(order=basket, account_number=None, diameter=None, part_type=None, time_work=WireDrawingMachine.W)
+        refill_task = WireDrawingTask(
+            order=basket, account_number=None, diameter=None, part_type=None, time_work=WireDrawingMachine.W
+        )
         WireDrawingTask.assign_tasks_to_equipment(refill_task)
         print(f"Создано задание на пополнение {8} корзин для {refill_task.equipment.equipment_name}.")
 
     def __repr__(self):
         if issubclass(Order, type(self.order)):
-            return '{} {} -- {} время простоя {} \n'.format(self.account_number, self.order.mark.mark, self.equipment, self.time_penalty)
+            return '{} {} -- {} время простоя {} \n'.format(
+                self.account_number, self.order.mark.mark, self.equipment, self.time_penalty
+            )
         elif issubclass(Basket, type(self.order)):
             return '{}\n'.format(self.order.__repr__())
 
@@ -442,8 +475,12 @@ class MultivareTask(Task):
     Задание на мультик хранит в переменной класса хранит все заказы в массиве, их можно будет найти по IDZak
     """
 
-    def __init__(self, order, diameter, number_of_veins, number_of_strands, number_of_sliver, wires_in_sliver, type, time_work):
-        super().__init__(order, account_number=order.account_number, equipment_type='multivare', part_type=type, time_work=time_work)
+    def __init__(
+        self, order, diameter, number_of_veins, number_of_strands, number_of_sliver, wires_in_sliver, type, time_work
+    ):
+        super().__init__(
+            order, account_number=order.account_number, equipment_type='multivare', part_type=type, time_work=time_work
+        )
         # self.volume_bobbin = order.volume_bobbin
         # 350 - Ограничение по массе барабана для гибкой жилы на 630 барабан
         # 8.89 - Плотность меди
@@ -501,7 +538,8 @@ class MultivareTask(Task):
         Находим в словаре фильер ближайшие значения к диаметру.
         """
 
-        self.spin = MultivareMachine.dictionary_spinners[min(MultivareMachine.dictionary_spinners, key=lambda x: abs(self.diameter - x))]
+        self.spin = MultivareMachine.dictionary_spinners[
+            min(MultivareMachine.dictionary_spinners, key=lambda x: abs(self.diameter - x))]
 
     def calculating_length(self):
         # суммарная вес проволочек
@@ -513,7 +551,8 @@ class MultivareTask(Task):
         self.time_on_multivare = round(((self.total_length_delays / ((self.linear_velocity * 60 / 1000) * 60)) * 60), 2)
         self.length_piece = round(self.total_weight_delays * (self.diameter ** 2 / MultivareMachine.d_mult ** 2), 3)
 
-        self.num_basket = self.total_weight_delays * 1 / (pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET
+        self.num_basket = self.total_weight_delays * 1 / (
+                pi * 0.25 * 8.89 * MultivareMachine.d_mult ** 2) / MultivareMachine.KM_IN_1_BASKET
         self.velocity_basket = self.num_basket / self.time_on_multivare
 
         # длина заказа в расчете на одну прядь (весь заказ это length_strands *
@@ -689,7 +728,7 @@ class Basket:
         self.acceptable_equipment = []
         self.time_setup = 0
         self.downtime = 0  # простой волочилки
-        self.uptime = 0    # простой мультика
+        self.uptime = 0  # простой мультика
         self.set_acceptable_equipment()
         WireDrawingTask.assign_tasks_to_equipment(self)
         self.time_penalty = 0
@@ -700,10 +739,10 @@ class Basket:
         self.waiting_for_filter = ""
         self.total_time = 0
 
-
     def set_acceptable_equipment(self):
         equipments = MachineMeta.get_all_instances()
-        self.acceptable_equipment = [eq for eq in equipments if self.equipment_type in eq.equipment_type and eq.is_suitable(self)]
+        self.acceptable_equipment = [eq for eq in equipments if
+                                     self.equipment_type in eq.equipment_type and eq.is_suitable(self)]
 
     def append(self, order: MultivareTask, num_basket: float, use_time_setup=True):
         """
@@ -756,7 +795,9 @@ class Basket:
         else:
             # на старой волочилке может быть много маршрутов
             for road in roads:
-                if abs(self.voloka - road[0][-1]) <= WireDrawingMachine.diameter_range: #Находится ли текущая волока в допустимом диапазоне
+                if abs(
+                        self.voloka - road[0][-1]
+                ) <= WireDrawingMachine.diameter_range:  #Находится ли текущая волока в допустимом диапазоне
                     self.spin_road = road
                     break
 
@@ -777,4 +818,3 @@ class Basket:
 
     def __hash__(self):
         return hash(self.orders)
-

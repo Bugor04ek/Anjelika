@@ -61,7 +61,7 @@ def main():
     # time_end = datetime.now()
 
     # total_time = time_end - time_begin
-    # print(total_time)
+    print(len(best_orders))
 
     result_json = {}
     for eq in Equipment.get_all_instances():
