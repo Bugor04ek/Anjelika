@@ -1,6 +1,7 @@
 from logging import exception
+from telnetlib import NEW_ENVIRON
 
-from Tasks import Task, TaskMeta, Basket, MultivareTask, WireDrawingTask, WireDrawingMachine,OrderMeta
+from Tasks import Task, TaskMeta, Basket, MultivareTask, WireDrawingTask, WireDrawingMachine, TaskNode
 import json
 import os
 from datetime import datetime, timedelta
@@ -77,6 +78,7 @@ def generate_individual(tasks):
     for eq in all_instances_eq:
         task_c = copy.deepcopy(all_tasks_by_equipment[eq])
         random.shuffle(task_c)  # Быстрее, чем random.sample
+        TaskNode.setup_connection(task_c)
         for equipment_type in eq.equipment_type:
             individual.setdefault(equipment_type, {})
             individual[equipment_type][eq.equipment_name] = task_c
@@ -85,7 +87,16 @@ def generate_individual(tasks):
 
     for basket in individual['Basket']:
         ind = individual[basket.equipment_type][basket.equipment.equipment_name]
-        ind.insert(random.randint(0, len(ind)), basket)
+        TaskNode.insert(ind, basket)
+    else:
+        ind = individual[basket.equipment_type][basket.equipment.equipment_name]
+        next1 = ind[0].next
+        new_ind = []
+        while next1 is not None:
+            new_ind.append(next1)
+            next1 = next1.next
+        individual[basket.equipment_type][basket.equipment.equipment_name] = new_ind
+
 
     time_end = datetime.now()
     # print(f"Время выполнения generate_individual: {time_end - time_start}")
@@ -106,7 +117,7 @@ def get_cost_multivare(ind):
         tasks = ind['multivare'][eq]
         # MultivareTask.calculate_setup_time_all(tasks)
         # Предположим, что задачи можно представить как NumPy массивы
-        time_setup_array = np.array([task.time_setup for task in tasks])
+        time_setup_array = np.array([task.data.time_setup for task in tasks])
 
         # Можно объединить все вычисления в одну строку, если есть возможность
         time_total += np.sum(time_setup_array)
@@ -124,9 +135,7 @@ def calculating_basket(ind, mode=None):
     if not mode:
         capacity = (settings or {}).get("REMAINING_BASKET_LENGTH", 8)
     else:
-
         capacity = 8
-
 
     updated_baskets = []
 
@@ -182,12 +191,13 @@ def get_routes(tasks, baskets):
     b = 0
     total_time = 0
     # loop over all indices in the list:
+
     for i, task in enumerate(tasks):
 
         # index is part of the current route:
         if not isinstance(task, Basket):
             route.append(task)
-            total_time = task.time_setup + task.time_work
+            total_time = task.data.time_setup + task.data.time_work
         # separator index - route is complete:
         else:
             baskets[b].time_prev_group_orders = total_time
@@ -212,8 +222,8 @@ def get_time_route(tasks: [WireDrawingTask]):
     :return: суммарное время работы
     """
 
-    times_work = np.array([task.time_work for task in tasks])
-    times_setup = np.array([task.time_setup for task in tasks])
+    times_work = np.array([task.data.time_work for task in tasks])
+    times_setup = np.array([task.data.time_setup for task in tasks])
     return np.sum(times_work + times_setup)
 
 
@@ -271,7 +281,10 @@ def add_missing_filters(filters_dict, ind):
 
     for eq, tasks in ind.items():
         for task in tasks:
-            spin_road = task.spin_road
+            try:
+                spin_road = task.data.spin_road
+            except:
+                spin_road = task.spin_road
 
             # Универсально преобразуем spin_road в плоский список
             if isinstance(spin_road, list):
@@ -300,6 +313,9 @@ def add_missing_filters(filters_dict, ind):
 def setup_time_begin_end(tasks):
     # Обработка первой задачи отдельно
     # try:
+    if isinstance(tasks[0], TaskNode):
+        tasks[0] = tasks[0].data
+
     tasks[0].time_begin = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)  # Начало первой задачи
     tasks[0].time_ending = tasks[0].time_begin + timedelta(minutes=tasks[0].time_work)
     # except:
@@ -307,6 +323,9 @@ def setup_time_begin_end(tasks):
 
     # Итерация по задачам начиная со второй
     for i in range(1, len(tasks)):  # Начинаем с 1, чтобы избежать ошибки для первой задачи
+        if isinstance(tasks[i], TaskNode):
+            tasks[i] = tasks[i].data
+
         tasks[i].time_begin = tasks[i - 1].time_ending + timedelta(
             minutes=tasks[i].time_setup)  # Время начала заказа - время конца предыдущего заказа + время перенастройки
         tasks[i].time_ending = tasks[i].time_begin + timedelta(
@@ -405,7 +424,7 @@ def get_cost_drawing(ind, print_logs=False):
         if any(isinstance(task, Basket) for task in tasks):
             time_total += get_cost_basket(tasks, ind['Basket'])
         else:
-            time_total += sum(task.time_setup for task in tasks)
+            time_total += sum(task.data.time_setup for task in tasks)
 
         # Рассчитываем время начала и окончания
         setup_time_begin_end(tasks)
@@ -694,7 +713,7 @@ def mate(elites, population_size):
                     if len(tasks_ind1) < 2:
                         continue
 
-                    t_tasks = np.random.choice(tasks_ind1, size=4 if len(tasks_ind1) > 4 else 1, replace=False)
+                    t_tasks = np.random.choice(tasks_ind1, size=3 if len(tasks_ind1) > 3 else 1, replace=False)
                     for t_task in t_tasks:
                         if isinstance(t_task, Basket):
                             continue

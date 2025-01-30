@@ -1,5 +1,6 @@
 import weakref
 from typing import Any, Union, List
+import abc
 from datetime import datetime, timedelta
 import numpy as np
 from fontTools.merge.util import first
@@ -110,6 +111,7 @@ class Order(metaclass=OrderMeta):
         Заводим Задание на волочилку и добавляем задание в очередь. Тут очередь будет еще не в оптимальном порядке
         :return:
         """
+
         task = [WireDrawingTask(self, self.account_number, self.voloka, '', self.time_on_drawing)]
         if self.mark.cable_parameters.get('Тип') == 'Плюсовой':
             task.append(
@@ -121,13 +123,13 @@ class Order(metaclass=OrderMeta):
     def set_task_for_multivare(self):
         task = [MultivareTask(
             self, self.diameter, self.number_of_veins, self.number_of_strands,
-            self.number_of_sliver, self.wires_in_sliver, '', self.time_on_multivare
+            self.number_of_sliver, self.wires_in_sliver, '', self.time_on_multivare,
         )]
         if self.number_of_sliver_extra:
             task.append(
                 MultivareTask(
                     self, self.diameter, self.number_of_veins, self.number_of_strands,
-                    self.number_of_sliver_extra, self.wires_in_sliver_extra, 'e', self.time_on_multivare
+                    self.number_of_sliver_extra, self.wires_in_sliver_extra, 'e', self.time_on_multivare, 'r'
                 )
             )
 
@@ -137,7 +139,7 @@ class Order(metaclass=OrderMeta):
                     self, self.diameter_plus, self.number_of_veins_plus,
                     self.number_of_strands_plus,
                     self.number_of_sliver_plus,
-                    self.wires_in_sliver_plus, '+', self.time_on_multivare
+                    self.wires_in_sliver_plus, '+', self.time_on_multivare,
                 )
             )
 
@@ -147,7 +149,7 @@ class Order(metaclass=OrderMeta):
                         self, self.diameter_plus, self.number_of_veins_plus,
                         self.number_of_strands_plus,
                         self.number_of_sliver_extra_plus,
-                        self.wires_in_sliver_extra_plus, 'e+', self.time_on_multivare
+                        self.wires_in_sliver_extra_plus, 'e+', self.time_on_multivare,'r'
                     )
                 )
 
@@ -160,13 +162,14 @@ class Order(metaclass=OrderMeta):
                     self.wires_in_sliver_support, 's', self.time_on_multivare
                 )
             )
+
             if self.number_of_sliver_extra_support:
                 task.append(
                     MultivareTask(
                         self, self.diameter, self.number_of_veins_support,
                         self.number_of_strands_support,
                         self.number_of_sliver_extra_support,
-                        self.wires_in_sliver_extra_support, 'es', self.time_on_multivare
+                        self.wires_in_sliver_extra_support, 'es', self.time_on_multivare,'r'
                     )
                 )
 
@@ -176,26 +179,6 @@ class Order(metaclass=OrderMeta):
         return "{} | {} | {} | {} | {}".format(
             self.account_number, self.mark.mark, self.mark.cable_parameters, self.release_date, self.order_length
         )
-
-
-class TaskNode:
-    last_node = None
-    first_node = None
-
-    def __init__(self, data):
-        self.data = data  # Значение узла
-        self.next = None  # Ссылка на следующий узел
-        self.prev = None  # Ссылка на предыдущий узел
-
-        if TaskNode.first_node is None:
-            TaskNode.first_node = self
-            TaskNode.last_node = self
-        else:
-            TaskNode.last_node.next = self
-            self.prev = TaskNode.last_node
-            TaskNode.last_node = self
-
-
 
 
 class TaskMeta(type):
@@ -218,14 +201,58 @@ class TaskMeta(type):
         return [instance for instance in cls._instances]
 
 
-class Task(TaskNode):
+class TaskNode:
+    last_node = None
+    first_node = None
+
+    def __init__(self, data, next=None, prev=None, right=None):
+        self.data = data
+        self.next = next  # Ссылка на следующий узел
+        self.prev = prev  # Ссылка на предыдущий узел
+        self.right = right
+
+        if TaskNode.first_node is None:
+            TaskNode.first_node = self
+            TaskNode.last_node = self
+        elif next is None:
+            # TaskNode.last_node.next = self
+            # self.prev = TaskNode.last_node
+            TaskNode.last_node = self
+
+    @staticmethod
+    def setup_connection(tasks):
+        for task in tasks:
+            if getattr(task, 'node', None) is not None:
+                pass
+        # next_ = tasks[0].node.next
+        # while next_ is not None:
+        #     tasks.node.next = tasks[i+1]
+        #     tasks[i+1].node.prev = tasks[i]
+
+    @staticmethod
+    def insert(ind, basket):
+        node1 = random.choice(ind)
+        basket.next = node1
+        basket.prev = node1.prev
+        if node1.prev is not None:
+            node1.prev.next = basket
+        node1.prev = basket
+
+    def __str__(self):
+        return '{}\n'.format(self.data.order)
+
+
+class Task(metaclass=TaskMeta):
     """
     Базовый класс для задания на оборудование.
     """
 
-    def __init__(self, order, account_number, time_work, equipment_type=None, part_type=''):
-        super().__init__(self)
-        self.index = len(TaskMeta.get_instances_all())
+    def __init__(self, order, account_number, time_work, equipment_type=None, part_type='', type_node=None):
+        if type_node == 'r':
+            TaskNode.last_node.right = self
+        else:
+            self.node = TaskNode(self)
+        # self.index = len(TaskMeta.get_instances_all())
         self.acceptable_equipment: [Equipment] = []
         self.part_type = part_type  # '', '+', 'support'
         self.order = order
@@ -257,7 +284,7 @@ class Task(TaskNode):
 
     @staticmethod
     def assign_tasks_to_equipment(
-        tasks: Union[List[Union['MultivareTask', 'WireDrawingTask']], 'Basket'], equipment=None
+        tasks: Union[List[Union['MultivareTask', 'WireDrawingTask', 'TaskNode']], 'Basket'], equipment=None
     ):
         """
         Назначает оборудование для всех заданий, выбирая подходящее.
@@ -312,7 +339,7 @@ class WireDrawingTask(Task):
     """
 
     # Переменная класса для подсчета индексов
-    def __init__(self, order, account_number, diameter, part_type, time_work):
+    def __init__(self, order, account_number, diameter, part_type, time_work, type_node=None):
         if issubclass(Order, type(order)):
             self.material = order.material
             # self.time_work = order.time_on_dragger
@@ -322,7 +349,7 @@ class WireDrawingTask(Task):
             self.voloka = MultivareMachine.d_mult
             self.material = 'cu'
         super().__init__(
-            order, account_number=account_number, equipment_type='wiredrawing', part_type=part_type, time_work=time_work
+            order, account_number=account_number, equipment_type='wiredrawing', part_type=part_type, time_work=time_work, type_node=type_node
         )
 
         self.comment_setup = ''
@@ -372,7 +399,8 @@ class WireDrawingTask(Task):
     @staticmethod
     def calculate_setup_time(current_task: "WireDrawingTask", previous_task: "WireDrawingTask"):
         """Расчет времени перенастройки между заданиями."""
-
+        current_task_t = current_task
+        previous_task_t = previous_task
         setup_time = 0
         current_task.comment_setup = ''
 
@@ -390,6 +418,11 @@ class WireDrawingTask(Task):
                 return [np.array(subroad) for subroad in road]
             else:  # Если road — плоский список
                 return [np.array(road)]
+
+        if isinstance(current_task, TaskNode):
+            current_task = current_task.data
+        if isinstance(previous_task, TaskNode):
+            previous_task = previous_task.data
 
         current_spin_road = to_numpy_array(current_task.spin_road)
         previous_spin_road = to_numpy_array(previous_task.spin_road)
@@ -438,8 +471,13 @@ class WireDrawingTask(Task):
         current_task.time_setup = setup_time
         current_task.spin_road = [float(x) for x in current_task.spin_road]
 
+        if isinstance(current_task, TaskNode):
+            current_task = current_task_t
+        if isinstance(previous_task, TaskNode):
+            previous_task = previous_task_t
+
     @staticmethod
-    def calculate_setup_time_all(tasks: ["WireDrawingTask"]):
+    def calculate_setup_time_all(tasks: ["WireDrawingTask", "TaskNode"]):
         for i in range(1, len(tasks)):
             WireDrawingTask.calculate_setup_time(tasks[i], tasks[i - 1])
 
@@ -476,10 +514,10 @@ class MultivareTask(Task):
     """
 
     def __init__(
-        self, order, diameter, number_of_veins, number_of_strands, number_of_sliver, wires_in_sliver, type, time_work
+        self, order, diameter, number_of_veins, number_of_strands, number_of_sliver, wires_in_sliver, type, time_work, type_node=None
     ):
         super().__init__(
-            order, account_number=order.account_number, equipment_type='multivare', part_type=type, time_work=time_work
+            order, account_number=order.account_number, equipment_type='multivare', part_type=type, time_work=time_work, type_node=type_node
         )
         # self.volume_bobbin = order.volume_bobbin
         # 350 - Ограничение по массе барабана для гибкой жилы на 630 барабан
@@ -717,6 +755,8 @@ class Basket:
             self.orders: [MultivareTask] = []
             self.time_on_multivare = 0
 
+        self.prev = None
+        self.next = None
         self.material = 'cu'
         self.voloka = MultivareMachine.d_mult
         self.diameter = MultivareMachine.d_mult
