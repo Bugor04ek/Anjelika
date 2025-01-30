@@ -355,13 +355,20 @@ class WireDrawingTask(Task):
 
         # Преобразуем spin_road в NumPy массивы
         def to_numpy_array(road):
+
             if isinstance(road[0], list):  # Если road — список списков
                 return [np.array(subroad) for subroad in road]
             else:  # Если road — плоский список
                 return [np.array(road)]
 
+        # try:
+        # current_spin_road  = current_task.spin_road
+        # previous_spin_road = previous_task.spin_road
         current_spin_road  = to_numpy_array(current_task.spin_road)
         previous_spin_road = to_numpy_array(previous_task.spin_road)
+        # except:
+
+
 
         def calculate_spin_change(spin_out_values, spin_in_values):
             return (len(spin_out_values) * (WireDrawingMachine.CHANGE_WIRE + WireDrawingMachine.REMOVED_SPIN) +

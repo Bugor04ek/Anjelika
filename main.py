@@ -1,8 +1,11 @@
-
+import fastapi.responses
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import json
-
+import sys
+import os
+import threading
 
 
 from datetime import datetime
@@ -69,6 +72,12 @@ def main():
             if result_json.get(equipment_type, None) is None:
                 result_json[equipment_type] = {}
 
+            for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, []):
+                f = 1
+                pass
+
+
+
             result_json[equipment_type][eq.equipment_name] = [
                 # Для НЕ корзин
                 {"ЭтоКорзина": False,
@@ -85,7 +94,9 @@ def main():
                  "Маршрут": task.spin_road,
                  "Диаметр": task.diameter,
                  "ВремяВРаботе": task.time_work,
-                 "ВремяЗаказовДоКорзины": task.total_time}
+                 "ВремяЗаказовДоКорзины": task.total_time,
+                 "ПервыйЗаказНаКорзине": task.orders[0].order.UUID,
+                 "ПослединийЗаказНаКорзине": task.orders[-1].order.UUID}
                 for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, [])
             ]
 
@@ -96,6 +107,24 @@ def main():
     print("Генетический алгоритм завершен")
 
     return result_json
+
+# эндпоинт для вызова ошибки и выхода из проги
+@app.post("/reload")
+def shutdown():
+    # Запуск функции с задержкой 5 секунд
+    threading.Timer(1, delayed_function).start()
+
+    # Возвращаем ответ
+    return JSONResponse(content={"message": "Приложение будет перезапущено через 1 секунду."})
+
+
+def delayed_function():
+    # Перезапускаем приложение
+    print("Приложение должно быть перезапущено после этого сообщения.")
+    python = sys.executable  # Путь к интерпретатору Python
+    os.execl(python, python, *sys.argv)  # Заменяем текущий процесс новым
+
+
 
 
 # эндпоинт для замены длины корзины в JSON
@@ -163,6 +192,7 @@ def shuffle_json(payload: JsonArray):
 
     # Возвращаем перемешанный массив
     return {"Order": main()}
+
 
 
 if __name__ == "__main__":

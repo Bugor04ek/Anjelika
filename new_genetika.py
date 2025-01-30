@@ -25,31 +25,31 @@ def load_settings():
     # Путь к файлу настроек
     settings_path = os.path.join("Shared", "settings.json")
 
-    # Дефолтные настройки
-    default_settings = {
-        "HALL_OF_FAME_SIZE": 0.06,
-        "POPULATION_SIZE": 1,
-        "MAX_GENERATIONS": 0.09,
-        "P_CROSSOVER": 0,
-        "P_MUTATION": 0.05,
-        "MULTITHREADING": True,
-        "REMAINING_BASKET_LENGTH": 8,
-        "CORES": 2
-    }
 
     # Проверяем, существует ли файл настроек
     if not os.path.exists(settings_path):
+        # Дефолтные настройки
+        default_settings = {
+            "population_size": 100,
+            "num_generations": 3,
+            "elitism_rate": 0.2,
+            "mutation_probability": 0.5,
+            # "num_elites": 0.05,
+            # "MULTITHREADING": True,
+            # "REMAINING_BASKET_LENGTH": 8,
+            # "CORES": 2
+        }
         # Создаем файл с дефолтными настройками
         with open(settings_path, "w", encoding="utf-8") as file:  # noinspection PyTypeChecker
             json.dump(default_settings, file, indent=4, ensure_ascii=False)
         print(f"Файл настроек не найден. Создан файл с дефолтными значениями: {settings_path}")
-        return default_settings
+        settings = default_settings
+        return settings
 
     # Если файл существует, загружаем настройки из него
     with open(settings_path, "r", encoding="utf-8") as file:
         settings = json.load(file)
-
-    return settings
+        return settings
 
 
 # Получение значений фильер для ГА
@@ -124,7 +124,6 @@ def calculating_basket(ind, mode=None):
     if not mode:
         capacity = (settings or {}).get("REMAINING_BASKET_LENGTH", 8)
     else:
-
         capacity = 8
 
 
@@ -399,7 +398,7 @@ def get_cost_drawing(ind, print_logs=False):
     add_missing_filters(filters_dict, ind['wiredrawing'])
     filters_dict = dict(sorted(filters_dict.items()))
 
-    for eq, tasks in ind['wiredrawing'].items():
+    for tasks in ind['wiredrawing'].values():
         # Рассчитываем время перенастройки
         WireDrawingTask.calculate_setup_time_all(tasks)
         if any(isinstance(task, Basket) for task in tasks):
@@ -485,13 +484,18 @@ def fitness_function(individual):
 #------------------------------------------------------------------
 
 def run_genetic_algorithm():
+    global settings
+
+    #population_size = settings.get("MULTITHREADING", 1)
+
+
     time_start = datetime.now()
 
     # Параметры ГА
-    population_size = 1000  # Размер популяции
-    num_generations = 20  # Число поколений
-    elitism_rate = 0.2  # Доля элитных особей, сохраняемых в следующем поколении
-    mutation_probability = 0.1
+    population_size = settings['population_size']  # Размер популяции
+    num_generations = settings['num_generations']  # Число поколений
+    elitism_rate = settings['elitism_rate']  # Доля элитных особей, сохраняемых в следующем поколении
+    mutation_probability = settings['mutation_probability']
     num_elites = round(population_size * elitism_rate)
 
     # Генерация начальной популяции
@@ -677,7 +681,7 @@ def mate(elites, population_size):
 
             for equipment_type in child1.keys():
                 if equipment_type == 'Basket':
-                    for _ in range(2):
+                    for _ in range(4):
                         for basket in child1['Basket']:
                             i = child1['wiredrawing'][basket.equipment.equipment_name].index(basket)
                             if i != len(child1['wiredrawing'][basket.equipment.equipment_name]) - 1 and basket.downtime > 0:
@@ -730,7 +734,7 @@ def run():
     # Загрузка настроек из JSON-файла
     global settings
     global filters_array
-    settings = load_settings()
+    load_settings()
     filters_array = get_filters()
     # мб заполнить словарь фильер тут через getallinstace()
 
