@@ -1,4 +1,4 @@
-from Tasks import Task, TaskMeta, Basket, MultivareTask, WireDrawingTask, WireDrawingMachine
+from src.Tasks import Task, TaskMeta, Basket, MultivareTask, WireDrawingTask, WireDrawingMachine
 import json
 import os
 from datetime import datetime, timedelta

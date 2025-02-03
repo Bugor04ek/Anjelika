@@ -26,4 +26,4 @@ COPY . .
 EXPOSE 8801
 
 # Команда для запуска приложения
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8801", "--workers", "4"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8801", "--workers", "4"]

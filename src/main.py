@@ -5,23 +5,37 @@ import json
 import sys
 import os
 import threading
+import signal
 
 
 from datetime import datetime
-from typing import TextIO
+from typing import TextIO, List, Dict, Union, Optional
 
 from src.Equipments import initialize_equipments, Equipment
-from Tasks import Order, OrderMeta, Basket, TaskMeta
+from src.Tasks import Order, OrderMeta, Basket, TaskMeta
 
-import new_genetika  # Алгоритмы для генетической оптимизации
+import src.new_genetika as new_genetika # Алгоритмы для генетической оптимизации
 
 
 equipments = None
-app = FastAPI()
+app = FastAPI(
+    title="Order Sorting API",
+    description="API для получения и сортировки заказов",
+    version="1.0.0"
+)
 
 # Модель данных
-class JsonArray(BaseModel):
+class OrdersRequest(BaseModel):
     data: list
+
+class OrdersResponse(BaseModel):
+    orders: list
+
+class BasketRequest(BaseModel):
+    data: list
+
+class BasketResponse(BaseModel):
+    basket_length: float
 
 
 def create_orders():
@@ -81,6 +95,7 @@ def main():
                 # Для НЕ корзин
                 {"ЭтоКорзина": False,
                  "UUID": task.order.UUID,
+                 "СЗUUID": task.order.GOUUID,
                  "Маршрут": task.spin_road,
                  "Комментарий": task.comment_setup,
                  "Штраф": task.time_penalty,
@@ -95,7 +110,10 @@ def main():
                  "ВремяВРаботе": task.time_work,
                  "ВремяЗаказовДоКорзины": task.total_time,
                  "ПервыйЗаказНаКорзине": task.orders[0].order.UUID,
-                 "ПослединийЗаказНаКорзине": task.orders[-1].order.UUID}
+                 "СЗUUIDПервыйЗаказНаКорзине": task.orders[0].order.GOUUID,
+                 "ПослединийЗаказНаКорзине": task.orders[-1].order.UUID,
+                 "СЗUUIDПослединийЗаказНаКорзине": task.orders[0].order.GOUUID,
+                 }
                 for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, [])
             ]
 
@@ -107,38 +125,42 @@ def main():
 
     return result_json
 
-# эндпоинт для вызова ошибки и выхода из проги
-@app.post("/reload")
+# эндпоинт для вызова ошибки и выхода из программы
+@app.get("/reload", summary="Перезапустить программу",
+         description="Вызывает аварийное завершение процесса, что, при правильной настройке контейнера, приводит к его перезапуску (для очистки кэша и перезагрузки параметров)")
 def shutdown():
-    # Запуск функции с задержкой 5 секунд
-    threading.Timer(1, delayed_function).start()
+    """
+    **Описание:**
+    Этот эндпоинт не принимает параметры. Он запускает отложенное завершение процесса,
+    что приводит к аварийному завершению приложения и перезапуску контейнера.
 
-    # Возвращаем ответ
-    return JSONResponse(content={"message": "Приложение будет перезапущено через 1 секунду."})
+    **Ответ:**
+    - `message`: "Приложение будет перезапущено через 1 секунду."
+    """
+    # Запускаем функцию завершения с задержкой в 1 секунду
+    threading.Timer(1, delayed_shutdown).start()
+    return {"message": "Приложение будет перезапущено через 1 секунду."}
 
-
-def delayed_function():
-    # Перезапускаем приложение
-    print("Приложение должно быть перезапущено после этого сообщения.")
-    python = sys.executable  # Путь к интерпретатору Python
-    os.execl(python, python, *sys.argv)  # Заменяем текущий процесс новым
-
+def delayed_shutdown():
+    # Логируем сообщение перед завершением
+    print("Приложение завершает работу по запросу /reload. Отправляем SIGTERM.")
+    # Отправляем сигнал SIGTERM текущему процессу
+    os.kill(os.getpid(), signal.SIGTERM)
 
 
 
 # эндпоинт для замены длины корзины в JSON
-@app.post("/calculate_basket")
-def calculate_basket(payload: JsonArray):
+@app.post("/calculate_basket", response_model=BasketResponse, summary="Запрос на получение остатка длины на корзинах")
+def calculate_basket(request: BasketRequest):
 
     #Посчитать остаток корзин
     # Путь к файлам заказов и мультика
     file_name_for_orders = 'data/Заказы.json'
     file_name_for_new_basket_length = 'data/Multivare.json'
 
-    # try:
 
     # Получаем JSON из запроса
-    json_data = payload.model_dump()
+    json_data = request.model_dump()
 
     # Записываем JSON в файл
     with open(file_name_for_orders, 'w', encoding='utf-8') as json_file:  # type: TextIO
@@ -151,14 +173,7 @@ def calculate_basket(payload: JsonArray):
     inds = new_genetika.generate_population(TaskMeta.get_instances_all(), 1)
     baskets = new_genetika.calculating_basket(inds[0], True)
 
-    # try:
     remaining_basket_length = max(0.1, round((8 - (baskets[-1].sum_basket)),2))
-    # except:
-        # print(len(orders))
-        # print(len(inds))
-        # print(len(inds[0]['multivare']))
-        # print(len(baskets))
-
 
     with open(file_name_for_new_basket_length, 'r', encoding='utf-8') as file:
         data = json.load(file)
@@ -170,27 +185,25 @@ def calculate_basket(payload: JsonArray):
         json.dump(data, file, ensure_ascii=False, indent=4)
 
     # Возвращаем данные обратно клиенту
-    return {"status": remaining_basket_length}
+    return BasketResponse(basket_length = remaining_basket_length)
 
-    # #Если не получилось обработать запрос
-    # except Exception as e:
-    #     return {"status": "error", "message": str(e)}
+
 
 # эндпоинт для перемешивания JSON
 @app.post("/shuffle_json")
-def shuffle_json(payload: JsonArray):
+def shuffle_json(request: OrdersRequest):
     # Путь к файлу
     file_name = 'data/Заказы.json'
 
     # Получаем JSON из запроса
-    json_data = payload.model_dump()
+    json_data = request.model_dump()
 
     # Записываем JSON в файл
     with open(file_name, 'w', encoding='utf-8') as json_file:  # type: TextIO
         json.dump(json_data['data'], json_file, ensure_ascii=False, indent=4)
 
     # Возвращаем перемешанный массив
-    return {"Order": main()}
+    return {"Orders": main()}
 
 
 

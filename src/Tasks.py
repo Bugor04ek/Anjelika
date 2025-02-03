@@ -3,7 +3,7 @@ from typing import Union, List
 from datetime import datetime
 import numpy as np
 
-from gosts import Mark
+from src.gosts import Mark
 import random
 from src.Equipments import MultivareMachine, WireDrawingMachine, Equipment, MachineMeta
 
@@ -64,6 +64,7 @@ class Order(metaclass=OrderMeta):
         self.number_of_sliver_support = row['КоличествоЗарядныхКатушекНаСтренгеВспомогательный']
         self.wires_in_sliver_support = row['КоличествоПроволокНаОднойКатушкеВспомогательный']
         self.UUID = row['UUID']
+        self.GOUUID = row['СЗUUID']
         self.number_of_sliver_extra_support = row['КоличествоЗарядныхКатушекНаСтренгеВспомогательныйДоп']
         self.wires_in_sliver_extra_support = row['КоличествоПроволокНаОднойКатушкеВспомогательныйДоп']
         # self.type_bobbin = row['Вид барабана']
@@ -120,13 +121,13 @@ class Order(metaclass=OrderMeta):
             self, self.diameter, self.number_of_veins, self.number_of_strands,
             self.number_of_sliver, self.wires_in_sliver, '', self.time_on_multivare
         )]
-        if self.number_of_sliver_extra:
-            task.append(
-                MultivareTask(
-                    self, self.diameter, self.number_of_veins, self.number_of_strands,
-                    self.number_of_sliver_extra, self.wires_in_sliver_extra, 'e', self.time_on_multivare
-                )
-            )
+        # if self.number_of_sliver_extra:
+        #     task.append(
+        #         MultivareTask(
+        #             self, self.diameter, self.number_of_veins, self.number_of_strands,
+        #             self.number_of_sliver_extra, self.wires_in_sliver_extra, 'e', self.time_on_multivare
+        #         )
+        #     )
 
         if self.mark.cable_parameters.get('Тип') == 'Плюсовой':
             task.append(
@@ -137,16 +138,16 @@ class Order(metaclass=OrderMeta):
                     self.wires_in_sliver_plus, '+', self.time_on_multivare
                 )
             )
-
-            if self.number_of_sliver_extra_plus:
-                task.append(
-                    MultivareTask(
-                        self, self.diameter_plus, self.number_of_veins_plus,
-                        self.number_of_strands_plus,
-                        self.number_of_sliver_extra_plus,
-                        self.wires_in_sliver_extra_plus, 'e+', self.time_on_multivare
-                    )
-                )
+            #
+            # if self.number_of_sliver_extra_plus:
+            #     task.append(
+            #         MultivareTask(
+            #             self, self.diameter_plus, self.number_of_veins_plus,
+            #             self.number_of_strands_plus,
+            #             self.number_of_sliver_extra_plus,
+            #             self.wires_in_sliver_extra_plus, 'e+', self.time_on_multivare
+            #         )
+            #     )
 
         if self.mark.cable_parameters.get('Тип') == 'Вспомогательный':
             task.append(
@@ -157,15 +158,15 @@ class Order(metaclass=OrderMeta):
                     self.wires_in_sliver_support, 's', self.time_on_multivare
                 )
             )
-            if self.number_of_sliver_extra_support:
-                task.append(
-                    MultivareTask(
-                        self, self.diameter, self.number_of_veins_support,
-                        self.number_of_strands_support,
-                        self.number_of_sliver_extra_support,
-                        self.wires_in_sliver_extra_support, 'es', self.time_on_multivare
-                    )
-                )
+            # if self.number_of_sliver_extra_support:
+            #     task.append(
+            #         MultivareTask(
+            #             self, self.diameter, self.number_of_veins_support,
+            #             self.number_of_strands_support,
+            #             self.number_of_sliver_extra_support,
+            #             self.wires_in_sliver_extra_support, 'es', self.time_on_multivare
+            #         )
+            #     )
 
         return task
 
@@ -238,9 +239,13 @@ class Task(metaclass=TaskMeta):
         Назначает оборудование для всех заданий, выбирая подходящее.
         """
         if isinstance(tasks, list):
+            # try:
             for task in tasks:
                 task.equipment = random.choice(task.acceptable_equipment) if equipment is None else equipment
                 task.set_spin_road()
+            # except:
+            # print(task.account_number)
+
         else:
             tasks.equipment = random.choice(tasks.acceptable_equipment) if equipment is None else equipment
             tasks.set_spin_road()

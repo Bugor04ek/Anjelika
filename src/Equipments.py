@@ -7,7 +7,7 @@ import weakref
 from typing import List, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from Tasks import MultivareTask, WireDrawingTask, Order, Basket
+    from src.Tasks import MultivareTask, WireDrawingTask, Order, Basket
 
 
 class MachineMeta(type):
