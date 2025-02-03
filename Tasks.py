@@ -202,14 +202,15 @@ class TaskMeta(type):
 
 
 class TaskNode:
-    last_node = None
     first_node = None
+    last_node = None
 
-    def __init__(self, data, next=None, prev=None, right=None):
+    def __init__(self, data, next=None, prev=None, right=None, left=None):
         self.data = data
         self.next = next  # Ссылка на следующий узел
         self.prev = prev  # Ссылка на предыдущий узел
         self.right = right
+        self.left = left
 
         if TaskNode.first_node is None:
             TaskNode.first_node = self
@@ -242,21 +243,18 @@ class TaskNode:
         return '{}\n'.format(self.data.order)
 
 
-class Task(metaclass=TaskMeta):
+class Task(TaskNode, metaclass=TaskMeta):
     """
     Базовый класс для задания на оборудование.
     """
 
     def __init__(self, order, account_number, time_work, equipment_type=None, part_type='', type_node=None):
-        if type_node == 'r':
-            TaskNode.last_node.right = self
-        else:
-            self.node = TaskNode(self)
+        super().__init__(self, type_node)
         # self.index = len(TaskMeta.get_instances_all())
         self.acceptable_equipment: [Equipment] = []
         self.part_type = part_type  # '', '+', 'support'
         self.order = order
-        self.account_number = account_number  # Используем номер заказа из Order
+        self.account_number = account_number + part_type  # Используем номер заказа из Order
         self.equipment_type = equipment_type  # Тип оборудования
         self.equipment = None  # Конкретное оборудование, назначается в генетическом алгоритме
         self.time_work = time_work
