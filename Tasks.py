@@ -201,30 +201,36 @@ class TaskMeta(type):
         return [instance for instance in cls._instances]
 
 
+class LinkedList:
+    def __init__(self):
+        self.head = None
+
+
 class TaskNode:
     first_node = None
     last_node = None
 
-    def __init__(self, data, next=None, prev=None, right=None, left=None):
-        self.data = data
-        self.next = next  # Ссылка на следующий узел
-        self.prev = prev  # Ссылка на предыдущий узел
-        self.right = right
-        self.left = left
-
-        if TaskNode.first_node is None:
-            TaskNode.first_node = self
-            TaskNode.last_node = self
-        elif next is None:
-            # TaskNode.last_node.next = self
-            # self.prev = TaskNode.last_node
-            TaskNode.last_node = self
+    def __init__(self, next=None, prev=None, right=None, left=None, type_node=None):
+        self.prev = None
+        self.next = None
+        self.right = None
+        self.left = None
+        if type_node is not None:
+            TaskNode.last_node.right = self
+        TaskNode.last_node = self
 
     @staticmethod
     def setup_connection(tasks):
-        for task in tasks:
-            if getattr(task, 'node', None) is not None:
-                pass
+        prev_task = tasks[0]
+        for task in tasks[1::]:
+            if prev_task.part_type == '':
+                prev_task.next = task
+                task.prev = prev_task
+            prev_task = task
+        return tasks[0]
+
+        # if getattr(task, 'node', None) is not None:
+        #     pass
         # next_ = tasks[0].node.next
         # while next_ is not None:
         #     tasks.node.next = tasks[i+1]
@@ -239,8 +245,20 @@ class TaskNode:
             node1.prev.next = basket
         node1.prev = basket
 
+    def contains(self, cat):
+        lastbox = self.head
+        while (lastbox):
+            if cat == lastbox.cat:
+                return True
+            else:
+                lastbox = lastbox.nextcat
+        return False
+
     def __str__(self):
-        return '{}\n'.format(self.data.order)
+        str = ''
+        while self.next is not None:
+            str += '{}\n'.format(self.order)
+        return str
 
 
 class Task(TaskNode, metaclass=TaskMeta):
@@ -249,7 +267,7 @@ class Task(TaskNode, metaclass=TaskMeta):
     """
 
     def __init__(self, order, account_number, time_work, equipment_type=None, part_type='', type_node=None):
-        super().__init__(self, type_node)
+        super().__init__(self, type_node=type_node)
         # self.index = len(TaskMeta.get_instances_all())
         self.acceptable_equipment: [Equipment] = []
         self.part_type = part_type  # '', '+', 'support'
