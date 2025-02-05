@@ -202,15 +202,24 @@ class TaskMeta(type):
 
 
 class LinkedList:
-    def __init__(self):
-        self.head = None
+    def __init__(self, head=None):
+        self.head = head
+
+    def append(self, new_node):
+        current = self.head
+        if current:
+            while current.next:
+                current = current.next
+            current.next = new_node
+        else:
+            self.head = new_node
 
 
 class TaskNode:
     first_node = None
     last_node = None
 
-    def __init__(self, next=None, prev=None, right=None, left=None, type_node=None):
+    def __init__(self, type_node=None):
         self.prev = None
         self.next = None
         self.right = None
@@ -221,13 +230,15 @@ class TaskNode:
 
     @staticmethod
     def setup_connection(tasks):
+        first = tasks[0]
         prev_task = tasks[0]
-        for task in tasks[1::]:
+        tasks_temp = tasks[1::]
+        for task in tasks_temp:
             if prev_task.part_type == '':
                 prev_task.next = task
                 task.prev = prev_task
             prev_task = task
-        return tasks[0]
+        return first
 
         # if getattr(task, 'node', None) is not None:
         #     pass
