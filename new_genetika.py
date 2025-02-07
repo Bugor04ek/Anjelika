@@ -1,7 +1,7 @@
 from logging import exception
 from telnetlib import NEW_ENVIRON
 
-from Tasks import Task, TaskMeta, Basket, MultivareTask, WireDrawingTask, WireDrawingMachine, TaskNode
+from Tasks import Task, TaskMeta, Basket, MultivareTask, WireDrawingTask, WireDrawingMachine, TaskNode, LinkedList
 import json
 import os
 from datetime import datetime, timedelta
@@ -78,7 +78,8 @@ def generate_individual(tasks):
     for eq in all_instances_eq:
         task_c = copy.deepcopy(all_tasks_by_equipment[eq])
         random.shuffle(task_c)  # Быстрее, чем random.sample
-        first_node = TaskNode.setup_connection(task_c)
+        first_node = LinkedList.setup_connection(task_c)
+        print(first_node)
         for equipment_type in eq.equipment_type:
             individual.setdefault(equipment_type, {})
             individual[equipment_type][eq.equipment_name] = first_node

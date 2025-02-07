@@ -204,48 +204,57 @@ class TaskMeta(type):
 class LinkedList:
     def __init__(self, head=None):
         self.head = head
+        self.bottom = head
 
     def append(self, new_node):
-        current = self.head
+        current = self.bottom
         if current:
-            while current.next:
-                current = current.next
+            new_node.prev = current
             current.next = new_node
+            self.bottom = new_node
         else:
             self.head = new_node
+            self.bottom = new_node
+
+    @staticmethod
+    def setup_connection(tasks):
+        first = LinkedList(tasks[0])
+        prev_task = tasks[0]
+        tasks_temp = tasks[1::]
+        for task in tasks_temp:
+            if prev_task.part_type == '':
+                first.append(task)
+            prev_task = task
+        return first
+
+    def __repr__(self):
+        str = ''
+        current = self.head
+        while current is not None:
+            str += '{}\n'.format(current)
+            current = current.next
+        return str
 
 
 class TaskNode:
-    first_node = None
+    # first_node = None
     last_node = None
 
-    def __init__(self, type_node=None):
+    def __init__(self, data, type_node):
         self.prev = None
         self.next = None
         self.right = None
         self.left = None
         if type_node is not None:
-            TaskNode.last_node.right = self
-        TaskNode.last_node = self
+            TaskNode.last_node.right = data
+        TaskNode.last_node = data
 
-    @staticmethod
-    def setup_connection(tasks):
-        first = tasks[0]
-        prev_task = tasks[0]
-        tasks_temp = tasks[1::]
-        for task in tasks_temp:
-            if prev_task.part_type == '':
-                prev_task.next = task
-                task.prev = prev_task
-            prev_task = task
-        return first
-
-        # if getattr(task, 'node', None) is not None:
-        #     pass
-        # next_ = tasks[0].node.next
-        # while next_ is not None:
-        #     tasks.node.next = tasks[i+1]
-        #     tasks[i+1].node.prev = tasks[i]
+    # if getattr(task, 'node', None) is not None:
+    #     pass
+    # next_ = tasks[0].node.next
+    # while next_ is not None:
+    #     tasks.node.next = tasks[i+1]
+    #     tasks[i+1].node.prev = tasks[i]
 
     @staticmethod
     def insert(ind, basket):
@@ -278,7 +287,7 @@ class Task(TaskNode, metaclass=TaskMeta):
     """
 
     def __init__(self, order, account_number, time_work, equipment_type=None, part_type='', type_node=None):
-        super().__init__(self, type_node=type_node)
+        super().__init__(self, type_node)
         # self.index = len(TaskMeta.get_instances_all())
         self.acceptable_equipment: [Equipment] = []
         self.part_type = part_type  # '', '+', 'support'
@@ -345,7 +354,7 @@ class Task(TaskNode, metaclass=TaskMeta):
         return temp_matrix1
 
     def __str__(self):
-        return f"{self.account_number}{self.part_type} | {self.equipment_type or 'Не назначено'}"
+        return f"{self.account_number} | {self.equipment_type or 'Не назначено'}"
 
     # def __lt__(self, other):
     #     return True
