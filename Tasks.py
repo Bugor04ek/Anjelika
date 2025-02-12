@@ -94,8 +94,16 @@ class Order(metaclass=OrderMeta):
         if 'Волочение (мультивайер)' in self.operation_sequence:
             self.time_on_multivare = row['ВремяНаВолочениемультивайер']
             task['multivare']: list = self.set_task_for_multivare()
-        if 'Волочение (мультивайер)' in self.operation_sequence:
-            pass
+        if 'Скрутка ТПЖ' in self.operation_sequence:
+            self.time_on_multivare = row['ВремяНаВолочениемультивайер']
+            task['twist']: list = self.set_task_for_multivare()
+        if 'Общая скрутка' in self.operation_sequence:
+            self.time_on_multivare = row['ВремяНаВолочениемультивайер']
+            task['multivare']: list = self.set_task_for_multivare()
+        if 'Скрутка стренги' in self.operation_sequence:
+            self.time_on_multivare = row['ВремяНаВолочениемультивайер']
+            task['multivare']: list = self.set_task_for_multivare()
+
 
         # self.time_on_streng = row['ВремяНаСкруткастренги']
 
@@ -201,93 +209,93 @@ class TaskMeta(type):
         return [instance for instance in cls._instances]
 
 
-class LinkedList:
-    def __init__(self, head=None):
-        self.head = head
-        self.bottom = head
+# class LinkedList:
+#     def __init__(self, head=None):
+#         self.head = head
+#         self.bottom = head
+#
+#     def append(self, new_node):
+#         current = self.bottom
+#         if current:
+#             new_node.prev = current
+#             current.next = new_node
+#             self.bottom = new_node
+#         else:
+#             self.head = new_node
+#             self.bottom = new_node
+#
+#     @staticmethod
+#     def setup_connection(tasks):
+#         first = LinkedList(tasks[0])
+#         prev_task = tasks[0]
+#         tasks_temp = tasks[1::]
+#         for task in tasks_temp:
+#             if prev_task.part_type == '':
+#                 first.append(task)
+#             prev_task = task
+#         return first
+#
+#     def __repr__(self):
+#         str = ''
+#         current = self.head
+#         while current is not None:
+#             str += '{}\n'.format(current)
+#             current = current.next
+#         return str
+#
+#
+# class TaskNode:
+#     # first_node = None
+#     last_node = None
+#
+#     def __init__(self, data, type_node):
+#         self.prev = None
+#         self.next = None
+#         self.right = None
+#         self.left = None
+#         if type_node is not None:
+#             TaskNode.last_node.right = data
+#         TaskNode.last_node = data
+#
+#     # if getattr(task, 'node', None) is not None:
+#     #     pass
+#     # next_ = tasks[0].node.next
+#     # while next_ is not None:
+#     #     tasks.node.next = tasks[i+1]
+#     #     tasks[i+1].node.prev = tasks[i]
+#
+#     @staticmethod
+#     def insert(ind, basket):
+#         node1 = random.choice(ind)
+#         basket.next = node1
+#         basket.prev = node1.prev
+#         if node1.prev is not None:
+#             node1.prev.next = basket
+#         node1.prev = basket
+#
+#     def contains(self, cat):
+#         lastbox = self.head
+#         while (lastbox):
+#             if cat == lastbox.cat:
+#                 return True
+#             else:
+#                 lastbox = lastbox.nextcat
+#         return False
+#
+#     def __str__(self):
+#         str = ''
+#         while self.next is not None:
+#             str += '{}\n'.format(self.order)
+#         return str
 
-    def append(self, new_node):
-        current = self.bottom
-        if current:
-            new_node.prev = current
-            current.next = new_node
-            self.bottom = new_node
-        else:
-            self.head = new_node
-            self.bottom = new_node
 
-    @staticmethod
-    def setup_connection(tasks):
-        first = LinkedList(tasks[0])
-        prev_task = tasks[0]
-        tasks_temp = tasks[1::]
-        for task in tasks_temp:
-            if prev_task.part_type == '':
-                first.append(task)
-            prev_task = task
-        return first
-
-    def __repr__(self):
-        str = ''
-        current = self.head
-        while current is not None:
-            str += '{}\n'.format(current)
-            current = current.next
-        return str
-
-
-class TaskNode:
-    # first_node = None
-    last_node = None
-
-    def __init__(self, data, type_node):
-        self.prev = None
-        self.next = None
-        self.right = None
-        self.left = None
-        if type_node is not None:
-            TaskNode.last_node.right = data
-        TaskNode.last_node = data
-
-    # if getattr(task, 'node', None) is not None:
-    #     pass
-    # next_ = tasks[0].node.next
-    # while next_ is not None:
-    #     tasks.node.next = tasks[i+1]
-    #     tasks[i+1].node.prev = tasks[i]
-
-    @staticmethod
-    def insert(ind, basket):
-        node1 = random.choice(ind)
-        basket.next = node1
-        basket.prev = node1.prev
-        if node1.prev is not None:
-            node1.prev.next = basket
-        node1.prev = basket
-
-    def contains(self, cat):
-        lastbox = self.head
-        while (lastbox):
-            if cat == lastbox.cat:
-                return True
-            else:
-                lastbox = lastbox.nextcat
-        return False
-
-    def __str__(self):
-        str = ''
-        while self.next is not None:
-            str += '{}\n'.format(self.order)
-        return str
-
-
-class Task(TaskNode, metaclass=TaskMeta):
+class Task(metaclass=TaskMeta):
     """
     Базовый класс для задания на оборудование.
     """
 
-    def __init__(self, order, account_number, time_work, equipment_type=None, part_type='', type_node=None):
-        super().__init__(self, type_node)
+    def __init__(self, order, account_number, time_work, equipment_type=None, part_type=''):
+        # super().__init__(self, type_node)
         # self.index = len(TaskMeta.get_instances_all())
         self.acceptable_equipment: [Equipment] = []
         self.part_type = part_type  # '', '+', 'support'
@@ -297,7 +305,17 @@ class Task(TaskNode, metaclass=TaskMeta):
         self.equipment = None  # Конкретное оборудование, назначается в генетическом алгоритме
         self.time_work = time_work
         self.current_operation_index = 0  # Индекс текущей операции в цепочке
+
+        self.batch_size = order.volume_bobbin  # максимальная длина заправки
+        self.remaining_batches = max(1, order.order_length // self.batch_size)  # Количество заправок
+
+        self.waiting_for_tasks = []  # необходимые задания для выполнения задания
+
         self.set_acceptable_equipment()
+
+    def set_waiting_tasks(self, dependencies):
+        """Устанавливает зависимости (какие задания нужно дождаться перед выполнением)."""
+        self.waiting_for_tasks = dependencies
 
     def name(self):
         return self.equipment.name
@@ -455,11 +473,6 @@ class WireDrawingTask(Task):
             else:  # Если road — плоский список
                 return [np.array(road)]
 
-        if isinstance(current_task, TaskNode):
-            current_task = current_task.data
-        if isinstance(previous_task, TaskNode):
-            previous_task = previous_task.data
-
         current_spin_road = to_numpy_array(current_task.spin_road)
         previous_spin_road = to_numpy_array(previous_task.spin_road)
 
@@ -553,11 +566,12 @@ class MultivareTask(Task):
         self, order, diameter, number_of_veins, number_of_strands, number_of_sliver, wires_in_sliver, type, time_work, type_node=None
     ):
         super().__init__(
-            order, account_number=order.account_number, equipment_type='multivare', part_type=type, time_work=time_work, type_node=type_node
+            order, account_number=order.account_number, equipment_type='multivare', part_type=type, time_work=time_work
         )
         # self.volume_bobbin = order.volume_bobbin
         # 350 - Ограничение по массе барабана для гибкой жилы на 630 барабан
         # 8.89 - Плотность меди
+        self.spin = None
         self.linear_velocity = 10
         self.velocity_basket = 0
         self.total_length_delays = 0
@@ -636,12 +650,12 @@ class MultivareTask(Task):
         # подсчет барабанов
         self.calculating_bobbin()
 
-    def update_basket_status(self, current_basket_count, equipment):
+    def update_basket_status(self, current_basket_count):
         """Обновляет количество оставшихся корзин для мультика."""
         if current_basket_count < self.num_basket:
             # Подсчитываем, сколько еще корзин необходимо заполнить
             needed_baskets = 8
-            WireDrawingTask.create_basket_refill_task(needed_baskets, equipment)
+            WireDrawingTask.create_basket_refill_task(needed_baskets)
 
     def calculating_bobbin(self):
         number_full_bobbin = self.length_strands // self.volume_bobbin  # количество полных катушек в расчете на 1 прядь
@@ -752,21 +766,36 @@ class MultivareTask(Task):
         return all(getattr(self, key) == val for (key, val) in kwargs.items())
 
 
-class BasketMeta(type):
+class TwistTask(Task):
     """
-    Метакласс для отслеживания всех экземпляров корзин.
+    Класс для заданий на скрутку (стренги, ТПЖ, общая скрутка).
     """
-    _instances = weakref.WeakSet()
 
-    def __call__(cls, *args, **kwargs):
-        instance = super().__call__(*args, **kwargs)
-        cls._instances.add(instance)
-        return instance
+    def __init__(self, order, account_number, time_work, twist_type, part_type='', type_node=None):
+        """
+        :param twist_type: 'strand', 'tpj', 'general' – тип скрутки
+        """
+        super().__init__(order, account_number, time_work, equipment_type='twist', part_type=part_type)
+        self.twist_type = twist_type  # Тип скрутки
+        self.waiting_for_tasks = []  # Зависимости (какие жилы или заправки нужно дождаться)
 
-    @classmethod
-    def get_instances_by_type(cls, **kwargs):
-        """Возвращает все экземпляры заданий определенного типа оборудования."""
-        return [instance for instance in cls._instances for key, val in kwargs.items() if getattr(instance, key) == val]
+        # Определяем, что ждем перед запуском скрутки
+        self.set_waiting_conditions()
+
+    def set_waiting_conditions(self):
+        """Определяем, какие жилы или барабаны нужно дождаться перед скруткой."""
+        if self.twist_type == 'strand':  # Скрутка стренги – ждем вспомогательные жилы
+            if self.order.number_of_veins_support:
+                self.waiting_for_tasks.append(f"{self.account_number}s")
+
+        elif self.twist_type == 'tpj':  # Скрутка ТПЖ – ждем все барабаны после волочения
+            for i in range(self.order.order_length // self.order.volume_bobbin):
+                self.waiting_for_tasks.append(f"{self.account_number}_batch_{i}")
+
+        elif self.twist_type == 'final':  # Общая скрутка – ждем основную и плюсовую жилу
+            self.waiting_for_tasks.append(f"{self.account_number}")  # Основная жила
+            if self.order.number_of_veins_plus:
+                self.waiting_for_tasks.append(f"{self.account_number}+")
 
 
 class Basket:
