@@ -7,7 +7,7 @@ import weakref
 from typing import List, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from Tasks import MultivareTask, WireDrawingTask, Order, Basket
+    from Tasks import MultivareTask, WireDrawingTask, Order, Basket, TaskMeta
 
 
 class MachineMeta(type):
@@ -28,9 +28,13 @@ class MachineMeta(type):
 
 class Equipment(metaclass=MachineMeta):
 
-    def __init__(self, name, machine_type):
+    def __init__(self, name: '', machine_type: ['']):
         self.equipment_name = name
         self.equipment_type = machine_type
+
+    # def get_queue(self):
+    #     """Получаем очередь из `TaskMeta`, но только для этого оборудования."""
+    #     return TaskMeta.get_ready_tasks(self.equipment_types)
 
     @classmethod
     def get_all_instances(cls, type=None):
@@ -143,12 +147,7 @@ class MultivareMachine(Equipment):
 
 class TwistMachine(Equipment):
     CHANGE_BOBBIN = 5  # смена катушки на мультике
-    CHANGE_WIRE = 1.5  # снятие/натягивание проволочки на 1 фильере
-    STRETCHING_WIRE = 5  # протягивание пучка проволочек после всех фильер
-    KM_IN_1_BASKET = 35  # КМ в 1 корзине
-    KM_IN_8_BASKET = KM_IN_1_BASKET * 8  # КМ в 8 корзинах
-    KM_IN_16_BASKET = KM_IN_1_BASKET * 16  # КМ в 8 корзинах
-
+    CHANGE_CRIMP_PAIRS = 12.5
     dictionary_spinners = {
         2.28: 1,
         2.0264: 2,
@@ -176,17 +175,16 @@ class TwistMachine(Equipment):
     d_mult = 2.08
     pi = 3.141592653589793
 
-    def __init__(self, name, machine_type, supported_materials, total_baskets, remaining_basket_length, spinners_road):
+    def __init__(self, name: '', machine_type: [''], total_baskets: int, recoil_bobbin_type: ['']):
         super().__init__(name, machine_type)
-        self.supported_materials = supported_materials
         self.total_baskets = total_baskets  # MultivareMachine.KM_IN_16_BASKET всего корзин
-        self.remaining_basket_length = remaining_basket_length  # MultivareMachine.KM_IN_8_BASKET  # начальный запас длины для 8 корзин
-        self.capacity = self.remaining_basket_length
-        self.spinners_road = spinners_road
+        self.recoil_bobbin_type = recoil_bobbin_type
 
     def is_suitable(self, task):
-        return True
-        # return material in self.supported_materials and quantity <= self.capacity
+        return (task.material in self.supported_materials and
+                self.min_diameter <= task.voloka <= self.max_diameter and
+                (not (task.__class__.__name__ == 'Basket') or (
+                            task.__class__.__name__ == 'Basket' and self.basket)))
 
     # @classmethod
     # def get_all_instances(cls, names=None):
@@ -228,9 +226,9 @@ def initialize_equipments():
         multivare_data = json.load(twists_file)
         for name, data in multivare_data.items():
             equipments.append(
-                MultivareMachine(
-                    name, data['equipment_type'], data['supported_materials'], data['total_baskets'],
-                    data['remaining_basket_length'], data['spinners_road']
+                TwistMachine(
+                    name, data['equipment_type'], data['total_baskets'],
+                    data['recoil_bobbin_type'],
                     )
                 )
 

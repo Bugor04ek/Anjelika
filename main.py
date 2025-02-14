@@ -131,7 +131,6 @@ def calculate_basket(payload: JsonArray):
         # print(len(inds[0]['multivare']))
         # print(len(baskets))
 
-
     with open(file_name_for_new_basket_length, 'r', encoding='utf-8') as file:
         data = json.load(file)
 

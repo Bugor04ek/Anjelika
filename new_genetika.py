@@ -1,7 +1,7 @@
 from logging import exception
 from telnetlib import NEW_ENVIRON
 
-from Tasks import Task, TaskMeta, Basket, MultivareTask, WireDrawingTask, WireDrawingMachine, TaskNode, LinkedList
+from Tasks import Task, TaskMeta, Basket, MultivareTask, WireDrawingTask, WireDrawingMachine
 import json
 import os
 from datetime import datetime, timedelta

@@ -38,6 +38,9 @@ class Order(metaclass=OrderMeta):
     """
 
     def __init__(self, row):
+        self.time_on_general = None
+        self.time_on_twist_strand = None
+        self.time_on_twist_tpj = None
         self.time_on_drawing = None
         self.time_on_multivare = None
         self.IDZak = row['IDZakaza']
@@ -48,6 +51,8 @@ class Order(metaclass=OrderMeta):
         self.number_of_veins = row['КоличествоЖил']
         self.diameter = row['ДиаметрПроволоки']
         self.voloka = row['Волока']
+        self.wires_in_veins_twist = row['КоличествоПроволокВЖиле']
+        self.wires_in_veins_plus_twist = row['КоличествоПроволокВЖиле']
         self.number_of_strands = row['КоличествоСтренг']
         self.number_of_sliver = row['КоличествоЗарядныхКатушекНаСтренге']
         self.wires_in_sliver = row['КоличествоПроволокНаОднойКатушке']
@@ -68,7 +73,7 @@ class Order(metaclass=OrderMeta):
         self.UUID = row['UUID']
         self.number_of_sliver_extra_support = row['КоличествоЗарядныхКатушекНаСтренгеВспомогательныйДоп']
         self.wires_in_sliver_extra_support = row['КоличествоПроволокНаОднойКатушкеВспомогательныйДоп']
-        # self.type_bobbin = row['Вид барабана']
+        self.type_bobbin = None  # row['Вид барабана']
         self.volume_bobbin = row['КилометражМассаVSДлина']
         try:
             self.material = 'al' if self.mark.mark[0] in ['А', 'A'] else 'cu'
@@ -95,22 +100,14 @@ class Order(metaclass=OrderMeta):
             self.time_on_multivare = row['ВремяНаВолочениемультивайер']
             task['multivare']: list = self.set_task_for_multivare()
         if 'Скрутка ТПЖ' in self.operation_sequence:
-            self.time_on_multivare = row['ВремяНаВолочениемультивайер']
-            task['twist']: list = self.set_task_for_multivare()
+            self.time_on_twist_tpj = row['ВремяНаСкруткаТПЖ']
+            task['tpj']: list = self.set_task_for_twist(self.time_on_twist_tpj)
         if 'Общая скрутка' in self.operation_sequence:
-            self.time_on_multivare = row['ВремяНаВолочениемультивайер']
-            task['multivare']: list = self.set_task_for_multivare()
+            self.time_on_twist_strand = row['ВремяНаСкруткастренги']
+            task['strand']: list = self.set_task_for_twist(self.time_on_twist_strand)
         if 'Скрутка стренги' in self.operation_sequence:
-            self.time_on_multivare = row['ВремяНаВолочениемультивайер']
-            task['multivare']: list = self.set_task_for_multivare()
-
-
-        # self.time_on_streng = row['ВремяНаСкруткастренги']
-
-        # if self.time_on_dragger and not self.time_on_multivare:
-        #     task['wiredrawing']: list = self.set_task_for_dragger()
-        # if self.time_on_multivare:
-        #     task['multivare']: list = self.set_task_for_multivare()
+            self.time_on_general = row['ВремяНаОбщаяскрутка']
+            task['general']: list = self.set_task_for_twist(self.time_on_general)
 
         return task
 
@@ -182,6 +179,14 @@ class Order(metaclass=OrderMeta):
                 )
 
         return task
+
+    def set_task_for_twist(self, time):
+        task = [TwistTask(self, self.account_number, self.voloka, '', self.time_on_drawing)]
+        if self.mark.cable_parameters.get('Тип') == 'Плюсовой':
+            task.append(
+                TwistTask(self, self.account_number, self.diameter_plus, '+', self.time_on_drawing)
+            )
+        return
 
     def __repr__(self) -> str:
         return "{} | {} | {} | {} | {}".format(
@@ -794,7 +799,7 @@ class TwistTask(Task):
 
         elif self.twist_type == 'final':  # Общая скрутка – ждем основную и плюсовую жилу
             self.waiting_for_tasks.append(f"{self.account_number}")  # Основная жила
-            if self.order.number_of_veins_plus:
+            if self.order.number_дляof_veins_plus:
                 self.waiting_for_tasks.append(f"{self.account_number}+")
 
 
