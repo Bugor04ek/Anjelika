@@ -48,6 +48,7 @@ def main():
     # Шаг 0: Заведение оборудований
     equipments = initialize_equipments()
 
+
     # Шаг 1: Инициализация заказов
     create_orders()  # создаем заказы, хранятся в OrderMeta
 

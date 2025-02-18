@@ -175,9 +175,8 @@ class TwistMachine(Equipment):
     d_mult = 2.08
     pi = 3.141592653589793
 
-    def __init__(self, name: '', machine_type: [''], total_baskets: int, recoil_bobbin_type: ['']):
+    def __init__(self, name: '', machine_type: [''], recoil_bobbin_type: ['']):
         super().__init__(name, machine_type)
-        self.total_baskets = total_baskets  # MultivareMachine.KM_IN_16_BASKET всего корзин
         self.recoil_bobbin_type = recoil_bobbin_type
 
     def is_suitable(self, task):
@@ -227,7 +226,7 @@ def initialize_equipments():
         for name, data in multivare_data.items():
             equipments.append(
                 TwistMachine(
-                    name, data['equipment_type'], data['total_baskets'],
+                    name, data['equipment_type'],
                     data['recoil_bobbin_type'],
                     )
                 )

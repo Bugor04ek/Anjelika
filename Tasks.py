@@ -101,13 +101,13 @@ class Order(metaclass=OrderMeta):
             task['multivare']: list = self.set_task_for_multivare()
         if 'Скрутка ТПЖ' in self.operation_sequence:
             self.time_on_twist_tpj = row['ВремяНаСкруткаТПЖ']
-            task['tpj']: list = self.set_task_for_twist(self.time_on_twist_tpj)
-        if 'Общая скрутка' in self.operation_sequence:
-            self.time_on_twist_strand = row['ВремяНаСкруткастренги']
-            task['strand']: list = self.set_task_for_twist(self.time_on_twist_strand)
-        if 'Скрутка стренги' in self.operation_sequence:
-            self.time_on_general = row['ВремяНаОбщаяскрутка']
-            task['general']: list = self.set_task_for_twist(self.time_on_general)
+            task['tpj']: list = self.set_task_for_twist(self.time_on_twist_tpj, 'tpj')
+        # if 'Общая скрутка' in self.operation_sequence:
+        #     self.time_on_twist_strand = row['ВремяНаСкруткастренги']
+        #     task['strand']: list = self.set_task_for_twist(self.time_on_twist_strand)
+        # if 'Скрутка стренги' in self.operation_sequence:
+        #     self.time_on_general = row['ВремяНаОбщаяскрутка']
+        #     task['general']: list = self.set_task_for_twist(self.time_on_general)
 
         return task
 
@@ -180,13 +180,13 @@ class Order(metaclass=OrderMeta):
 
         return task
 
-    def set_task_for_twist(self, time):
-        task = [TwistTask(self, self.account_number, self.voloka, '', self.time_on_drawing)]
+    def set_task_for_twist(self, time, twist_type):
+        task = [TwistTask(self, self.account_number,  time, twist_type, '')]
         if self.mark.cable_parameters.get('Тип') == 'Плюсовой':
             task.append(
-                TwistTask(self, self.account_number, self.diameter_plus, '+', self.time_on_drawing)
+                TwistTask(self, self.account_number,  time, twist_type, '+')
             )
-        return
+        return task
 
     def __repr__(self) -> str:
         return "{} | {} | {} | {} | {}".format(
@@ -311,8 +311,34 @@ class Task(metaclass=TaskMeta):
         self.time_work = time_work
         self.current_operation_index = 0  # Индекс текущей операции в цепочке
 
-        self.batch_size = order.volume_bobbin  # максимальная длина заправки
-        self.remaining_batches = max(1, order.order_length // self.batch_size)  # Количество заправок
+        # Вместимость катушки
+        self.batch_capacity = order.volume_bobbin
+        self.total_length = order.order_length
+
+        # Расчет количества заправок и остатка
+        full_batches = int(self.total_length // self.batch_capacity)  # Полные заправки
+        remaining_length = self.total_length % self.batch_capacity  # Оставшееся место
+
+        self.batches = [
+            {
+                "batch_id": f"{self.account_number}_batch_{i}",
+                "completed": False,
+                "used_length": self.batch_capacity,
+                "free_space": 0
+            }
+            for i in range(full_batches)
+        ]
+
+        # Если есть остаток, создаем заправку с незаполненным местом
+        if remaining_length > 0:
+            self.batches.append(
+                {
+                    "batch_id": f"{self.account_number}_batch_{full_batches}",
+                    "completed": False,
+                    "used_length": remaining_length,
+                    "free_space": self.batch_capacity - remaining_length
+                }
+            )
 
         self.waiting_for_tasks = []  # необходимые задания для выполнения задания
 
@@ -408,7 +434,7 @@ class WireDrawingTask(Task):
             self.voloka = MultivareMachine.d_mult
             self.material = 'cu'
         super().__init__(
-            order, account_number=account_number, equipment_type='wiredrawing', part_type=part_type, time_work=time_work, type_node=type_node
+            order, account_number=account_number, equipment_type='wiredrawing', part_type=part_type, time_work=time_work
         )
 
         self.comment_setup = ''
@@ -794,7 +820,7 @@ class TwistTask(Task):
                 self.waiting_for_tasks.append(f"{self.account_number}s")
 
         elif self.twist_type == 'tpj':  # Скрутка ТПЖ – ждем все барабаны после волочения
-            for i in range(self.order.order_length // self.order.volume_bobbin):
+            for i in range(self.order.order_length // self.batch_size):
                 self.waiting_for_tasks.append(f"{self.account_number}_batch_{i}")
 
         elif self.twist_type == 'final':  # Общая скрутка – ждем основную и плюсовую жилу
