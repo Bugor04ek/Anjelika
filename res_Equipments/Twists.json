@@ -2,17 +2,20 @@
    "Yl": {
         "equipment_type": ["general"],
         "total_bobbin": 7,
-        "recoil_bobbin_type": [630]
-  },
+        "recoil_bobbin_type": [630], // отдатчик
+        "working_hours": 24
+   },
   "SHBS": {
         "equipment_type": ["general", "tpj"],
         "total_bobbin": 7,
-        "recoil_bobbin_type": [630]
+        "recoil_bobbin_type": [630], // отдатчик
+        "working_hours": 24
   },
   "ХМК-630": {
         "equipment_type": ["general", "tpj", "wire screen wrapping"],
         "total_bobbin": 58,
-        "recoil_bobbin_type": [630],
+        "recoil_bobbin_type": [630], // отдатчик
+        "working_hours": 24,
         "crimp_pair": {
           "19": 2,
           "37": 3,
@@ -22,7 +25,8 @@
   "ХМК-500": {
         "equipment_type": ["general", "tpj"],
         "total_bobbin": 37,
-        "recoil_bobbin_type": [500],
+        "recoil_bobbin_type": [500], // отдатчик
+        "working_hours": 24,
         "crimp_pair": {
           "19": 2,
           "37": 3
@@ -31,26 +35,31 @@
   "Сигара": {
         "equipment_type": ["general", "tpj"],
         "total_bobbin": 7,
-        "recoil_bobbin_type": [630]
+        "recoil_bobbin_type": [630], // отдатчик
+        "working_hours": 24
   },
   "SNJ-1": {
         "equipment_type": ["strand"],
         "total_bobbin": 8,
-        "recoil_bobbin_type": [630, 500]
+        "recoil_bobbin_type": [630, 500], // отдатчик
+        "working_hours": 24
   },
   "SNJ-2": {
         "equipment_type": ["strand"],
         "total_bobbin": 8,
-        "recoil_bobbin_type": [630, 500]
+        "recoil_bobbin_type": [630, 500], // отдатчик
+        "working_hours": 24
   },
   "SNJ-3": {
        "equipment_type": ["strand"],
         "total_bobbin": 8,
-        "recoil_bobbin_type": [630, 500]
+        "recoil_bobbin_type": [630, 500], // отдатчик
+        "working_hours": 24
   },
   "SNJ-4": {
         "equipment_type": ["strand"],
         "total_bobbin": 8,
-        "recoil_bobbin_type": [630, 500]
+        "recoil_bobbin_type": [630, 500], // отдатчик
+        "working_hours": 24
   }
 }

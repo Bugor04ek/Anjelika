@@ -6,7 +6,8 @@
         "spinners_road": [9, 8.15, 7.05, 6.15, 5.39, 4.72, 4.14, 3.64, 3.20, 2.80, 2.48, 2.20, 1.93, 1.70],
         "min_diameter": 1.70,
         "max_diameter": 4.54,
-        "receiver_type_bobbin": [630, 500]
+        "receiver_type_bobbin": [630, 500], // приемник
+        "working_hours": 24
     },
     "new": {
         "supported_materials": ["cu"],
@@ -15,7 +16,8 @@
         "spinners_road": [7, 5.75, 4.8, 4.03, 3.43, 2.95, 2.56, 2.25, 1.99, 1.78, 1.58, 1.41, 1.35, 1.25],
         "min_diameter": 1.25,
         "max_diameter": 4.54,
-        "receiver_type_bobbin": [630, 500]
+        "receiver_type_bobbin": [630, 500], // приемник
+        "working_hours": 24
     },
     "old": {
         "supported_materials": ["cu"],
@@ -3037,6 +3039,7 @@
         ],
         "min_diameter": 1.15,
         "max_diameter": 2.89,
-        "receiver_type_bobbin": [630, 500]
+        "receiver_type_bobbin": [630, 500], // приемник
+        "working_hours": 24
     }
 }

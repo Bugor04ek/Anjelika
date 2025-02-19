@@ -28,9 +28,10 @@ class MachineMeta(type):
 
 class Equipment(metaclass=MachineMeta):
 
-    def __init__(self, name: '', machine_type: ['']):
+    def __init__(self, name: '', machine_type: [''], receiver_type_bobbin, working_hours):
         self.equipment_name = name
         self.equipment_type = machine_type
+        self.working_hours = working_hours
 
     # def get_queue(self):
     #     """Получаем очередь из `TaskMeta`, но только для этого оборудования."""
@@ -59,9 +60,9 @@ class WireDrawingMachine(Equipment):
 
     def __init__(
         self, name: str, machine_type: [''], supported_materials: [''], basket: bool, spinners_road: [],
-        min_diameter, max_diameter
+        min_diameter, max_diameter, receiver_type_bobbin, working_hours
         ):
-        super().__init__(name, machine_type)
+        super().__init__(name, machine_type, receiver_type_bobbin, working_hours)
         self.supported_materials = supported_materials
         self.basket = basket
         self.spinners_road = spinners_road
@@ -123,8 +124,9 @@ class MultivareMachine(Equipment):
     d_mult = 2.08
     pi = 3.141592653589793
 
-    def __init__(self, name, machine_type, supported_materials, total_baskets, remaining_basket_length, spinners_road):
-        super().__init__(name, machine_type)
+    def __init__(self, name, machine_type, supported_materials, total_baskets, remaining_basket_length, spinners_road,
+                 receiver_type_bobbin, working_hours):
+        super().__init__(name, machine_type, receiver_type_bobbin, working_hours)
         self.supported_materials = supported_materials
         self.total_baskets = total_baskets  # MultivareMachine.KM_IN_16_BASKET всего корзин
         self.remaining_basket_length = remaining_basket_length  # MultivareMachine.KM_IN_8_BASKET  # начальный запас длины для 8 корзин
@@ -175,8 +177,8 @@ class TwistMachine(Equipment):
     d_mult = 2.08
     pi = 3.141592653589793
 
-    def __init__(self, name: '', machine_type: [''], recoil_bobbin_type: ['']):
-        super().__init__(name, machine_type)
+    def __init__(self, name: '', machine_type: [''], recoil_bobbin_type: [''], receiver_type_bobbin, working_hours):
+        super().__init__(name, machine_type, receiver_type_bobbin, working_hours)
         self.recoil_bobbin_type = recoil_bobbin_type
 
     def is_suitable(self, task):
@@ -206,7 +208,8 @@ def initialize_equipments():
             equipments.append(
                 WireDrawingMachine(
                     name, data['equipment_type'], data['supported_materials'], data['basket'],
-                    data['spinners_road'], data['min_diameter'], data['max_diameter']
+                    data['spinners_road'], data['min_diameter'], data['max_diameter'], data['receiver_type_bobbin'],
+                    data['working_hours']
                     )
                 )
 
@@ -217,7 +220,8 @@ def initialize_equipments():
             equipments.append(
                 MultivareMachine(
                     name, data['equipment_type'], data['supported_materials'], data['total_baskets'],
-                    data['remaining_basket_length'], data['spinners_road']
+                    data['remaining_basket_length'], data['spinners_road'], data['receiver_type_bobbin'],
+                    data['working_hours']
                     )
                 )
 
@@ -226,8 +230,8 @@ def initialize_equipments():
         for name, data in multivare_data.items():
             equipments.append(
                 TwistMachine(
-                    name, data['equipment_type'],
-                    data['recoil_bobbin_type'],
+                    name, data['equipment_type'], data['recoil_bobbin_type'],
+                    data['recoil_bobbin_type'], data['working_hours']
                     )
                 )
 
