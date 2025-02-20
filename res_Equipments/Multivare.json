@@ -2,7 +2,7 @@
     "multivare": {
         "supported_materials": ["cu"],
         "equipment_type": ["multivare"],
-        "receiver_type_bobbin": [630, 500],  // приемник
+        "receiver_type_bobbin": [630, 500],
         "total_baskets": 16,
         "remaining_basket_length": 8,
         "working_hours": 24,

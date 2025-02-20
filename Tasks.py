@@ -81,7 +81,8 @@ class Order(metaclass=OrderMeta):
             self.material = 'cu'
         self.operation_sequence = row['ОперацииПоЗаказу']
         self.current_operation_index = 0  # Указатель на текущую операцию
-        self.task = self.set_task(row)
+        self.process_chain = self.set_task(row)
+        self.process_chain_plus = self.set_task(row)
 
     def set_task(self, row):
         """
@@ -95,13 +96,13 @@ class Order(metaclass=OrderMeta):
         # Если заказ пойдет на мультик, то у него не должно быть задания на волочилку, т.к. для таких заказов заданием будет являться корзина
         if 'Волочение' in self.operation_sequence and not 'Волочение (мультивайер)' in self.operation_sequence:
             self.time_on_drawing = row['ВремяНаВолочение']
-            task['wiredrawing']: list = self.set_task_for_dragger()
+            task['wiredrawing'] = self.set_task_for_dragger()
         if 'Волочение (мультивайер)' in self.operation_sequence:
             self.time_on_multivare = row['ВремяНаВолочениемультивайер']
-            task['multivare']: list = self.set_task_for_multivare()
+            task['multivare'] = self.set_task_for_multivare()
         if 'Скрутка ТПЖ' in self.operation_sequence:
             self.time_on_twist_tpj = row['ВремяНаСкруткаТПЖ']
-            task['tpj']: list = self.set_task_for_twist(self.time_on_twist_tpj, 'tpj')
+            task['tpj'] = self.set_task_for_twist(self.time_on_twist_tpj, 'tpj')
         # if 'Общая скрутка' in self.operation_sequence:
         #     self.time_on_twist_strand = row['ВремяНаСкруткастренги']
         #     task['strand']: list = self.set_task_for_twist(self.time_on_twist_strand)
@@ -802,7 +803,7 @@ class TwistTask(Task):
     Класс для заданий на скрутку (стренги, ТПЖ, общая скрутка).
     """
 
-    def __init__(self, order, account_number, time_work, twist_type, part_type='', type_node=None):
+    def __init__(self, order, account_number, time_work, twist_type, part_type=''):
         """
         :param twist_type: 'strand', 'tpj', 'general' – тип скрутки
         """
@@ -813,20 +814,21 @@ class TwistTask(Task):
         # Определяем, что ждем перед запуском скрутки
         self.set_waiting_conditions()
 
+    # Обновляем метод set_waiting_conditions(), чтобы динамически брать предыдущий этап из тех. цепочки заказа
     def set_waiting_conditions(self):
-        """Определяем, какие жилы или барабаны нужно дождаться перед скруткой."""
-        if self.twist_type == 'strand':  # Скрутка стренги – ждем вспомогательные жилы
-            if self.order.number_of_veins_support:
-                self.waiting_for_tasks.append(f"{self.account_number}s")
+        """
+        Определяет, какие заказы должны быть завершены перед скруткой ТПЖ,
+        анализируя технологическую цепочку заказа.
+        """
+        process_chain = self.order.process_chain  # Получаем технологическую цепочку заказа
 
-        elif self.twist_type == 'tpj':  # Скрутка ТПЖ – ждем все барабаны после волочения
-            for i in range(self.order.order_length // self.batch_size):
-                self.waiting_for_tasks.append(f"{self.account_number}_batch_{i}")
-
-        elif self.twist_type == 'final':  # Общая скрутка – ждем основную и плюсовую жилу
-            self.waiting_for_tasks.append(f"{self.account_number}")  # Основная жила
-            if self.order.number_дляof_veins_plus:
-                self.waiting_for_tasks.append(f"{self.account_number}+")
+        # Определяем предыдущий этап перед скруткой ТПЖ
+        prev_stage_index = process_chain.index(self.twist_type) - 1  # Предыдущий этап перед ТПЖ
+        if prev_stage_index >= 0:
+            prev_stage = process_chain[prev_stage_index]  # Этап перед текущим
+            self.waiting_for_tasks = [
+                f"{self.account_number}_{prev_stage}_batch_{i}" for i in range(self.remaining_batches)
+            ]
 
 
 class Basket:
