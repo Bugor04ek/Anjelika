@@ -81,8 +81,8 @@ class Order(metaclass=OrderMeta):
             self.material = 'cu'
         self.operation_sequence = row['ОперацииПоЗаказу']
         self.current_operation_index = 0  # Указатель на текущую операцию
+        self.process_chain = {"main": {}, "plus": {}}
         self.process_chain = self.set_task(row)
-        self.process_chain_plus = self.set_task(row)
 
     def set_task(self, row):
         """
