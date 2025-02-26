@@ -150,42 +150,14 @@ class MultivareMachine(Equipment):
 class TwistMachine(Equipment):
     CHANGE_BOBBIN = 5  # смена катушки на мультике
     CHANGE_CRIMP_PAIRS = 12.5
-    dictionary_spinners = {
-        2.28: 1,
-        2.0264: 2,
-        1.8: 3,
-        1.6: 4,
-        1.422: 5,
-        1.2638: 6,
-        1.1232: 7,
-        0.9983: 8,
-        0.8872: 9,
-        0.7875: 10,
-        0.6993: 11,
-        0.621: 12,
-        0.5514: 13,
-        0.4896: 14,
-        0.446: 15,
-        0.4063: 16,
-        0.3701: 17,
-        0.3371: 18,
-        0.3075: 19,
-        0.2795: 20,
-        0.26: 21
-    }
-
-    d_mult = 2.08
-    pi = 3.141592653589793
 
     def __init__(self, name: '', machine_type: [''], recoil_bobbin_type: [''], receiver_type_bobbin, working_hours):
         super().__init__(name, machine_type, receiver_type_bobbin, working_hours)
         self.recoil_bobbin_type = recoil_bobbin_type
 
     def is_suitable(self, task):
-        return (task.material in self.supported_materials and
-                self.min_diameter <= task.voloka <= self.max_diameter and
-                (not (task.__class__.__name__ == 'Basket') or (
-                            task.__class__.__name__ == 'Basket' and self.basket)))
+        return (task.equipment_type in self.equipment_type
+                and self.recoil_bobbin_type)
 
     # @classmethod
     # def get_all_instances(cls, names=None):

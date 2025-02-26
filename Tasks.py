@@ -81,8 +81,8 @@ class Order(metaclass=OrderMeta):
             self.material = 'cu'
         self.operation_sequence = row['ОперацииПоЗаказу']
         self.current_operation_index = 0  # Указатель на текущую операцию
-        self.process_chain = {"main": {}, "plus": {}}
-        self.process_chain = self.set_task(row)
+        self.process_chain = {}
+        self.set_task(row)
 
     def set_task(self, row):
         """
@@ -91,18 +91,18 @@ class Order(metaclass=OrderMeta):
         +/е/s
         :return: массив, элементы которого задания на различные оборудования по техцепочке
         """
-        task = {}
+        task_chain = {"main": {}, "plus": {}}  # Два уровня: основная и плюсовая жила
 
         # Если заказ пойдет на мультик, то у него не должно быть задания на волочилку, т.к. для таких заказов заданием будет являться корзина
         if 'Волочение' in self.operation_sequence and not 'Волочение (мультивайер)' in self.operation_sequence:
             self.time_on_drawing = row['ВремяНаВолочение']
-            task['wiredrawing'] = self.set_task_for_dragger()
+            self.set_task_for_wiredrawing()
         if 'Волочение (мультивайер)' in self.operation_sequence:
             self.time_on_multivare = row['ВремяНаВолочениемультивайер']
-            task['multivare'] = self.set_task_for_multivare()
-        if 'Скрутка ТПЖ' in self.operation_sequence:
+            self.set_task_for_multivare()
+        if 'Скрутка ТПЖ' in self.operation_sequence and not 'Волочение (мультивайер)' in self.operation_sequence:
             self.time_on_twist_tpj = row['ВремяНаСкруткаТПЖ']
-            task['tpj'] = self.set_task_for_twist(self.time_on_twist_tpj, 'tpj')
+            self.set_task_for_twist(self.time_on_twist_tpj, 'tpj')
         # if 'Общая скрутка' in self.operation_sequence:
         #     self.time_on_twist_strand = row['ВремяНаСкруткастренги']
         #     task['strand']: list = self.set_task_for_twist(self.time_on_twist_strand)
@@ -110,84 +110,75 @@ class Order(metaclass=OrderMeta):
         #     self.time_on_general = row['ВремяНаОбщаяскрутка']
         #     task['general']: list = self.set_task_for_twist(self.time_on_general)
 
-        return task
-
-    def set_task_for_dragger(self):
+    def set_task_for_wiredrawing(self):
         """
         Заводим Задание на волочилку и добавляем задание в очередь. Тут очередь будет еще не в оптимальном порядке
         :return:
         """
 
-        task = [WireDrawingTask(self, self.account_number, self.voloka, '', self.time_on_drawing)]
+        self.process_chain.setdefault('main', {})['wiredrawing'] = [WireDrawingTask(self, self.account_number, self.voloka, 'main', self.time_on_drawing)]
         if self.mark.cable_parameters.get('Тип') == 'Плюсовой':
-            task.append(
-                WireDrawingTask(self, self.account_number, self.diameter_plus, '+', self.time_on_drawing)
-            )
-
-        return task
+            self.process_chain.setdefault('plus', {})['wiredrawing'] = [WireDrawingTask(self, self.account_number, self.diameter_plus, 'plus', self.time_on_drawing)]
 
     def set_task_for_multivare(self):
-        task = [MultivareTask(
+        self.process_chain.setdefault('main', {})['multivare'] = [MultivareTask(
             self, self.diameter, self.number_of_veins, self.number_of_strands,
-            self.number_of_sliver, self.wires_in_sliver, '', self.time_on_multivare,
+            self.number_of_sliver, self.wires_in_sliver, 'main', self.time_on_multivare,
         )]
         if self.number_of_sliver_extra:
-            task.append(
+            self.process_chain.setdefault('main', {})['multivare'].append(
                 MultivareTask(
                     self, self.diameter, self.number_of_veins, self.number_of_strands,
-                    self.number_of_sliver_extra, self.wires_in_sliver_extra, 'e', self.time_on_multivare, 'r'
+                    self.number_of_sliver_extra, self.wires_in_sliver_extra, 'extra', self.time_on_multivare
                 )
             )
 
         if self.mark.cable_parameters.get('Тип') == 'Плюсовой':
-            task.append(
-                MultivareTask(
+            self.process_chain.setdefault('plus', {})['multivare'] = [MultivareTask(
                     self, self.diameter_plus, self.number_of_veins_plus,
                     self.number_of_strands_plus,
                     self.number_of_sliver_plus,
-                    self.wires_in_sliver_plus, '+', self.time_on_multivare,
-                )
-            )
+                    self.wires_in_sliver_plus, 'plus', self.time_on_multivare,
+                )]
 
             if self.number_of_sliver_extra_plus:
-                task.append(
+                self.process_chain.setdefault('plus', {})['multivare'].append(
                     MultivareTask(
                         self, self.diameter_plus, self.number_of_veins_plus,
                         self.number_of_strands_plus,
                         self.number_of_sliver_extra_plus,
-                        self.wires_in_sliver_extra_plus, 'e+', self.time_on_multivare,'r'
+                        self.wires_in_sliver_extra_plus, 'plus_extra', self.time_on_multivare
                     )
                 )
 
         if self.mark.cable_parameters.get('Тип') == 'Вспомогательный':
-            task.append(
+            self.process_chain.setdefault('support', {})['multivare'] = [
                 MultivareTask(
                     self, self.diameter, self.number_of_veins_support,
                     self.number_of_strands_support,
                     self.number_of_sliver_support,
-                    self.wires_in_sliver_support, 's', self.time_on_multivare
+                    self.wires_in_sliver_support, 'support', self.time_on_multivare
                 )
-            )
+            ]
 
             if self.number_of_sliver_extra_support:
-                task.append(
+                self.process_chain.setdefault('support', {})['multivare'].append(
                     MultivareTask(
                         self, self.diameter, self.number_of_veins_support,
                         self.number_of_strands_support,
                         self.number_of_sliver_extra_support,
-                        self.wires_in_sliver_extra_support, 'es', self.time_on_multivare,'r'
+                        self.wires_in_sliver_extra_support, 'support_extra', self.time_on_multivare
                     )
                 )
 
-        return task
-
     def set_task_for_twist(self, time, twist_type):
-        task = [TwistTask(self, self.account_number,  time, twist_type, '')]
+        self.process_chain.setdefault('main', {})['tpj'] = []
+        self.process_chain.setdefault('main', {})['tpj'] = [TwistTask(self, self.account_number,  time, twist_type, 'main')]
         if self.mark.cable_parameters.get('Тип') == 'Плюсовой':
-            task.append(
-                TwistTask(self, self.account_number,  time, twist_type, '+')
+            self.process_chain.setdefault('plus', {})['tpj'] = []
+            self.process_chain.setdefault('plus', {})['tpj'].append(
+                TwistTask(self, self.account_number,  time, twist_type, 'plus')
             )
-        return task
 
     def __repr__(self) -> str:
         return "{} | {} | {} | {} | {}".format(
@@ -300,7 +291,7 @@ class Task(metaclass=TaskMeta):
     Базовый класс для задания на оборудование.
     """
 
-    def __init__(self, order, account_number, time_work, equipment_type=None, part_type=''):
+    def __init__(self, order, account_number, time_work, part_type, equipment_type=None):
         # super().__init__(self, type_node)
         # self.index = len(TaskMeta.get_instances_all())
         self.acceptable_equipment: [Equipment] = []
@@ -345,6 +336,37 @@ class Task(metaclass=TaskMeta):
 
         self.set_acceptable_equipment()
 
+    # Обновляем метод set_waiting_conditions(), чтобы динамически брать предыдущий этап из тех. цепочки заказа
+    def set_waiting_conditions(self):
+        """
+        Определяет, какие заказы должны быть завершены перед скруткой ТПЖ,
+        анализируя технологическую цепочку заказа.
+        """
+        process_chain = self.order.process_chain  # Получаем технологическую цепочку заказа
+        prev_stage = self.get_previous_stage(self.equipment_type, self.part_type)
+
+        # Определяем предыдущий этап перед скруткой ТПЖ
+        if prev_stage is not None:
+            self.waiting_for_tasks = [
+                f"{prev_stage.account_number}_batch_{i}" for i in range(len(self.batches))
+            ]
+        else:
+            self.waiting_for_tasks = []
+
+    def get_previous_stage(self, current_stage, vein_type="main"):
+        """
+        Находит предыдущий этап для основной или плюсовой жилы.
+
+        :param current_stage: этап, для которого ищем предшественника.
+        :param vein_type: "main" или "plus" — какая жила анализируется.
+        """
+        route = list(self.order.process_chain[vein_type].keys())  # Получаем список этапов
+        current_index = route.index(current_stage)
+
+        if current_index > 0:
+            return self.order.process_chain[vein_type][route[current_index - 1]][0]  # Предыдущий Task
+        return None  # Если это первый этап, возвращаем None
+
     def set_waiting_tasks(self, dependencies):
         """Устанавливает зависимости (какие задания нужно дождаться перед выполнением)."""
         self.waiting_for_tasks = dependencies
@@ -369,16 +391,15 @@ class Task(metaclass=TaskMeta):
             # если старая волочилка, то берем много маршрутов, если другая, то 1
 
     @staticmethod
-    def assign_tasks_to_equipment(
-        tasks: Union[List[Union['MultivareTask', 'WireDrawingTask', 'TaskNode']], 'Basket'], equipment=None
-    ):
+    def assign_tasks_to_equipment(tasks: Union[List[Union['MultivareTask', 'WireDrawingTask']], 'Basket'], equipment=None):
         """
         Назначает оборудование для всех заданий, выбирая подходящее.
         """
         if isinstance(tasks, list):
             for task in tasks:
                 task.equipment = random.choice(task.acceptable_equipment) if equipment is None else equipment
-                task.set_spin_road()
+                if isinstance(task, MultivareTask) or isinstance(task, WireDrawingTask):
+                    task.set_spin_road()
         else:
             tasks.equipment = random.choice(tasks.acceptable_equipment) if equipment is None else equipment
             tasks.set_spin_road()
@@ -425,7 +446,7 @@ class WireDrawingTask(Task):
     """
 
     # Переменная класса для подсчета индексов
-    def __init__(self, order, account_number, diameter, part_type, time_work, type_node=None):
+    def __init__(self, order, account_number, diameter, part_type, time_work):
         if issubclass(Order, type(order)):
             self.material = order.material
             # self.time_work = order.time_on_dragger
@@ -485,8 +506,6 @@ class WireDrawingTask(Task):
     @staticmethod
     def calculate_setup_time(current_task: "WireDrawingTask", previous_task: "WireDrawingTask"):
         """Расчет времени перенастройки между заданиями."""
-        current_task_t = current_task
-        previous_task_t = previous_task
         setup_time = 0
         current_task.comment_setup = ''
 
@@ -552,13 +571,8 @@ class WireDrawingTask(Task):
         current_task.time_setup = setup_time
         current_task.spin_road = [float(x) for x in current_task.spin_road]
 
-        if isinstance(current_task, TaskNode):
-            current_task = current_task_t
-        if isinstance(previous_task, TaskNode):
-            previous_task = previous_task_t
-
     @staticmethod
-    def calculate_setup_time_all(tasks: ["WireDrawingTask", "TaskNode"]):
+    def calculate_setup_time_all(tasks: ["WireDrawingTask"]):
         for i in range(1, len(tasks)):
             WireDrawingTask.calculate_setup_time(tasks[i], tasks[i - 1])
 
@@ -595,7 +609,7 @@ class MultivareTask(Task):
     """
 
     def __init__(
-        self, order, diameter, number_of_veins, number_of_strands, number_of_sliver, wires_in_sliver, type, time_work, type_node=None
+        self, order, diameter, number_of_veins, number_of_strands, number_of_sliver, wires_in_sliver, type, time_work
     ):
         super().__init__(
             order, account_number=order.account_number, equipment_type='multivare', part_type=type, time_work=time_work
@@ -803,33 +817,17 @@ class TwistTask(Task):
     Класс для заданий на скрутку (стренги, ТПЖ, общая скрутка).
     """
 
-    def __init__(self, order, account_number, time_work, twist_type, part_type=''):
+    def __init__(self, order, account_number, time_work, twist_type, part_type):
         """
         :param twist_type: 'strand', 'tpj', 'general' – тип скрутки
         """
-        super().__init__(order, account_number, time_work, equipment_type='twist', part_type=part_type)
+
+        super().__init__(order, account_number, time_work, equipment_type=twist_type, part_type=part_type)
         self.twist_type = twist_type  # Тип скрутки
-        self.waiting_for_tasks = []  # Зависимости (какие жилы или заправки нужно дождаться)
+        self.waiting_for_tasks = []     # Зависимости (какие жилы или заправки нужно дождаться)
 
         # Определяем, что ждем перед запуском скрутки
         self.set_waiting_conditions()
-
-    # Обновляем метод set_waiting_conditions(), чтобы динамически брать предыдущий этап из тех. цепочки заказа
-    def set_waiting_conditions(self):
-        """
-        Определяет, какие заказы должны быть завершены перед скруткой ТПЖ,
-        анализируя технологическую цепочку заказа.
-        """
-        process_chain = self.order.process_chain  # Получаем технологическую цепочку заказа
-
-        # Определяем предыдущий этап перед скруткой ТПЖ
-        prev_stage_index = process_chain.index(self.twist_type) - 1  # Предыдущий этап перед ТПЖ
-        if prev_stage_index >= 0:
-            prev_stage = process_chain[prev_stage_index]  # Этап перед текущим
-            self.waiting_for_tasks = [
-                f"{self.account_number}_{prev_stage}_batch_{i}" for i in range(self.remaining_batches)
-            ]
-
 
 class Basket:
     """

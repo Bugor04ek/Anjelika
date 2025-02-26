@@ -78,28 +78,17 @@ def generate_individual(tasks):
     for eq in all_instances_eq:
         task_c = copy.deepcopy(all_tasks_by_equipment[eq])
         random.shuffle(task_c)  # Быстрее, чем random.sample
-        first_node = LinkedList.setup_connection(task_c)
-        print(first_node)
         for equipment_type in eq.equipment_type:
             individual.setdefault(equipment_type, {})
-            individual[equipment_type][eq.equipment_name] = first_node
+            individual[equipment_type][eq.equipment_name] = task_c
 
     individual['Basket'] = calculating_basket(individual)
 
     for basket in individual['Basket']:
         ind = individual[basket.equipment_type][basket.equipment.equipment_name]
-        TaskNode.insert(ind, basket)
-    else:
-        ind = individual[basket.equipment_type][basket.equipment.equipment_name]
-        next1 = ind[0].next
-        new_ind = []
-        while next1 is not None:
-            new_ind.append(next1)
-            next1 = next1.next
-        individual[basket.equipment_type][basket.equipment.equipment_name] = new_ind
+        ind.insert(random.randint(0, len(ind)), basket)
 
-
-    time_end = datetime.now()
+    # time_end = datetime.now()
     # print(f"Время выполнения generate_individual: {time_end - time_start}")
     return individual
 
@@ -118,7 +107,7 @@ def get_cost_multivare(ind):
         tasks = ind['multivare'][eq]
         # MultivareTask.calculate_setup_time_all(tasks)
         # Предположим, что задачи можно представить как NumPy массивы
-        time_setup_array = np.array([task.data.time_setup for task in tasks])
+        time_setup_array = np.array([task.time_setup for task in tasks])
 
         # Можно объединить все вычисления в одну строку, если есть возможность
         time_total += np.sum(time_setup_array)
@@ -198,7 +187,7 @@ def get_routes(tasks, baskets):
         # index is part of the current route:
         if not isinstance(task, Basket):
             route.append(task)
-            total_time = task.data.time_setup + task.data.time_work
+            total_time = task.time_setup + task.time_work
         # separator index - route is complete:
         else:
             baskets[b].time_prev_group_orders = total_time
@@ -223,8 +212,8 @@ def get_time_route(tasks: [WireDrawingTask]):
     :return: суммарное время работы
     """
 
-    times_work = np.array([task.data.time_work for task in tasks])
-    times_setup = np.array([task.data.time_setup for task in tasks])
+    times_work = np.array([task.time_work for task in tasks])
+    times_setup = np.array([task.time_setup for task in tasks])
     return np.sum(times_work + times_setup)
 
 
@@ -314,9 +303,6 @@ def add_missing_filters(filters_dict, ind):
 def setup_time_begin_end(tasks):
     # Обработка первой задачи отдельно
     # try:
-    if isinstance(tasks[0], TaskNode):
-        tasks[0] = tasks[0].data
-
     tasks[0].time_begin = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)  # Начало первой задачи
     tasks[0].time_ending = tasks[0].time_begin + timedelta(minutes=tasks[0].time_work)
     # except:
@@ -324,8 +310,6 @@ def setup_time_begin_end(tasks):
 
     # Итерация по задачам начиная со второй
     for i in range(1, len(tasks)):  # Начинаем с 1, чтобы избежать ошибки для первой задачи
-        if isinstance(tasks[i], TaskNode):
-            tasks[i] = tasks[i].data
 
         tasks[i].time_begin = tasks[i - 1].time_ending + timedelta(
             minutes=tasks[i].time_setup)  # Время начала заказа - время конца предыдущего заказа + время перенастройки
@@ -425,7 +409,7 @@ def get_cost_drawing(ind, print_logs=False):
         if any(isinstance(task, Basket) for task in tasks):
             time_total += get_cost_basket(tasks, ind['Basket'])
         else:
-            time_total += sum(task.data.time_setup for task in tasks)
+            time_total += sum(task.time_setup for task in tasks)
 
         # Рассчитываем время начала и окончания
         setup_time_begin_end(tasks)
@@ -728,6 +712,10 @@ def mate(elites, population_size):
                                 best_num_group[eq] = [child1[equipment_type][eq.equipment_name].index(task) for task in
                                                       child1[equipment_type][eq.equipment_name] if
                                                       task.voloka == t_task.voloka]
+                            elif equipment_type == 'tpj':
+                                continue
+                            else:
+                                continue
 
                         best_eq = sorted(best_num_group.items(), key=lambda x: len(x[1]), reverse=True)[0][0]
                         if best_eq.equipment_name != equipment:
