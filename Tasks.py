@@ -206,86 +206,6 @@ class TaskMeta(type):
         return [instance for instance in cls._instances]
 
 
-# class LinkedList:
-#     def __init__(self, head=None):
-#         self.head = head
-#         self.bottom = head
-#
-#     def append(self, new_node):
-#         current = self.bottom
-#         if current:
-#             new_node.prev = current
-#             current.next = new_node
-#             self.bottom = new_node
-#         else:
-#             self.head = new_node
-#             self.bottom = new_node
-#
-#     @staticmethod
-#     def setup_connection(tasks):
-#         first = LinkedList(tasks[0])
-#         prev_task = tasks[0]
-#         tasks_temp = tasks[1::]
-#         for task in tasks_temp:
-#             if prev_task.part_type == '':
-#                 first.append(task)
-#             prev_task = task
-#         return first
-#
-#     def __repr__(self):
-#         str = ''
-#         current = self.head
-#         while current is not None:
-#             str += '{}\n'.format(current)
-#             current = current.next
-#         return str
-#
-#
-# class TaskNode:
-#     # first_node = None
-#     last_node = None
-#
-#     def __init__(self, data, type_node):
-#         self.prev = None
-#         self.next = None
-#         self.right = None
-#         self.left = None
-#         if type_node is not None:
-#             TaskNode.last_node.right = data
-#         TaskNode.last_node = data
-#
-#     # if getattr(task, 'node', None) is not None:
-#     #     pass
-#     # next_ = tasks[0].node.next
-#     # while next_ is not None:
-#     #     tasks.node.next = tasks[i+1]
-#     #     tasks[i+1].node.prev = tasks[i]
-#
-#     @staticmethod
-#     def insert(ind, basket):
-#         node1 = random.choice(ind)
-#         basket.next = node1
-#         basket.prev = node1.prev
-#         if node1.prev is not None:
-#             node1.prev.next = basket
-#         node1.prev = basket
-#
-#     def contains(self, cat):
-#         lastbox = self.head
-#         while (lastbox):
-#             if cat == lastbox.cat:
-#                 return True
-#             else:
-#                 lastbox = lastbox.nextcat
-#         return False
-#
-#     def __str__(self):
-#         str = ''
-#         while self.next is not None:
-#             str += '{}\n'.format(self.order)
-#         return str
-
-
 class Task(metaclass=TaskMeta):
     """
     Базовый класс для задания на оборудование.
@@ -301,40 +221,36 @@ class Task(metaclass=TaskMeta):
         self.equipment_type = equipment_type  # Тип оборудования
         self.equipment = None  # Конкретное оборудование, назначается в генетическом алгоритме
         self.time_work = time_work
+        self.time_setup = 0
         self.current_operation_index = 0  # Индекс текущей операции в цепочке
 
         # Вместимость катушки
         self.batch_capacity = order.volume_bobbin
         self.total_length = order.order_length
 
-        # Расчет количества заправок и остатка
-        full_batches = int(self.total_length // self.batch_capacity)  # Полные заправки
-        remaining_length = self.total_length % self.batch_capacity  # Оставшееся место
+        self.waiting_for_tasks = []  # необходимые задания для выполнения задания
+        self.batches = self._calculate_batches()
 
-        self.batches = [
+        self.set_acceptable_equipment()
+
+    def _calculate_batches(self):
+        full_batches = int(self.total_length // self.batch_capacity)
+        remaining_length = self.total_length % self.batch_capacity
+        batches = [
             {
-                "batch_id": f"{self.account_number}_batch_{i}",
-                "completed": False,
-                "used_length": self.batch_capacity,
+                "batch_id": f"{self.account_number}_batch_{i}", "completed": False, "used_length": self.batch_capacity,
                 "free_space": 0
             }
             for i in range(full_batches)
         ]
-
-        # Если есть остаток, создаем заправку с незаполненным местом
         if remaining_length > 0:
-            self.batches.append(
+            batches.append(
                 {
-                    "batch_id": f"{self.account_number}_batch_{full_batches}",
-                    "completed": False,
-                    "used_length": remaining_length,
-                    "free_space": self.batch_capacity - remaining_length
+                    "batch_id": f"{self.account_number}_batch_{full_batches}", "completed": False,
+                    "used_length": remaining_length, "free_space": self.batch_capacity - remaining_length
                 }
             )
-
-        self.waiting_for_tasks = []  # необходимые задания для выполнения задания
-
-        self.set_acceptable_equipment()
+        return batches
 
     # Обновляем метод set_waiting_conditions(), чтобы динамически брать предыдущий этап из тех. цепочки заказа
     def set_waiting_conditions(self):
@@ -344,14 +260,14 @@ class Task(metaclass=TaskMeta):
         """
         process_chain = self.order.process_chain  # Получаем технологическую цепочку заказа
         prev_stage = self.get_previous_stage(self.equipment_type, self.part_type)
-
+        self.waiting_for_tasks = prev_stage
         # Определяем предыдущий этап перед скруткой ТПЖ
-        if prev_stage is not None:
-            self.waiting_for_tasks = [
-                f"{prev_stage.account_number}_batch_{i}" for i in range(len(self.batches))
-            ]
-        else:
-            self.waiting_for_tasks = []
+        # if prev_stage is not None:
+        #     self.waiting_for_tasks = [
+        #         f"{prev_stage.account_number}_batch_{i}" for i in range(len(self.batches))
+        #     ]
+        # else:
+        #     self.waiting_for_tasks = []
 
     def get_previous_stage(self, current_stage, vein_type="main"):
         """
@@ -364,7 +280,7 @@ class Task(metaclass=TaskMeta):
         current_index = route.index(current_stage)
 
         if current_index > 0:
-            return self.order.process_chain[vein_type][route[current_index - 1]][0]  # Предыдущий Task
+            return self.order.process_chain[vein_type][route[current_index - 1]]  # Предыдущий Task
         return None  # Если это первый этап, возвращаем None
 
     def set_waiting_tasks(self, dependencies):
@@ -460,7 +376,6 @@ class WireDrawingTask(Task):
         )
 
         self.comment_setup = ''
-        self.time_setup = 0
         self.spin_road = []
         self.time_penalty = 0
         self.time_begin = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -828,6 +743,7 @@ class TwistTask(Task):
 
         # Определяем, что ждем перед запуском скрутки
         self.set_waiting_conditions()
+
 
 class Basket:
     """

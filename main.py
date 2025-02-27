@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import TextIO
 
 from Equipments import initialize_equipments, Equipment
-from Tasks import Order, OrderMeta, Basket, TaskMeta
+from Tasks import Order, OrderMeta, Basket, TaskMeta, TwistTask, MultivareTask, WireDrawingTask
 
 import new_genetika  # Алгоритмы для генетической оптимизации
 
@@ -72,14 +72,22 @@ def main():
 
             result_json[equipment_type][eq.equipment_name] = [
                 # Для НЕ корзин
-                {"ЭтоКорзина": False,
-                 "UUID": task.order.UUID,
+                {"UUID": task.order.UUID,
                  "Маршрут": task.spin_road,
                  "Комментарий": task.comment_setup,
                  "Штраф": task.time_penalty,
                  "ВремяВРаботе": task.time_work,
                  "ВремяПеренастройки": task.time_setup}
-                if not isinstance(task, Basket) else
+                if isinstance(task, MultivareTask) or isinstance(task, WireDrawingTask) else
+                {
+                    "UUID": task.order.UUID,
+                    # "Маршрут": task.spin_road,
+                    # "Комментарий": task.comment_setup,
+                    # "Штраф": task.time_penalty,
+                    "ВремяВРаботе": task.time_work,
+                    # "ВремяПеренастройки": task.time_setup
+                }
+                if isinstance(task, TwistTask) else
                 # Для корзин
                 {"ЭтоКорзина": True,
                  "Штраф": task.time_penalty,

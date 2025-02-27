@@ -101,20 +101,6 @@ def generate_population(tasks, population_size):
 
 
 # Функция оценки приспособленности — для вычисления общего времени выполнения задач
-def get_cost_multivare(ind):
-    time_total = 0
-    for eq in ind['multivare']:
-        tasks = ind['multivare'][eq]
-        # MultivareTask.calculate_setup_time_all(tasks)
-        # Предположим, что задачи можно представить как NumPy массивы
-        time_setup_array = np.array([task.time_setup for task in tasks])
-
-        # Можно объединить все вычисления в одну строку, если есть возможность
-        time_total += np.sum(time_setup_array)
-
-    return time_total
-
-
 def calculating_basket(ind, mode=None):
     """
     Для оптимально расставленных заказов на мультике считаются корзины. Корзина набивается заказами, которые сами по себе не формируют полноценные 8,
@@ -299,7 +285,6 @@ def add_missing_filters(filters_dict, ind):
             spin_road = spin_road.tolist()
 
 
-# Функция для установки времени начала и конца заказа
 def setup_time_begin_end(tasks):
     # Обработка первой задачи отдельно
     # try:
@@ -319,6 +304,7 @@ def setup_time_begin_end(tasks):
     return tasks
 
 
+# Функция для установки времени начала и конца заказа
 def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=False):
     """Вычисление времени переналадки на одном оборудовании с учётом фильер."""
     general_penalty = 0
@@ -409,7 +395,7 @@ def get_cost_drawing(ind, print_logs=False):
         if any(isinstance(task, Basket) for task in tasks):
             time_total += get_cost_basket(tasks, ind['Basket'])
         else:
-            time_total += sum(task.time_setup for task in tasks)
+            time_total += sum(task.time_setup + task.time_work for task in tasks)
 
         # Рассчитываем время начала и окончания
         setup_time_begin_end(tasks)
@@ -418,6 +404,33 @@ def get_cost_drawing(ind, print_logs=False):
         # time_total += calculate_setup_time_for_tasks(tasks, filters_dict, eq, print_logs)
 
     time_total += time_with_filters(ind['wiredrawing'], filters_dict)
+
+    return time_total
+
+
+def get_cost_multivare(ind):
+    time_total = 0
+    for eq in ind['multivare']:
+        tasks = ind['multivare'][eq]
+        # MultivareTask.calculate_setup_time_all(tasks)
+        # Предположим, что задачи можно представить как NumPy массивы
+        time_setup_array = np.array([task.time_setup + task.time_work for task in tasks])
+
+        # Можно объединить все вычисления в одну строку, если есть возможность
+        time_total += np.sum(time_setup_array)
+
+    return time_total
+
+
+def get_cost_tpj(ind):
+    time_total = 0
+    for eq in ind['tpj']:
+        tasks = ind['tpj'][eq]
+        # Предположим, что задачи можно представить как NumPy массивы
+        time_setup_array = np.array([task.time_setup + task.time_work for task in tasks])
+
+        # Можно объединить все вычисления в одну строку, если есть возможность
+        time_total += np.sum(time_setup_array)
 
     return time_total
 
@@ -483,7 +496,8 @@ def time_with_filters(ind, filters_dict):
 def fitness_function(individual):
     multivare_time = get_cost_multivare(individual)
     drawing_time = get_cost_drawing(individual)
-    return multivare_time + drawing_time
+    tpj_time = get_cost_tpj(individual)
+    return multivare_time + drawing_time + tpj_time
 
 
 #------------------------------------------------------------------
@@ -716,6 +730,8 @@ def mate(elites, population_size):
                                 continue
                             else:
                                 continue
+
+                        if best_num_group == {}: continue
 
                         best_eq = sorted(best_num_group.items(), key=lambda x: len(x[1]), reverse=True)[0][0]
                         if best_eq.equipment_name != equipment:
