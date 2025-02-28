@@ -62,49 +62,48 @@ def main():
     # time_end = datetime.now()
 
     # total_time = time_end - time_begin
-    print(len(best_orders))
 
-    result_json = {}
-    for eq in Equipment.get_all_instances():
-        for equipment_type in eq.equipment_type:
-            if result_json.get(equipment_type, None) is None:
-                result_json[equipment_type] = {}
-
-            result_json[equipment_type][eq.equipment_name] = [
-                # Для НЕ корзин
-                {"UUID": task.order.UUID,
-                 "Маршрут": task.spin_road,
-                 "Комментарий": task.comment_setup,
-                 "Штраф": task.time_penalty,
-                 "ВремяВРаботе": task.time_work,
-                 "ВремяПеренастройки": task.time_setup}
-                if isinstance(task, MultivareTask) or isinstance(task, WireDrawingTask) else
-                {
-                    "UUID": task.order.UUID,
-                    # "Маршрут": task.spin_road,
-                    # "Комментарий": task.comment_setup,
-                    # "Штраф": task.time_penalty,
-                    "ВремяВРаботе": task.time_work,
-                    # "ВремяПеренастройки": task.time_setup
-                }
-                if isinstance(task, TwistTask) else
-                # Для корзин
-                {"ЭтоКорзина": True,
-                 "Штраф": task.time_penalty,
-                 "Маршрут": task.spin_road,
-                 "Диаметр": task.diameter,
-                 "ВремяВРаботе": task.time_work,
-                 "ВремяЗаказовДоКорзины": task.total_time}
-                for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, [])
-            ]
-
-            # result_json[equipment_type][eq.equipment_name] = [{"Штраф": task.time_penalty, "Маршрут": task.spin_road, "ВремяВРаботе": task.time_work} for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, [])]
-
-        # result_json.append({"UUID": task.order.UUID,"Маршрут": task.spin_road, "Комментарий": task.comment_setup} for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, []))
+    # result_json = {}
+    # for eq in Equipment.get_all_instances():
+    #     for equipment_type in eq.equipment_type:
+    #         if result_json.get(equipment_type, None) is None:
+    #             result_json[equipment_type] = {}
+    #
+    #         result_json[equipment_type][eq.equipment_name] = [
+    #             # Для НЕ корзин
+    #             {"UUID": task.order.UUID,
+    #              "Маршрут": task.spin_road,
+    #              "Комментарий": task.comment_setup,
+    #              "Штраф": task.time_penalty,
+    #              "ВремяВРаботе": task.time_work,
+    #              "ВремяПеренастройки": task.time_setup}
+    #             if isinstance(task, MultivareTask) or isinstance(task, WireDrawingTask) else
+    #             {
+    #                 "UUID": task.order.UUID,
+    #                 # "Маршрут": task.spin_road,
+    #                 # "Комментарий": task.comment_setup,
+    #                 # "Штраф": task.time_penalty,
+    #                 "ВремяВРаботе": task.time_work,
+    #                 # "ВремяПеренастройки": task.time_setup
+    #             }
+    #             if isinstance(task, TwistTask) else
+    #             # Для корзин
+    #             {"ЭтоКорзина": True,
+    #              "Штраф": task.time_penalty,
+    #              "Маршрут": task.spin_road,
+    #              "Диаметр": task.diameter,
+    #              "ВремяВРаботе": task.time_work,
+    #              "ВремяЗаказовДоКорзины": task.total_time}
+    #             for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, [])
+    #         ]
+    #
+    #         # result_json[equipment_type][eq.equipment_name] = [{"Штраф": task.time_penalty, "Маршрут": task.spin_road, "ВремяВРаботе": task.time_work} for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, [])]
+    #
+    #     # result_json.append({"UUID": task.order.UUID,"Маршрут": task.spin_road, "Комментарий": task.comment_setup} for task in best_orders.get(equipment_type, {}).get(eq.equipment_name, []))
 
     print("Генетический алгоритм завершен")
 
-    return result_json
+    # return result_json
 
 
 # эндпоинт для замены длины корзины в JSON
@@ -174,6 +173,6 @@ def shuffle_json(payload: JsonArray):
 
 
 if __name__ == "__main__":
-    result_json = main()
-
-    print(result_json)
+    # result_json = main()
+    main()
+    # print(result_json)

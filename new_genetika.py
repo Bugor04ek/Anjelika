@@ -1,7 +1,7 @@
 from logging import exception
 from telnetlib import NEW_ENVIRON
 
-from Tasks import Task, TaskMeta, Basket, MultivareTask, WireDrawingTask, WireDrawingMachine
+from Tasks import Task, TaskMeta, Basket, MultivareTask, WireDrawingTask, WireDrawingMachine, TwistTask
 import json
 import os
 from datetime import datetime, timedelta
@@ -73,20 +73,25 @@ def generate_individual(tasks):
     all_instances_eq = Equipment.get_all_instances()
 
     # Предварительная фильтрация задач для оборудования
-    all_tasks_by_equipment = {eq: TaskMeta.get_instances_by_type(equipment=eq) for eq in all_instances_eq}
+    # all_tasks_by_equipment = {eq: TaskMeta.get_instances_by_type(equipment=eq) for eq in all_instances_eq}
 
     for eq in all_instances_eq:
-        task_c = copy.deepcopy(all_tasks_by_equipment[eq])
-        random.shuffle(task_c)  # Быстрее, чем random.sample
-        for equipment_type in eq.equipment_type:
-            individual.setdefault(equipment_type, {})
-            individual[equipment_type][eq.equipment_name] = task_c
+        individual[eq.equipment_name] = []  # Инициализируем пустую очередь
+        suitable_tasks = [copy.deepcopy(task) for task in tasks if eq in task.acceptable_equipment]
+        random.shuffle(suitable_tasks)
+        individual[eq.equipment_name] = suitable_tasks
+        Task.assign_tasks_to_equipment(suitable_tasks, eq)  # Назначаем оборудование
+        # for equipment_type in eq.equipment_type:
+        #     individual.setdefault(equipment_type, {})
+        #     individual[equipment_type][eq.equipment_name] = task_c
 
     individual['Basket'] = calculating_basket(individual)
 
     for basket in individual['Basket']:
-        ind = individual[basket.equipment_type][basket.equipment.equipment_name]
-        ind.insert(random.randint(0, len(ind)), basket)
+        eq_name = basket.equipment.equipment_name
+        individual[eq_name].insert(random.randint(0, len(individual[eq_name])), basket)
+        # ind = individual[basket.equipment_type][basket.equipment.equipment_name]
+        # ind.insert(random.randint(0, len(ind)), basket)
 
     # time_end = datetime.now()
     # print(f"Время выполнения generate_individual: {time_end - time_start}")
@@ -115,7 +120,7 @@ def calculating_basket(ind, mode=None):
 
     updated_baskets = []
 
-    for eq, task_m in ind['multivare'].items():
+    for task_m in ind['multivare']:
         # Обновляем вместимость оборудования
         for order in task_m:
             order.equipment.capacity = capacity
@@ -507,7 +512,7 @@ def run_genetic_algorithm():
 
     # Параметры ГА
     population_size = 10  # Размер популяции
-    num_generations = 2  # Число поколений
+    num_generations = 20  # Число поколений
     elitism_rate = 0.2  # Доля элитных особей, сохраняемых в следующем поколении
     mutation_probability = 0.1
     num_elites = round(population_size * elitism_rate)
@@ -543,10 +548,10 @@ def run_genetic_algorithm():
         # Выводим статистику последнего поколения
         if generation == num_generations - 1:
             for eq, tasks in best_individual['wiredrawing'].items():
-                for taks in tasks:
-                    taks.waiting_for_equipment = ""
-                    taks.waiting_for_order = ""
-                    taks.waiting_for_filter = 0
+                for task in tasks:
+                    task.waiting_for_equipment = ""
+                    task.waiting_for_order = ""
+                    task.waiting_for_filter = 0
 
     time_end = datetime.now()
     for eq, tasks in best_individual['wiredrawing'].items():
@@ -638,7 +643,7 @@ def format_best_solution(best_order):
                         f"    Заказ: {task.account_number}, Диаметр: {diameter}, Время работы: {time_work}, Время перенастройки: {time_setup}, Штраф за ожидание: {penalty}, Ожидает Фильеру: {waiting_filter}, На оборудовании: {waiting_equipment}, В заказе: {waiting_order} "
                         f"Маршрут фильер: {spin_road}, Комментарий к перенастройке: {comment_setup}, Кол-во жил: {number_of_veins}, Корзины: {round(num_basket, 2)}"
                     )
-                else:
+                elif isinstance(task, WireDrawingTask):
                     if equipment_name == 'new':
                         total_time += task.time_work + task.time_setup
                     # Форматируем обычный заказ
@@ -655,6 +660,15 @@ def format_best_solution(best_order):
                     formatted_output.append(
                         f"    Заказ: {task.order.account_number}, Диаметр: {diameter}, Время работы: {time_work}, Время перенастройки: {time_setup}, Штраф за ожидание: {penalty}, Ожидает Фильеру: {waiting_filter}, На оборудовании: {waiting_equipment}, В заказе: {waiting_order} "
                         f"Маршрут фильер: {spin_road}, Комментарий к перенастройке: {comment_setup}"
+                    )
+                elif isinstance(task, TwistTask):
+                    wires_in_veins_twist = getattr(task, "wires_in_veins_twist", "Не указано")
+                    comment_setup = getattr(task, "comment_setup", "Нет комментария")
+                    time_work = getattr(task, "time_work", "")
+                    time_setup = getattr(task, "time_setup", "")
+                    formatted_output.append(
+                        f"    Заказ: {task.order.account_number}, Количество проволочек: {wires_in_veins_twist}, Время работы: {time_work}, "
+                        f"Время перенастройки: {time_setup}, Комментарий к перенастройке: {comment_setup}"
                     )
 
     return "\n".join(formatted_output)

@@ -32,6 +32,7 @@ class Equipment(metaclass=MachineMeta):
         self.equipment_name = name
         self.equipment_type = machine_type
         self.working_hours = working_hours
+        self.receiver_type_bobbin = receiver_type_bobbin
 
     # def get_queue(self):
     #     """Получаем очередь из `TaskMeta`, но только для этого оборудования."""
@@ -151,13 +152,14 @@ class TwistMachine(Equipment):
     CHANGE_BOBBIN = 5  # смена катушки на мультике
     CHANGE_CRIMP_PAIRS = 12.5
 
-    def __init__(self, name: '', machine_type: [''], recoil_bobbin_type: [''], receiver_type_bobbin, working_hours):
+    def __init__(self, name: '', machine_type: [''], total_bobbin: int, recoil_bobbin_type: [''], receiver_type_bobbin, working_hours):
         super().__init__(name, machine_type, receiver_type_bobbin, working_hours)
         self.recoil_bobbin_type = recoil_bobbin_type
+        self.total_bobbin = total_bobbin
 
     def is_suitable(self, task):
         return (task.equipment_type in self.equipment_type
-                and self.recoil_bobbin_type)
+                and self.total_bobbin  )
 
     # @classmethod
     # def get_all_instances(cls, names=None):
@@ -198,12 +200,12 @@ def initialize_equipments():
                 )
 
     with open("res_Equipments/Twists.json", "r", encoding="utf-8") as twists_file:
-        multivare_data = json.load(twists_file)
-        for name, data in multivare_data.items():
+        twist_data = json.load(twists_file)
+        for name, data in twist_data.items():
             equipments.append(
                 TwistMachine(
-                    name, data['equipment_type'], data['recoil_bobbin_type'],
-                    data['recoil_bobbin_type'], data['working_hours']
+                    name, data['equipment_type'], data['total_bobbin'],
+                    data['recoil_bobbin_type'], data['receiver_type_bobbin'], data['working_hours']
                     )
                 )
 

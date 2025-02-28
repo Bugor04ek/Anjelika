@@ -52,7 +52,7 @@ class Order(metaclass=OrderMeta):
         self.diameter = row['ДиаметрПроволоки']
         self.voloka = row['Волока']
         self.wires_in_veins_twist = row['КоличествоПроволокВЖиле']
-        self.wires_in_veins_plus_twist = row['КоличествоПроволокВЖиле']
+        self.wires_in_veins_plus_twist = row['КоличествоПроволокВЖилеПлюсовой']
         self.number_of_strands = row['КоличествоСтренг']
         self.number_of_sliver = row['КоличествоЗарядныхКатушекНаСтренге']
         self.wires_in_sliver = row['КоличествоПроволокНаОднойКатушке']
@@ -738,7 +738,8 @@ class TwistTask(Task):
         """
 
         super().__init__(order, account_number, time_work, equipment_type=twist_type, part_type=part_type)
-        self.twist_type = twist_type  # Тип скрутки
+        self.twist_type = twist_type    # Тип скрутки
+        self.wires_in_veins_twist = order.wires_in_veins_twist
         self.waiting_for_tasks = []     # Зависимости (какие жилы или заправки нужно дождаться)
 
         # Определяем, что ждем перед запуском скрутки
