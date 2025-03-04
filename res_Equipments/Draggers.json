@@ -7,6 +7,7 @@
         "min_diameter": 1.70,
         "max_diameter": 4.54,
         "receiver_type_bobbin": ["630", "500"],
+        "recoil_bobbin_type": [],
         "working_hours": 24
     },
     "new": {
@@ -17,6 +18,7 @@
         "min_diameter": 1.25,
         "max_diameter": 4.54,
         "receiver_type_bobbin": [630, 500],
+        "recoil_bobbin_type": [],
         "working_hours": 24
     },
     "old": {
@@ -3040,6 +3042,7 @@
         "min_diameter": 1.15,
         "max_diameter": 2.89,
         "receiver_type_bobbin": [630, 500],
+        "recoil_bobbin_type": [],
         "working_hours": 24
     }
 }

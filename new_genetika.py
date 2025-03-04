@@ -76,21 +76,21 @@ def generate_individual(tasks):
     # all_tasks_by_equipment = {eq: TaskMeta.get_instances_by_type(equipment=eq) for eq in all_instances_eq}
 
     for eq in all_instances_eq:
-        individual[eq.equipment_name] = []  # Инициализируем пустую очередь
+        individual[eq.name] = []  # Инициализируем пустую очередь
         suitable_tasks = [copy.deepcopy(task) for task in tasks if eq in task.acceptable_equipment]
         random.shuffle(suitable_tasks)
-        individual[eq.equipment_name] = suitable_tasks
+        individual[eq.name] = suitable_tasks
         Task.assign_tasks_to_equipment(suitable_tasks, eq)  # Назначаем оборудование
         # for equipment_type in eq.equipment_type:
         #     individual.setdefault(equipment_type, {})
-        #     individual[equipment_type][eq.equipment_name] = task_c
+        #     individual[equipment_type][eq.name] = task_c
 
     individual['Basket'] = calculating_basket(individual)
 
     for basket in individual['Basket']:
-        eq_name = basket.equipment.equipment_name
+        eq_name = basket.equipment.name
         individual[eq_name].insert(random.randint(0, len(individual[eq_name])), basket)
-        # ind = individual[basket.equipment_type][basket.equipment.equipment_name]
+        # ind = individual[basket.equipment_type][basket.equipment.name]
         # ind.insert(random.randint(0, len(ind)), basket)
 
     # time_end = datetime.now()
@@ -119,18 +119,23 @@ def calculating_basket(ind, mode=None):
         capacity = 8
 
     updated_baskets = []
+    multivare_equipments = Equipment.get_all_instances('multivare')
 
-    for task_m in ind['multivare']:
+    for multivare_eq in multivare_equipments:
+        eq_name = multivare_eq.name
+
+        if eq_name not in ind:
+            continue
+
+        multivare_tasks = ind[eq_name]
         # Обновляем вместимость оборудования
-        for order in task_m:
-            order.equipment.capacity = capacity
+        multivare_eq.capacity = capacity
 
         # Расчет времени перенастройки для всех заданий
-        MultivareTask.calculate_setup_time_all(task_m)
+        MultivareTask.calculate_setup_time_all(multivare_tasks)
 
         temp_basket: Basket = Basket(None)
-
-        for order in task_m:
+        for order in multivare_tasks:
             remaining_capacity = order.equipment.capacity - order.num_basket
 
             if remaining_capacity >= 0:
@@ -260,7 +265,7 @@ def add_missing_filters(filters_dict, ind):
             else:
                 yield i
 
-    for eq, tasks in ind.items():
+    for tasks in ind:
         for task in tasks:
             try:
                 spin_road = task.data.spin_road
@@ -321,7 +326,7 @@ def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=Fals
         filters_in_use = {}
 
         # Проверка spin_road на старом и новом оборудовании
-        # spins =  task.spin_road if task.equipment.equipment_name == "old" else [task.spin_road]
+        # spins =  task.spin_road if task.equipment.name == "old" else [task.spin_road]
         road = task.spin_road
 
         # Проверяем, является ли это список списков
@@ -342,7 +347,7 @@ def calculate_setup_time_for_tasks(tasks, filters_dict, eq_type, print_logs=Fals
             for spin in road:
                 if spin == 0: continue
                 filters_dict[spin]['ВремяОкончанияРаботы'] += timedelta(minutes=task.time_work)
-                filters_dict[spin]['ИспользуетсяОборудованием'] = task.equipment.equipment_name
+                filters_dict[spin]['ИспользуетсяОборудованием'] = task.equipment.name
                 filters_dict[spin]['ИспользуетсяЗаказом'] = "Корзина" if isinstance(task,
                                                                                     Basket) else task.account_number
         else:
@@ -390,11 +395,13 @@ def get_cost_drawing(ind, print_logs=False):
         for item in filters_array
     }
 
+    wiredrawing_equipments = Equipment.get_all_instances('wiredrawing')
+    tasks_wiredrawing = [ind[eq.name] for eq in wiredrawing_equipments]
     # Добавляем недостающие фильеры из задач
-    add_missing_filters(filters_dict, ind['wiredrawing'])
+    add_missing_filters(filters_dict, tasks_wiredrawing)
     filters_dict = dict(sorted(filters_dict.items()))
 
-    for eq, tasks in ind['wiredrawing'].items():
+    for tasks in tasks_wiredrawing:
         # Рассчитываем время перенастройки
         WireDrawingTask.calculate_setup_time_all(tasks)
         if any(isinstance(task, Basket) for task in tasks):
@@ -408,15 +415,16 @@ def get_cost_drawing(ind, print_logs=False):
         # Добавляем затраты времени на обработку фильеров
         # time_total += calculate_setup_time_for_tasks(tasks, filters_dict, eq, print_logs)
 
-    time_total += time_with_filters(ind['wiredrawing'], filters_dict)
+    time_total += time_with_filters(tasks_wiredrawing, filters_dict)
 
     return time_total
 
 
 def get_cost_multivare(ind):
     time_total = 0
-    for eq in ind['multivare']:
-        tasks = ind['multivare'][eq]
+    multivare_equipments = Equipment.get_all_instances('multivare')
+    for eq in multivare_equipments:
+        tasks = ind[eq.name]
         # MultivareTask.calculate_setup_time_all(tasks)
         # Предположим, что задачи можно представить как NumPy массивы
         time_setup_array = np.array([task.time_setup + task.time_work for task in tasks])
@@ -429,8 +437,9 @@ def get_cost_multivare(ind):
 
 def get_cost_tpj(ind):
     time_total = 0
-    for eq in ind['tpj']:
-        tasks = ind['tpj'][eq]
+    tpj_equipments = Equipment.get_all_instances('tpj')
+    for eq in tpj_equipments:
+        tasks = ind[eq.name]
         # Предположим, что задачи можно представить как NumPy массивы
         time_setup_array = np.array([task.time_setup + task.time_work for task in tasks])
 
@@ -443,23 +452,23 @@ def get_cost_tpj(ind):
 def time_with_filters(ind, filters_dict):
     # time_total = 0
 
-    names = list(ind.keys())  # Получаем список названий
+    # names = list(ind.keys())  # Получаем список названий
     # random.shuffle(names) # Делаем так что бы все время начало было с разных оборудований
-    num_of_stage = max(len(ind[eq]) for eq in names)
+    num_of_stage = max(len(tasks) for tasks in ind)
 
     general_penalty = 0
 
     for i in range(num_of_stage):
-        for eq in names:
-            if i < len(ind[eq]):
+        for tasks in ind:
+            if i < len(tasks):
 
                 filters_in_use = {}
                 awaiting_time = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
-                if isinstance(ind[eq][i].spin_road, list) and isinstance(ind[eq][i].spin_road[0], list):
-                    current_spins = random.choice(ind[eq][i].spin_road)
+                if isinstance(tasks[i].spin_road, list) and isinstance(tasks[i].spin_road[0], list):
+                    current_spins = random.choice(tasks[i].spin_road)
                 else:
-                    current_spins = ind[eq][i].spin_road
+                    current_spins = tasks[i].spin_road
 
                 # Определяем какие из фильер в работе
                 for spin in current_spins:
@@ -472,23 +481,23 @@ def time_with_filters(ind, filters_dict):
                 if filters_in_use:
                     max_key = max(filters_in_use, key=lambda k: filters_in_use[k]["ВремяОкончанияРаботы"])
                     awaiting_time = filters_dict[max_key]['ВремяОкончанияРаботы']
-                    ind[eq][i].time_penalty = max(0, ((awaiting_time - ind[eq][i].time_ending).total_seconds()) / 60)
-                    if ind[eq][i].time_penalty > 0:
-                        ind[eq][i].waiting_for_filter = max_key
-                        ind[eq][i].waiting_for_equipment = filters_dict[max_key]['ИспользуетсяОборудованием']
-                        ind[eq][i].waiting_for_order = filters_dict[max_key]['ИспользуетсяЗаказом']
-                        general_penalty += ind[eq][i].time_penalty
+                    tasks[i].time_penalty = max(0, ((awaiting_time - tasks[i].time_ending).total_seconds()) / 60)
+                    if tasks[i].time_penalty > 0:
+                        tasks[i].waiting_for_filter = max_key
+                        tasks[i].waiting_for_equipment = filters_dict[max_key]['ИспользуетсяОборудованием']
+                        tasks[i].waiting_for_order = filters_dict[max_key]['ИспользуетсяЗаказом']
+                        general_penalty += tasks[i].time_penalty
 
                 for spin in current_spins:
                     if spin == 0: continue
-                    filters_dict[spin]['ВремяОкончанияРаботы'] = ind[eq][i].time_ending + timedelta(
-                        minutes=(ind[eq][i].time_penalty))
-                    filters_dict[spin]['ИспользуетсяОборудованием'] = eq
+                    filters_dict[spin]['ВремяОкончанияРаботы'] = tasks[i].time_ending + timedelta(
+                        minutes=(tasks[i].time_penalty))
+                    filters_dict[spin]['ИспользуетсяОборудованием'] = tasks[i].equipment
 
-                    if isinstance(ind[eq][i], Basket):
+                    if isinstance(tasks[i], Basket):
                         filters_dict[spin]['ИспользуетсяЗаказом'] = "Корзина"
                     else:
-                        filters_dict[spin]['ИспользуетсяЗаказом'] = ind[eq][i].account_number
+                        filters_dict[spin]['ИспользуетсяЗаказом'] = tasks[i].account_number
 
                 #print(f"Этап: {i}, Оборудование: {eq}, Фильтр: {spin}, Время работы: {filters_dict[spin]['ВремяОкончанияРаботы']}")
 
@@ -579,8 +588,8 @@ def format_best_solution(best_order):
         if (equipment_type == "Basket"): continue
         formatted_output.append(f"Тип оборудования: {equipment_type}")
         total_time = 0
-        for equipment_name, tasks in equipment_data.items():
-            formatted_output.append(f"  Оборудование: {equipment_name}")
+        for name, tasks in equipment_data.items():
+            formatted_output.append(f"  Оборудование: {name}")
             for task in tasks:
                 if isinstance(task, Basket):
                     # Форматируем данные корзины
@@ -644,7 +653,7 @@ def format_best_solution(best_order):
                         f"Маршрут фильер: {spin_road}, Комментарий к перенастройке: {comment_setup}, Кол-во жил: {number_of_veins}, Корзины: {round(num_basket, 2)}"
                     )
                 elif isinstance(task, WireDrawingTask):
-                    if equipment_name == 'new':
+                    if name == 'new':
                         total_time += task.time_work + task.time_setup
                     # Форматируем обычный заказ
                     diameter = getattr(task, "voloka", "Не указано")
@@ -711,13 +720,13 @@ def mate(elites, population_size):
                 if equipment_type == 'Basket':
                     for _ in range(2):
                         for basket in child1['Basket']:
-                            i = child1['wiredrawing'][basket.equipment.equipment_name].index(basket)
-                            if i != len(child1['wiredrawing'][basket.equipment.equipment_name]) - 1 and basket.downtime > 0:
-                                child1['wiredrawing'][basket.equipment.equipment_name].remove(basket)
-                                child1['wiredrawing'][basket.equipment.equipment_name].insert(i+1, basket)
+                            i = child1['wiredrawing'][basket.equipment.name].index(basket)
+                            if i != len(child1['wiredrawing'][basket.equipment.name]) - 1 and basket.downtime > 0:
+                                child1['wiredrawing'][basket.equipment.name].remove(basket)
+                                child1['wiredrawing'][basket.equipment.name].insert(i+1, basket)
                             elif basket.uptime > 0:
-                                child1['wiredrawing'][basket.equipment.equipment_name].remove(basket)
-                                child1['wiredrawing'][basket.equipment.equipment_name].insert(i - 1, basket)
+                                child1['wiredrawing'][basket.equipment.name].remove(basket)
+                                child1['wiredrawing'][basket.equipment.name].insert(i - 1, basket)
                     else:
                         continue
                 for equipment in child1[equipment_type]:
@@ -733,12 +742,12 @@ def mate(elites, population_size):
                         best_num_group = {}
                         for eq in t_task.acceptable_equipment:
                             if equipment_type == 'multivare':
-                                best_num_group[eq] = [child1[equipment_type][eq.equipment_name].index(task) for task in
-                                                      child1[equipment_type][eq.equipment_name] if
+                                best_num_group[eq] = [child1[equipment_type][eq.name].index(task) for task in
+                                                      child1[equipment_type][eq.name] if
                                                       task.spin_road[0] == t_task.spin_road[0]]
                             elif equipment_type == 'wiredrawing':
-                                best_num_group[eq] = [child1[equipment_type][eq.equipment_name].index(task) for task in
-                                                      child1[equipment_type][eq.equipment_name] if
+                                best_num_group[eq] = [child1[equipment_type][eq.name].index(task) for task in
+                                                      child1[equipment_type][eq.name] if
                                                       task.voloka == t_task.voloka]
                             elif equipment_type == 'tpj':
                                 continue
@@ -748,11 +757,11 @@ def mate(elites, population_size):
                         if best_num_group == {}: continue
 
                         best_eq = sorted(best_num_group.items(), key=lambda x: len(x[1]), reverse=True)[0][0]
-                        if best_eq.equipment_name != equipment:
+                        if best_eq.name != equipment:
                             WireDrawingTask.assign_tasks_to_equipment(t_task, best_eq)
 
                         child1[equipment_type][equipment].remove(t_task)
-                        child1[equipment_type][best_eq.equipment_name].insert(best_num_group[best_eq][0], t_task)
+                        child1[equipment_type][best_eq.name].insert(best_num_group[best_eq][0], t_task)
 
             child1['Basket'] = calculating_basket(child1)
             offspring.append(child1)

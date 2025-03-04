@@ -323,7 +323,7 @@ class Task(metaclass=TaskMeta):
     def set_acceptable_equipment(self):
         equipments = MachineMeta.get_all_instances()
         self.acceptable_equipment = [eq for eq in equipments if
-                                     self.equipment_type in eq.equipment_type and eq.is_suitable(self)]
+                                     self.equipment_type in eq.equipment_types and eq.is_suitable(self)]
 
     @staticmethod
     def form_matrix_multivare(tasks):
@@ -398,7 +398,7 @@ class WireDrawingTask(Task):
         """
         # маршрут записанный из ключевых волок, последняя волока -- минимально возможный диаметр
         roads = self.equipment.spinners_road
-        if self.equipment.equipment_name != 'old':
+        if self.equipment.name != 'old':
             # на новой и алюминиевой волочилке будет один маршрут
             for i, voloka in enumerate(roads):
                 if self.voloka >= voloka:
@@ -447,7 +447,7 @@ class WireDrawingTask(Task):
                     len(spin_in_values) * (WireDrawingMachine.CHANGE_WIRE + WireDrawingMachine.INSERT_SPIN) +
                     2 * WireDrawingMachine.STRETCHING_WIRE)
 
-        if current_task.equipment.equipment_name != 'old':  # Новая машина
+        if current_task.equipment.name != 'old':  # Новая машина
             for road1, road2 in zip(current_spin_road, previous_spin_road):
                 min_len = min(len(road1), len(road2))
                 diff_indices = np.where(road1[:min_len] != road2[:min_len])[0]
@@ -498,7 +498,7 @@ class WireDrawingTask(Task):
             order=basket, account_number=None, diameter=None, part_type=None, time_work=WireDrawingMachine.W
         )
         WireDrawingTask.assign_tasks_to_equipment(refill_task)
-        print(f"Создано задание на пополнение {8} корзин для {refill_task.equipment.equipment_name}.")
+        print(f"Создано задание на пополнение {8} корзин для {refill_task.equipment.name}.")
 
     def __repr__(self):
         if issubclass(Order, type(self.order)):
@@ -795,7 +795,7 @@ class Basket:
     def set_acceptable_equipment(self):
         equipments = MachineMeta.get_all_instances()
         self.acceptable_equipment = [eq for eq in equipments if
-                                     self.equipment_type in eq.equipment_type and eq.is_suitable(self)]
+                                     self.equipment_type in eq.equipment_types and eq.is_suitable(self)]
 
     def append(self, order: MultivareTask, num_basket: float, use_time_setup=True):
         """
@@ -834,7 +834,7 @@ class Basket:
         """
         # маршрут записанный из ключевых волок, последняя волока -- минимально возможный диаметр
         roads = self.equipment.spinners_road
-        if self.equipment.equipment_name != 'old':
+        if self.equipment.name != 'old':
             # на новой и алюминиевой волочилке будет один маршрут
             for i, voloka in enumerate(roads):
                 if self.voloka >= voloka:

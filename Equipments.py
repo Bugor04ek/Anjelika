@@ -14,40 +14,42 @@ class MachineMeta(type):
     """
     Метакласс для отслеживания всех созданных экземпляров.
     """
-    _instances = weakref.WeakSet()
+    _instances = []
 
     def __call__(cls, *args, **kwargs):
         instance = super().__call__(*args, **kwargs)
-        cls._instances.add(instance)
+        cls._instances.append(instance)
         return instance
 
     @classmethod
-    def get_all_instances(cls):
-        return list(cls._instances)
+    def get_all_instances(cls, equipment_type=None):
+        if equipment_type is None:
+            return cls._instances
+        return [instance for instance in cls._instances if equipment_type in instance.equipment_types]
+
+    # @classmethod
+    # def get_instances_by_type(cls, **kwargs):
+    #     """Возвращает все экземпляры заданий определенного типа оборудования."""
+    #     return [instance for instance in cls._instances for key, val in kwargs.items() if getattr(instance, key) == val]
+
+    @classmethod
+    def get_equipment_by_name(cls, name):
+        """Возвращает оборудование по имени."""
+        return next((eq for eq in cls._instances if eq.name == name), None)
 
 
 class Equipment(metaclass=MachineMeta):
 
-    def __init__(self, name: '', machine_type: [''], receiver_type_bobbin, working_hours):
-        self.equipment_name = name
-        self.equipment_type = machine_type
+    def __init__(self, name: '', machine_type: [''], receiver_type_bobbin, recoil_bobbin_type, working_hours):
+        self.name = name
+        self.equipment_types = machine_type
+        self.receiver_type_bobbin: [] = receiver_type_bobbin
+        self.recoil_bobbin_type:   [] = recoil_bobbin_type
         self.working_hours = working_hours
-        self.receiver_type_bobbin = receiver_type_bobbin
 
     # def get_queue(self):
     #     """Получаем очередь из `TaskMeta`, но только для этого оборудования."""
     #     return TaskMeta.get_ready_tasks(self.equipment_types)
-
-    @classmethod
-    def get_all_instances(cls, type=None):
-        if type is None:
-            return list(cls._instances)
-        return [instance for instance in cls._instances if type in instance.equipment_type]
-
-    @classmethod
-    def get_instances_by_type(cls, **kwargs):
-        """Возвращает все экземпляры заданий определенного типа оборудования."""
-        return [instance for instance in cls._instances for key, val in kwargs.items() if getattr(instance, key) == val]
 
 
 class WireDrawingMachine(Equipment):
@@ -61,9 +63,8 @@ class WireDrawingMachine(Equipment):
 
     def __init__(
         self, name: str, machine_type: [''], supported_materials: [''], basket: bool, spinners_road: [],
-        min_diameter, max_diameter, receiver_type_bobbin, working_hours
-        ):
-        super().__init__(name, machine_type, receiver_type_bobbin, working_hours)
+        min_diameter, max_diameter, receiver_type_bobbin, working_hours, recoil_bobbin_type):
+        super().__init__(name, machine_type, receiver_type_bobbin, working_hours, recoil_bobbin_type)
         self.supported_materials = supported_materials
         self.basket = basket
         self.spinners_road = spinners_road
@@ -84,7 +85,7 @@ class WireDrawingMachine(Equipment):
     #     return [instance for instance in cls._instances if instance.name in names]
 
     def __repr__(self):
-        return f"WireDrawingMachine(name={self.equipment_name}, machine_type={self.equipment_type})"
+        return f"WireDrawingMachine(name={self.equipment_name})"
 
 
 class MultivareMachine(Equipment):
@@ -126,8 +127,8 @@ class MultivareMachine(Equipment):
     pi = 3.141592653589793
 
     def __init__(self, name, machine_type, supported_materials, total_baskets, remaining_basket_length, spinners_road,
-                 receiver_type_bobbin, working_hours):
-        super().__init__(name, machine_type, receiver_type_bobbin, working_hours)
+                 receiver_type_bobbin, working_hours, recoil_bobbin_type):
+        super().__init__(name, machine_type, receiver_type_bobbin, working_hours, recoil_bobbin_type)
         self.supported_materials = supported_materials
         self.total_baskets = total_baskets  # MultivareMachine.KM_IN_16_BASKET всего корзин
         self.remaining_basket_length = remaining_basket_length  # MultivareMachine.KM_IN_8_BASKET  # начальный запас длины для 8 корзин
@@ -135,7 +136,7 @@ class MultivareMachine(Equipment):
         self.spinners_road = spinners_road
 
     def is_suitable(self, task):
-        return True
+        return task.equipment_type in self.equipment_types
         # return material in self.supported_materials and quantity <= self.capacity
 
     # @classmethod
@@ -145,21 +146,21 @@ class MultivareMachine(Equipment):
     #     return [instance for instance in cls._instances if instance.name in names]
 
     def __repr__(self):
-        return f"MultivareMachine(name={self.equipment_name}, machine_type={self.equipment_type})"
+        return f"MultivareMachine(name={self.equipment_name})"
 
 
 class TwistMachine(Equipment):
     CHANGE_BOBBIN = 5  # смена катушки на мультике
     CHANGE_CRIMP_PAIRS = 12.5
 
-    def __init__(self, name: '', machine_type: [''], total_bobbin: int, recoil_bobbin_type: [''], receiver_type_bobbin, working_hours):
-        super().__init__(name, machine_type, receiver_type_bobbin, working_hours)
-        self.recoil_bobbin_type = recoil_bobbin_type
+    def __init__(self, name: '', machine_type: [''], total_bobbin: int, recoil_bobbin_type: [''], receiver_type_bobbin: [''], working_hours):
+        super().__init__(name, machine_type, recoil_bobbin_type, receiver_type_bobbin, working_hours)
+        # self.recoil_bobbin_type = recoil_bobbin_type
         self.total_bobbin = total_bobbin
 
     def is_suitable(self, task):
-        return (task.equipment_type in self.equipment_type
-                and self.total_bobbin  )
+        return (task.equipment_type in self.equipment_types
+                and self.total_bobbin)
 
     # @classmethod
     # def get_all_instances(cls, names=None):
@@ -168,7 +169,7 @@ class TwistMachine(Equipment):
     #     return [instance for instance in cls._instances if instance.name in names]
 
     def __repr__(self):
-        return f"MultivareMachine(name={self.equipment_name}, machine_type={self.equipment_type})"
+        return f"TwistMachine(name={self.equipment_name})"
 
 
 # Функция для инициализации оборудования из JSON файлов
@@ -183,7 +184,7 @@ def initialize_equipments():
                 WireDrawingMachine(
                     name, data['equipment_type'], data['supported_materials'], data['basket'],
                     data['spinners_road'], data['min_diameter'], data['max_diameter'], data['receiver_type_bobbin'],
-                    data['working_hours']
+                    data['working_hours'], recoil_bobbin_type=[]
                     )
                 )
 
@@ -195,7 +196,7 @@ def initialize_equipments():
                 MultivareMachine(
                     name, data['equipment_type'], data['supported_materials'], data['total_baskets'],
                     data['remaining_basket_length'], data['spinners_road'], data['receiver_type_bobbin'],
-                    data['working_hours']
+                    data['working_hours'], recoil_bobbin_type=[]
                     )
                 )
 
