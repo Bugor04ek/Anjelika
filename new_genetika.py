@@ -425,7 +425,7 @@ def get_cost_multivare(ind):
     multivare_equipments = Equipment.get_all_instances('multivare')
     for eq in multivare_equipments:
         tasks = ind[eq.name]
-        # MultivareTask.calculate_setup_time_all(tasks)
+        MultivareTask.calculate_setup_time_all(tasks)
         # Предположим, что задачи можно представить как NumPy массивы
         time_setup_array = np.array([task.time_setup + task.time_work for task in tasks])
 
@@ -695,19 +695,74 @@ def mutate(individual, indpb):
     Выполняет мутацию особи путем случайной перетасовки элементов списка
     для каждого оборудования с вероятностью indpb.
     """
-    for equipment_type in individual.keys():
-        if equipment_type == 'Basket': continue
-        for equipment in individual[equipment_type]:
-            # Генерируем случайное число для принятия решения о мутации
-            if random.random() < indpb:
-                # Перетасовка элементов списка
-                random.shuffle(individual[equipment_type][equipment])
+    multivare_changed = False
+    multivare_equipments = set(eq.name for eq in Equipment.get_all_instances('multivare'))
 
-    individual['Basket'] = calculating_basket(individual)
+    for eq_name in individual.keys():
+        if eq_name == 'Basket':
+            continue
+        tasks = individual[eq_name]
+        if random.random() < indpb and len(tasks) > 1:
+            random.shuffle(tasks)
+            if eq_name in multivare_equipments:
+                multivare_changed = True
+
+    if multivare_changed:
+        individual['Basket'] = calculating_basket(individual)
+
     return individual
 
 
 def mate(elites, population_size):
+    offspring = []
+    num_offspring_per_elite = round((population_size - len(elites)) / len(elites))
+    multivare_equipments = set(eq.name for eq in Equipment.get_all_instances('multivare'))
+
+    def is_valid_order(tasks):
+        for j, task in enumerate(tasks):
+            if not isinstance(task, Basket):
+                for dep in task.waiting_for_tasks:
+                    if dep in tasks and tasks.index(dep) > j:
+                        return False
+        return True
+
+    for i in range(0, len(elites), 2):
+        if i + 1 >= len(elites):
+            break
+        parent1 = copy.deepcopy(elites[i])
+        parent2 = copy.deepcopy(elites[i + 1])
+        multivare_changed = False
+
+        for eq_name in parent1.keys():
+            if eq_name == 'Basket':
+                continue
+            tasks1 = parent1[eq_name]
+            tasks2 = parent2[eq_name]
+            if tasks1 and tasks2:
+                min_len = min(len(tasks1), len(tasks2))
+                num_to_swap = random.randint(1, max(1, min_len))
+                swap1 = random.sample(tasks1, num_to_swap)
+                swap2 = random.sample(tasks2, num_to_swap)
+                child1_tasks = [task for task in tasks1 if task not in swap1] + swap2
+                child2_tasks = [task for task in tasks2 if task not in swap2] + swap1
+                if is_valid_order(child1_tasks) and is_valid_order(child2_tasks):
+                    parent1[eq_name] = child1_tasks
+                    parent2[eq_name] = child2_tasks
+                    if eq_name in multivare_equipments:
+                        multivare_changed = True
+
+        if multivare_changed:
+            parent1['Basket'] = calculating_basket(parent1)
+            parent2['Basket'] = calculating_basket(parent2)
+        offspring.extend([parent1, parent2])
+
+    while len(offspring) < population_size - len(elites):
+        offspring.append(mutate(copy.deepcopy(random.choice(elites)), 1))
+
+    return offspring[:population_size - len(elites)]
+
+
+def mate1(elites, population_size):
     offspring = []  # Список для хранения потомков
 
     for ind1 in elites:

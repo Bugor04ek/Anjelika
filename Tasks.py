@@ -19,11 +19,11 @@ class OrderMeta(type):
     """
     Метакласс для отслеживания всех экземпляров класса Order.
     """
-    _instances = weakref.WeakSet()
+    _instances = []
 
     def __call__(cls, *args, **kwargs):
         instance = super().__call__(*args, **kwargs)
-        cls._instances.add(instance)
+        cls._instances.append(instance)
         return instance
 
     @classmethod
@@ -188,11 +188,11 @@ class Order(metaclass=OrderMeta):
 
 class TaskMeta(type):
     """Метакласс для хранения всех экземпляров заданий на волочилку."""
-    _instances = weakref.WeakSet()
+    _instances = []
 
     def __call__(cls, *args, **kwargs):
         instance = super().__call__(*args, **kwargs)
-        cls._instances.add(instance)
+        cls._instances.append(instance)
         return instance
 
     @classmethod
@@ -300,9 +300,8 @@ class Task(metaclass=TaskMeta):
         return None  # Завершение операций
 
     def assign_equipment(self, equipment):
-        if self.equipment_type in equipment.equipment_type:
+        if self.equipment_type in equipment.equipment_types:
             self.equipment = equipment
-            # установить маршрут фильер
             # self.spin_road(self)
             # если старая волочилка, то берем много маршрутов, если другая, то 1
 
@@ -321,7 +320,7 @@ class Task(metaclass=TaskMeta):
             tasks.set_spin_road()
 
     def set_acceptable_equipment(self):
-        equipments = MachineMeta.get_all_instances()
+        equipments = Equipment.get_all_instances()
         self.acceptable_equipment = [eq for eq in equipments if
                                      self.equipment_type in eq.equipment_types and eq.is_suitable(self)]
 
@@ -341,7 +340,7 @@ class Task(metaclass=TaskMeta):
         return temp_matrix1
 
     def __str__(self):
-        return f"{self.account_number} | {self.equipment_type or 'Не назначено'}"
+        return f"{self.account_number} | {self.equipment_types or 'Не назначено'}"
 
     # def __lt__(self, other):
     #     return True
@@ -793,7 +792,7 @@ class Basket:
         self.total_time = 0
 
     def set_acceptable_equipment(self):
-        equipments = MachineMeta.get_all_instances()
+        equipments = Equipment.get_all_instances()
         self.acceptable_equipment = [eq for eq in equipments if
                                      self.equipment_type in eq.equipment_types and eq.is_suitable(self)]
 

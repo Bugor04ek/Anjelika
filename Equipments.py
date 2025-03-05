@@ -85,7 +85,7 @@ class WireDrawingMachine(Equipment):
     #     return [instance for instance in cls._instances if instance.name in names]
 
     def __repr__(self):
-        return f"WireDrawingMachine(name={self.equipment_name})"
+        return f"WireDrawingMachine(name={self.name})"
 
 
 class MultivareMachine(Equipment):
@@ -146,7 +146,7 @@ class MultivareMachine(Equipment):
     #     return [instance for instance in cls._instances if instance.name in names]
 
     def __repr__(self):
-        return f"MultivareMachine(name={self.equipment_name})"
+        return f"MultivareMachine(name={self.name})"
 
 
 class TwistMachine(Equipment):
@@ -169,7 +169,7 @@ class TwistMachine(Equipment):
     #     return [instance for instance in cls._instances if instance.name in names]
 
     def __repr__(self):
-        return f"TwistMachine(name={self.equipment_name})"
+        return f"TwistMachine(name={self.name})"
 
 
 # Функция для инициализации оборудования из JSON файлов
