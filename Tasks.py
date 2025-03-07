@@ -7,7 +7,7 @@ from fontTools.merge.util import first
 
 from gosts import Mark
 import random
-from Equipments import MultivareMachine, WireDrawingMachine, Equipment, MachineMeta
+from Equipments import MultivareMachine, WireDrawingMachine, Equipment, EquipmentMeta
 
 dict_key_group = {}
 
@@ -320,7 +320,7 @@ class Task(metaclass=TaskMeta):
             tasks.set_spin_road()
 
     def set_acceptable_equipment(self):
-        equipments = Equipment.get_all_instances()
+        equipments = Equipment.get_all_instances(self.equipment_type)
         self.acceptable_equipment = [eq for eq in equipments if
                                      self.equipment_type in eq.equipment_types and eq.is_suitable(self)]
 
@@ -340,7 +340,7 @@ class Task(metaclass=TaskMeta):
         return temp_matrix1
 
     def __str__(self):
-        return f"{self.account_number} | {self.equipment_types or 'Не назначено'}"
+        return f"{self.account_number} | {self.equipment.name or 'Не назначено'}"
 
     # def __lt__(self, other):
     #     return True

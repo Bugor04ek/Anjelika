@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from Tasks import MultivareTask, WireDrawingTask, Order, Basket, TaskMeta
 
 
-class MachineMeta(type):
+class EquipmentMeta(type):
     """
     Метакласс для отслеживания всех созданных экземпляров.
     """
@@ -38,7 +38,7 @@ class MachineMeta(type):
         return next((eq for eq in cls._instances if eq.name == name), None)
 
 
-class Equipment(metaclass=MachineMeta):
+class Equipment(metaclass=EquipmentMeta):
 
     def __init__(self, name: '', machine_type: [''], receiver_type_bobbin, recoil_bobbin_type, working_hours):
         self.name = name
@@ -47,6 +47,14 @@ class Equipment(metaclass=MachineMeta):
         self.recoil_bobbin_type:   [] = recoil_bobbin_type
         self.working_hours = working_hours
 
+    def __eq__(self, other):
+        if not isinstance(other, str):
+            return self.name == other.name
+        else:
+            return False
+
+    def __hash__(self):
+        return hash(self.name)
     # def get_queue(self):
     #     """Получаем очередь из `TaskMeta`, но только для этого оборудования."""
     #     return TaskMeta.get_ready_tasks(self.equipment_types)

@@ -76,11 +76,12 @@ def generate_individual(tasks):
     # all_tasks_by_equipment = {eq: TaskMeta.get_instances_by_type(equipment=eq) for eq in all_instances_eq}
 
     for eq in all_instances_eq:
-        individual[eq.name] = []  # Инициализируем пустую очередь
+        individual[eq] = []  # Инициализируем пустую очередь
         suitable_tasks = [copy.deepcopy(task) for task in tasks if eq in task.acceptable_equipment]
         random.shuffle(suitable_tasks)
-        individual[eq.name] = suitable_tasks
-        Task.assign_tasks_to_equipment(suitable_tasks, eq)  # Назначаем оборудование
+        Task.assign_tasks_to_equipment(suitable_tasks, eq)
+        individual[eq] = suitable_tasks
+        # Назначаем оборудование
         # for equipment_type in eq.equipment_type:
         #     individual.setdefault(equipment_type, {})
         #     individual[equipment_type][eq.name] = task_c
@@ -88,8 +89,8 @@ def generate_individual(tasks):
     individual['Basket'] = calculating_basket(individual)
 
     for basket in individual['Basket']:
-        eq_name = basket.equipment.name
-        individual[eq_name].insert(random.randint(0, len(individual[eq_name])), basket)
+        eq = basket.equipment
+        individual[eq].insert(random.randint(0, len(individual[eq])), basket)
         # ind = individual[basket.equipment_type][basket.equipment.name]
         # ind.insert(random.randint(0, len(ind)), basket)
 
@@ -122,32 +123,30 @@ def calculating_basket(ind, mode=None):
     multivare_equipments = Equipment.get_all_instances('multivare')
 
     for multivare_eq in multivare_equipments:
-        eq_name = multivare_eq.name
 
-        if eq_name not in ind:
-            continue
-
-        multivare_tasks = ind[eq_name]
+        multivare_tasks = ind[multivare_eq]
         # Обновляем вместимость оборудования
-        multivare_eq.capacity = capacity
 
         # Расчет времени перенастройки для всех заданий
         MultivareTask.calculate_setup_time_all(multivare_tasks)
 
+        multivare_eq.capacity = capacity
+
         temp_basket: Basket = Basket(None)
         for order in multivare_tasks:
-            remaining_capacity = order.equipment.capacity - order.num_basket
+
+            remaining_capacity = multivare_eq.capacity - order.num_basket
 
             if remaining_capacity >= 0:
                 # Если текущий заказ помещается в оставшуюся вместимость
                 temp_basket.append(order, order.num_basket)
-                order.equipment.capacity -= order.num_basket
+                multivare_eq.capacity -= order.num_basket
             else:
                 # Если не помещается
-                temp_basket.append(order, order.equipment.capacity)
+                temp_basket.append(order, multivare_eq.capacity)
                 updated_baskets.append(temp_basket)
 
-                num_basket = order.num_basket - order.equipment.capacity
+                num_basket = order.num_basket - multivare_eq.capacity
                 # Обработка корзин, если есть остатки
                 while num_basket > 8:
                     temp_basket = Basket(order, 8)
@@ -155,7 +154,7 @@ def calculating_basket(ind, mode=None):
                     num_basket -= 8
 
                 # Обновляем оставшуюся вместимость
-                order.equipment.capacity = 8 - num_basket
+                multivare_eq.capacity = 8 - num_basket
                 temp_basket = Basket(order, num_basket)
 
         if temp_basket.orders:
@@ -396,7 +395,7 @@ def get_cost_drawing(ind, print_logs=False):
     }
 
     wiredrawing_equipments = Equipment.get_all_instances('wiredrawing')
-    tasks_wiredrawing = [ind[eq.name] for eq in wiredrawing_equipments]
+    tasks_wiredrawing = [ind[eq] for eq in wiredrawing_equipments]
     # Добавляем недостающие фильеры из задач
     add_missing_filters(filters_dict, tasks_wiredrawing)
     filters_dict = dict(sorted(filters_dict.items()))
@@ -424,7 +423,7 @@ def get_cost_multivare(ind):
     time_total = 0
     multivare_equipments = Equipment.get_all_instances('multivare')
     for eq in multivare_equipments:
-        tasks = ind[eq.name]
+        tasks = ind[eq]
         MultivareTask.calculate_setup_time_all(tasks)
         # Предположим, что задачи можно представить как NumPy массивы
         time_setup_array = np.array([task.time_setup + task.time_work for task in tasks])
@@ -439,7 +438,7 @@ def get_cost_tpj(ind):
     time_total = 0
     tpj_equipments = Equipment.get_all_instances('tpj')
     for eq in tpj_equipments:
-        tasks = ind[eq.name]
+        tasks = ind[eq]
         # Предположим, что задачи можно представить как NumPy массивы
         time_setup_array = np.array([task.time_setup + task.time_work for task in tasks])
 
@@ -555,16 +554,19 @@ def run_genetic_algorithm():
         best_individual = min(population, key=fitness_function)  # Для задачи минимизации
 
         # Выводим статистику последнего поколения
-        if generation == num_generations - 1:
-            for eq, tasks in best_individual['wiredrawing'].items():
-                for task in tasks:
-                    task.waiting_for_equipment = ""
-                    task.waiting_for_order = ""
-                    task.waiting_for_filter = 0
+        # if generation == num_generations - 1:
+        #     for eq, tasks in best_individual['wiredrawing'].items():
+        #         for task in tasks:
+        #             task.waiting_for_equipment = ""
+        #             task.waiting_for_order = ""
+        #             task.waiting_for_filter = 0
 
     time_end = datetime.now()
-    for eq, tasks in best_individual['wiredrawing'].items():
-        tasks[0].comment_setup = ""
+    for eq in best_individual.keys():
+        if 'Basket' == eq:
+            continue
+        if 'wiredrawing' in eq.equipment_types:
+            best_individual[eq][0].comment_setup = ""
         #WireDrawingTask.calculate_setup_time_all(tasks)
 
     print(f"Время выполнения (размер популяции: {population_size}): {time_end - time_start}")
@@ -584,101 +586,99 @@ def format_best_solution(best_order):
     """Форматирует вывод для лучшего решения."""
     formatted_output = []
 
-    for equipment_type, equipment_data in best_order.items():
-        if (equipment_type == "Basket"): continue
-        formatted_output.append(f"Тип оборудования: {equipment_type}")
+    for equipment, tasks in best_order.items():
+        if (equipment == "Basket"): continue
+        formatted_output.append(f"Оборудование: {equipment}")
         total_time = 0
-        for name, tasks in equipment_data.items():
-            formatted_output.append(f"  Оборудование: {name}")
-            for task in tasks:
-                if isinstance(task, Basket):
-                    # Форматируем данные корзины
+        for task in tasks:
+            if isinstance(task, Basket):
+                # Форматируем данные корзины
 
-                    Name = "Корзина"
-                    diameter = getattr(task, "voloka", "Не указано")
-                    spin_road = getattr(task, "spin_road", [])
-                    comment_setup = getattr(task, "comment_setup", "Нет комментария")
-                    penalty = getattr(task, "time_penalty", "")
-                    waiting_order = getattr(task, "waiting_for_order", "")
-                    waiting_equipment = getattr(task, "waiting_for_equipment", "")
-                    waiting_filter = getattr(task, "waiting_for_filter", "")
-                    time_on_multivare = getattr(task, "time_on_multivare", "")
-                    remaining_basket_length = getattr(task, "sum_basket", "")
-                    time_work = getattr(task, "time_work", "")
-                    time_setup = getattr(task, "time_setup", "")
-                    task.total_time = total_time
+                Name = "Корзина"
+                diameter = getattr(task, "voloka", "Не указано")
+                spin_road = getattr(task, "spin_road", [])
+                comment_setup = getattr(task, "comment_setup", "Нет комментария")
+                penalty = getattr(task, "time_penalty", "")
+                waiting_order = getattr(task, "waiting_for_order", "")
+                waiting_equipment = getattr(task, "waiting_for_equipment", "")
+                waiting_filter = getattr(task, "waiting_for_filter", "")
+                time_on_multivare = getattr(task, "time_on_multivare", "")
+                remaining_basket_length = getattr(task, "sum_basket", "")
+                time_work = getattr(task, "time_work", "")
+                time_setup = getattr(task, "time_setup", "")
+                task.total_time = total_time
 
-                    formatted_output.append(
-                        f"    Время работы группы заказов: {total_time}, Время работы заказов на мультике: {time_on_multivare}\n"
-                        f"    Корзина (длина: {task.sum_basket}, Диаметр: {diameter}, Время работы: {time_work}, Время перенастройки: {time_setup},  Штраф за ожидание: {penalty}, Ожидает Фильеру: {waiting_filter}, На оборудовании: {waiting_equipment}, В заказе: {waiting_order} "
-                        f"Маршрут фильер: {spin_road}, Комментарий к перенастройке: {comment_setup}"
-                    )
+                formatted_output.append(
+                    f"    Время работы группы заказов: {total_time}, Время работы заказов на мультике: {time_on_multivare}\n"
+                    f"    Корзина (длина: {task.sum_basket}, Диаметр: {diameter}, Время работы: {time_work}, Время перенастройки: {time_setup},  Штраф за ожидание: {penalty}, Ожидает Фильеру: {waiting_filter}, На оборудовании: {waiting_equipment}, В заказе: {waiting_order} "
+                    f"Маршрут фильер: {spin_road}, Комментарий к перенастройке: {comment_setup}"
+                )
 
-                    # formatted_output.append(basket_details)
-                    for basket_task in task.orders:
-                        Name = getattr(basket_task, "account_number", "")
-                        diameter = getattr(basket_task, "diameter", "Не указано")
-                        spin_road = getattr(basket_task, "spin_road", [])
-                        comment_setup = getattr(basket_task, "comment_setup", "Нет комментария")
-                        penalty = getattr(basket_task, "time_penalty", "")
-                        waiting_order = getattr(basket_task, "waiting_for_order", "")
-                        waiting_equipment = getattr(basket_task, "waiting_for_equipment", "")
-                        waiting_filter = getattr(basket_task, "waiting_for_filter", "")
-                        time_work = getattr(task, "time_work", "")
-                        time_setup = getattr(task, "time_setup", "")
-
-                        formatted_output.append(
-                            f"      Заказ: {Name}, Диаметр: {diameter}"
-                            # f"        Заказ: {Name}, Диаметр: {diameter}, Время работы: {time_work}, Время перенастройки: {time_setup}, Штраф за ожидание: {penalty}, Ожидает Фильеру: {waiting_filter}, На оборудовании: {waiting_equipment}, В заказе: {waiting_order} "
-                            # f"Маршрут фильер: {spin_road}, Комментарий к перенастройке: {comment_setup}"
-                        )
-                    total_time = 0
-                    total_time += WireDrawingMachine.W
-                elif isinstance(task, MultivareTask):
-                    # Форматируем данные заказа на мультивайер
-                    diameter = getattr(task, "diameter", "Не указано")
-                    spin_road = getattr(task, "spin_road", [])
-                    comment_setup = getattr(task, "comment_setup", "Нет комментария")
-                    penalty = getattr(task, "time_penalty", "")
-                    waiting_order = getattr(task, "waiting_for_order", "")
-                    waiting_equipment = getattr(task, "waiting_for_equipment", "")
-                    waiting_filter = getattr(task, "waiting_for_filter", "")
-                    number_of_veins = getattr(task, "number_of_veins", "")
-                    num_basket = getattr(task, "num_basket", "")
+                # formatted_output.append(basket_details)
+                for basket_task in task.orders:
+                    Name = getattr(basket_task, "account_number", "")
+                    diameter = getattr(basket_task, "diameter", "Не указано")
+                    spin_road = getattr(basket_task, "spin_road", [])
+                    comment_setup = getattr(basket_task, "comment_setup", "Нет комментария")
+                    penalty = getattr(basket_task, "time_penalty", "")
+                    waiting_order = getattr(basket_task, "waiting_for_order", "")
+                    waiting_equipment = getattr(basket_task, "waiting_for_equipment", "")
+                    waiting_filter = getattr(basket_task, "waiting_for_filter", "")
                     time_work = getattr(task, "time_work", "")
                     time_setup = getattr(task, "time_setup", "")
 
                     formatted_output.append(
-                        f"    Заказ: {task.account_number}, Диаметр: {diameter}, Время работы: {time_work}, Время перенастройки: {time_setup}, Штраф за ожидание: {penalty}, Ожидает Фильеру: {waiting_filter}, На оборудовании: {waiting_equipment}, В заказе: {waiting_order} "
-                        f"Маршрут фильер: {spin_road}, Комментарий к перенастройке: {comment_setup}, Кол-во жил: {number_of_veins}, Корзины: {round(num_basket, 2)}"
+                        f"      Заказ: {Name}, Диаметр: {diameter}"
+                        # f"        Заказ: {Name}, Диаметр: {diameter}, Время работы: {time_work}, Время перенастройки: {time_setup}, Штраф за ожидание: {penalty}, Ожидает Фильеру: {waiting_filter}, На оборудовании: {waiting_equipment}, В заказе: {waiting_order} "
+                        # f"Маршрут фильер: {spin_road}, Комментарий к перенастройке: {comment_setup}"
                     )
-                elif isinstance(task, WireDrawingTask):
-                    if name == 'new':
-                        total_time += task.time_work + task.time_setup
-                    # Форматируем обычный заказ
-                    diameter = getattr(task, "voloka", "Не указано")
-                    spin_road = getattr(task, "spin_road", [])
-                    comment_setup = getattr(task, "comment_setup", "Нет комментария")
-                    penalty = getattr(task, "time_penalty", "")
-                    waiting_order = getattr(task, "waiting_for_order", "")
-                    waiting_equipment = getattr(task, "waiting_for_equipment", "")
-                    waiting_filter = getattr(task, "waiting_for_filter", "")
-                    time_work = getattr(task, "time_work", "")
-                    time_setup = getattr(task, "time_setup", "")
+                total_time = 0
+                total_time += WireDrawingMachine.W
+            elif isinstance(task, MultivareTask):
+                # Форматируем данные заказа на мультивайер
+                diameter = getattr(task, "diameter", "Не указано")
+                spin_road = getattr(task, "spin_road", [])
+                comment_setup = getattr(task, "comment_setup", "Нет комментария")
+                penalty = getattr(task, "time_penalty", "")
+                waiting_order = getattr(task, "waiting_for_order", "")
+                waiting_equipment = getattr(task, "waiting_for_equipment", "")
+                waiting_filter = getattr(task, "waiting_for_filter", "")
+                number_of_veins = getattr(task, "number_of_veins", "")
+                num_basket = getattr(task, "num_basket", "")
+                time_work = getattr(task, "time_work", "")
+                time_setup = getattr(task, "time_setup", "")
 
-                    formatted_output.append(
-                        f"    Заказ: {task.order.account_number}, Диаметр: {diameter}, Время работы: {time_work}, Время перенастройки: {time_setup}, Штраф за ожидание: {penalty}, Ожидает Фильеру: {waiting_filter}, На оборудовании: {waiting_equipment}, В заказе: {waiting_order} "
-                        f"Маршрут фильер: {spin_road}, Комментарий к перенастройке: {comment_setup}"
-                    )
-                elif isinstance(task, TwistTask):
-                    wires_in_veins_twist = getattr(task, "wires_in_veins_twist", "Не указано")
-                    comment_setup = getattr(task, "comment_setup", "Нет комментария")
-                    time_work = getattr(task, "time_work", "")
-                    time_setup = getattr(task, "time_setup", "")
-                    formatted_output.append(
-                        f"    Заказ: {task.order.account_number}, Количество проволочек: {wires_in_veins_twist}, Время работы: {time_work}, "
-                        f"Время перенастройки: {time_setup}, Комментарий к перенастройке: {comment_setup}"
-                    )
+                formatted_output.append(
+                    f"    Заказ: {task.account_number}, Диаметр: {diameter}, Время работы: {time_work}, Время перенастройки: {time_setup}, Штраф за ожидание: {penalty}, Ожидает Фильеру: {waiting_filter}, На оборудовании: {waiting_equipment}, В заказе: {waiting_order} "
+                    f"Маршрут фильер: {spin_road}, Комментарий к перенастройке: {comment_setup}, Кол-во жил: {number_of_veins}, Корзины: {round(num_basket, 2)}"
+                )
+            elif isinstance(task, WireDrawingTask):
+                if equipment.name == 'new':
+                    total_time += task.time_work + task.time_setup
+                # Форматируем обычный заказ
+                diameter = getattr(task, "voloka", "Не указано")
+                spin_road = getattr(task, "spin_road", [])
+                comment_setup = getattr(task, "comment_setup", "Нет комментария")
+                penalty = getattr(task, "time_penalty", "")
+                waiting_order = getattr(task, "waiting_for_order", "")
+                waiting_equipment = getattr(task, "waiting_for_equipment", "")
+                waiting_filter = getattr(task, "waiting_for_filter", "")
+                time_work = getattr(task, "time_work", "")
+                time_setup = getattr(task, "time_setup", "")
+
+                formatted_output.append(
+                    f"    Заказ: {task.order.account_number}, Диаметр: {diameter}, Время работы: {time_work}, Время перенастройки: {time_setup}, Штраф за ожидание: {penalty}, Ожидает Фильеру: {waiting_filter}, На оборудовании: {waiting_equipment}, В заказе: {waiting_order} "
+                    f"Маршрут фильер: {spin_road}, Комментарий к перенастройке: {comment_setup}"
+                )
+            elif isinstance(task, TwistTask):
+                wires_in_veins_twist = getattr(task, "wires_in_veins_twist", "Не указано")
+                comment_setup = getattr(task, "comment_setup", "Нет комментария")
+                time_work = getattr(task, "time_work", "")
+                time_setup = getattr(task, "time_setup", "")
+                formatted_output.append(
+                    f"    Заказ: {task.order.account_number}, Количество проволочек: {wires_in_veins_twist}, Время работы: {time_work}, "
+                    f"Время перенастройки: {time_setup}, Комментарий к перенастройке: {comment_setup}"
+                )
 
     return "\n".join(formatted_output)
 
@@ -696,15 +696,15 @@ def mutate(individual, indpb):
     для каждого оборудования с вероятностью indpb.
     """
     multivare_changed = False
-    multivare_equipments = set(eq.name for eq in Equipment.get_all_instances('multivare'))
+    multivare_equipments = set(eq for eq in Equipment.get_all_instances('multivare'))
 
-    for eq_name in individual.keys():
-        if eq_name == 'Basket':
+    for eq in individual.keys():
+        if eq == 'Basket':
             continue
-        tasks = individual[eq_name]
+        tasks = copy.deepcopy(individual[eq])
         if random.random() < indpb and len(tasks) > 1:
             random.shuffle(tasks)
-            if eq_name in multivare_equipments:
+            if eq in multivare_equipments:
                 multivare_changed = True
 
     if multivare_changed:
@@ -713,7 +713,7 @@ def mutate(individual, indpb):
     return individual
 
 
-def mate(elites, population_size):
+def mate1(elites, population_size):
     offspring = []
     num_offspring_per_elite = round((population_size - len(elites)) / len(elites))
     multivare_equipments = set(eq.name for eq in Equipment.get_all_instances('multivare'))
@@ -733,11 +733,11 @@ def mate(elites, population_size):
         parent2 = copy.deepcopy(elites[i + 1])
         multivare_changed = False
 
-        for eq_name in parent1.keys():
-            if eq_name == 'Basket':
+        for eq in parent1.keys():
+            if eq == 'Basket':
                 continue
-            tasks1 = parent1[eq_name]
-            tasks2 = parent2[eq_name]
+            tasks1 = parent1[eq]
+            tasks2 = parent2[eq]
             if tasks1 and tasks2:
                 min_len = min(len(tasks1), len(tasks2))
                 num_to_swap = random.randint(1, max(1, min_len))
@@ -746,9 +746,9 @@ def mate(elites, population_size):
                 child1_tasks = [task for task in tasks1 if task not in swap1] + swap2
                 child2_tasks = [task for task in tasks2 if task not in swap2] + swap1
                 if is_valid_order(child1_tasks) and is_valid_order(child2_tasks):
-                    parent1[eq_name] = child1_tasks
-                    parent2[eq_name] = child2_tasks
-                    if eq_name in multivare_equipments:
+                    parent1[eq] = child1_tasks
+                    parent2[eq] = child2_tasks
+                    if eq in multivare_equipments:
                         multivare_changed = True
 
         if multivare_changed:
@@ -756,13 +756,14 @@ def mate(elites, population_size):
             parent2['Basket'] = calculating_basket(parent2)
         offspring.extend([parent1, parent2])
 
-    while len(offspring) < population_size - len(elites):
-        offspring.append(mutate(copy.deepcopy(random.choice(elites)), 1))
+    while len(offspring) < round((population_size - len(elites))):
+        child_с = copy.deepcopy(random.choice(elites))
+        offspring.append(mutate(child_с, 1))
 
     return offspring[:population_size - len(elites)]
 
 
-def mate1(elites, population_size):
+def mate(elites, population_size):
     offspring = []  # Список для хранения потомков
 
     for ind1 in elites:
@@ -771,52 +772,52 @@ def mate1(elites, population_size):
             # Создаем копии родителей для потомков
             child1 = copy.deepcopy(ind1)
 
-            for equipment_type in child1.keys():
-                if equipment_type == 'Basket':
+            for equipment in child1.keys():
+                if equipment == 'Basket':
                     for _ in range(2):
                         for basket in child1['Basket']:
-                            i = child1['wiredrawing'][basket.equipment.name].index(basket)
-                            if i != len(child1['wiredrawing'][basket.equipment.name]) - 1 and basket.downtime > 0:
-                                child1['wiredrawing'][basket.equipment.name].remove(basket)
-                                child1['wiredrawing'][basket.equipment.name].insert(i+1, basket)
+                            i = child1[basket.equipment].index(basket)
+                            if i != len(child1[basket.equipment]) - 1 and basket.downtime > 0:
+                                child1[basket.equipment].remove(basket)
+                                child1[basket.equipment].insert(i+1, basket)
                             elif basket.uptime > 0:
-                                child1['wiredrawing'][basket.equipment.name].remove(basket)
-                                child1['wiredrawing'][basket.equipment.name].insert(i - 1, basket)
+                                child1[basket.equipment].remove(basket)
+                                child1[basket.equipment].insert(i - 1, basket)
                     else:
                         continue
-                for equipment in child1[equipment_type]:
-                    tasks_ind1 = child1[equipment_type][equipment]
 
-                    if len(tasks_ind1) < 2:
+                tasks_ind1 = child1[equipment]
+
+                if len(tasks_ind1) < 2:
+                    continue
+
+                t_tasks = np.random.choice(tasks_ind1, size=3 if len(tasks_ind1) > 3 else 1, replace=False)
+                for t_task in t_tasks:
+                    if isinstance(t_task, Basket):
                         continue
-
-                    t_tasks = np.random.choice(tasks_ind1, size=3 if len(tasks_ind1) > 3 else 1, replace=False)
-                    for t_task in t_tasks:
-                        if isinstance(t_task, Basket):
+                    best_num_group = {}
+                    for eq in t_task.acceptable_equipment:
+                        if 'multivare' in equipment.equipment_types:
+                            best_num_group[eq] = [child1[eq].index(task) for task in
+                                                  child1[eq] if
+                                                  task.spin_road[0] == t_task.spin_road[0]]
+                        elif 'wiredrawing' in equipment.equipment_types:
+                            best_num_group[eq] = [child1[eq].index(task) for task in
+                                                  child1[eq] if
+                                                  task.voloka == t_task.voloka]
+                        elif 'tpj' in equipment.equipment_types:
                             continue
-                        best_num_group = {}
-                        for eq in t_task.acceptable_equipment:
-                            if equipment_type == 'multivare':
-                                best_num_group[eq] = [child1[equipment_type][eq.name].index(task) for task in
-                                                      child1[equipment_type][eq.name] if
-                                                      task.spin_road[0] == t_task.spin_road[0]]
-                            elif equipment_type == 'wiredrawing':
-                                best_num_group[eq] = [child1[equipment_type][eq.name].index(task) for task in
-                                                      child1[equipment_type][eq.name] if
-                                                      task.voloka == t_task.voloka]
-                            elif equipment_type == 'tpj':
-                                continue
-                            else:
-                                continue
+                        else:
+                            continue
 
-                        if best_num_group == {}: continue
+                    if best_num_group == {}: continue
 
-                        best_eq = sorted(best_num_group.items(), key=lambda x: len(x[1]), reverse=True)[0][0]
-                        if best_eq.name != equipment:
-                            WireDrawingTask.assign_tasks_to_equipment(t_task, best_eq)
+                    best_eq = sorted(best_num_group.items(), key=lambda x: len(x[1]), reverse=True)[0][0]
+                    if best_eq != equipment:
+                        WireDrawingTask.assign_tasks_to_equipment(t_task, best_eq)
 
-                        child1[equipment_type][equipment].remove(t_task)
-                        child1[equipment_type][best_eq.name].insert(best_num_group[best_eq][0], t_task)
+                    child1[equipment].remove(t_task)
+                    child1[best_eq].insert(best_num_group[best_eq][0], t_task)
 
             child1['Basket'] = calculating_basket(child1)
             offspring.append(child1)
