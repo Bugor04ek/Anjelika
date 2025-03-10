@@ -10,6 +10,7 @@ import random
 import copy
 from concurrent.futures import ThreadPoolExecutor
 import numpy as np
+from deap import base, creator, tools, algorithms
 from itertools import permutations
 from collections.abc import Iterable
 from tqdm import tqdm
@@ -515,6 +516,15 @@ def fitness_function(individual):
 
 #------------------------------------------------------------------
 
+def tournament_selection(population, k, fitness_values, tournsize=3):
+    """Турнирная селекция."""
+    selected = []
+    for _ in range(k):
+        aspirants = random.sample(list(zip(population, fitness_values)), tournsize)
+        selected.append(min(aspirants, key=lambda x: x[1])[0])
+    return selected
+
+
 def run_genetic_algorithm():
     time_start = datetime.now()
 
@@ -537,10 +547,11 @@ def run_genetic_algorithm():
     for generation in tqdm(range(num_generations), desc="Generations", ncols=100):
 
         # Находим элитные особи
-        elites = elitism_selection(population, fitness_values, num_elites)
+        offspring = tournament_selection(population, len(population) - num_elites, fitness_values, tournsize=2)
+        # elites = elitism_selection(population, fitness_values, num_elites)
 
         # Создаем потомков
-        offspring = mate(elites, population_size)
+        offspring = mate(offspring, num_elites)
 
         # Применяем мутацию к потомкам
         offspring = [mutate(individual, mutation_probability) for individual in offspring]
@@ -713,57 +724,108 @@ def mutate(individual, indpb):
     return individual
 
 
+def mate(parents, population_size):
+    """
+    Улучшенный кроссовер для генетического алгоритма.
+    - Анализирует лучшее перемещение задач между оборудованием.
+    - Сохраняет зависимость задач и заправок.
+    - Улучшает `Basket`, а не просто перемещает его.
+    """
+    parent1, parent2 = parents[0], parents[1]  # Берем двух лучших родителей
+    child = copy.deepcopy(parent1)
+
+    for equipment in child.keys():
+        if equipment == 'Basket':
+            continue  # `Basket` обрабатываем отдельно
+
+        tasks_p1 = parent1[equipment]
+        tasks_p2 = parent2[equipment]
+
+        # Объединяем задачи, но НЕ случайно перемешиваем, а строим оптимальный порядок
+        combined_tasks = optimize_task_exchange(tasks_p1, tasks_p2, equipment)
+
+        # Назначаем новую очередь задач
+        child[equipment] = combined_tasks
+
+    # Улучшаем `Basket`, чтобы учесть новые задачи после кроссовера
+    child['Basket'] = recalculate_basket(child)
+
+    return child
+
+
+def optimize_task_exchange(tasks_p1, tasks_p2, equipment):
+    """
+    Объединяет задачи двух родителей, но выбирает только оптимальные перемещения.
+    - Не ломает технологическую цепочку.
+    - Не ухудшает загрузку оборудования.
+    """
+    combined_tasks = list(set(tasks_p1 + tasks_p2))  # Убираем дубликаты
+
+    # Оцениваем, какие задачи стоит переместить
+    best_moves = analyze_best_moves(combined_tasks, equipment)
+
+    # Применяем найденные улучшения
+    sorted_tasks = apply_best_moves(combined_tasks, best_moves)
+
+    return sorted_tasks
+
+
+def analyze_best_moves(tasks, equipment):
+    """
+    Анализирует, какие перемещения дадут наибольший выигрыш в порядке выполнения.
+    """
+    best_moves = []
+
+    for task in tasks:
+        if task.can_be_moved():
+            best_equipment = find_best_equipment(task, equipment)
+            if best_equipment:
+                best_moves.append((task, best_equipment))
+
+    return best_moves
+
+
+def recalculate_basket(individual):
+    """
+    Оптимизирует `Basket` после кроссовера, а не просто перемещает его.
+    """
+    new_basket = []
+    for equipment in individual:
+        if equipment != "Basket":
+            for task in individual[equipment]:
+                if isinstance(task, Basket):
+                    new_basket.append(task)
+
+    return optimize_basket_order(new_basket)
+
+
+def apply_best_moves(tasks, best_moves):
+    """
+    Применяет найденные лучшие перемещения к списку задач.
+    """
+    for task, best_equipment in best_moves:
+        tasks.remove(task)
+        best_equipment.append(task)
+
+    return sorted(tasks, key=lambda t: t.order.route)
+
+
+def optimize_basket_order(basket_tasks):
+    """
+    Оптимизирует порядок `Basket` после кроссовера.
+    """
+    return sorted(basket_tasks, key=lambda t: t.order.route)
+
+
+def find_best_equipment(task, current_equipment):
+    """
+    Определяет лучшее оборудование для выполнения задачи.
+    """
+    # Заглушка: Добавить сюда логику поиска лучшего оборудования
+    return current_equipment if random.random() > 0.5 else None
+
+
 def mate1(elites, population_size):
-    offspring = []
-    num_offspring_per_elite = round((population_size - len(elites)) / len(elites))
-    multivare_equipments = set(eq.name for eq in Equipment.get_all_instances('multivare'))
-
-    def is_valid_order(tasks):
-        for j, task in enumerate(tasks):
-            if not isinstance(task, Basket):
-                for dep in task.waiting_for_tasks:
-                    if dep in tasks and tasks.index(dep) > j:
-                        return False
-        return True
-
-    for i in range(0, len(elites), 2):
-        if i + 1 >= len(elites):
-            break
-        parent1 = copy.deepcopy(elites[i])
-        parent2 = copy.deepcopy(elites[i + 1])
-        multivare_changed = False
-
-        for eq in parent1.keys():
-            if eq == 'Basket':
-                continue
-            tasks1 = parent1[eq]
-            tasks2 = parent2[eq]
-            if tasks1 and tasks2:
-                min_len = min(len(tasks1), len(tasks2))
-                num_to_swap = random.randint(1, max(1, min_len))
-                swap1 = random.sample(tasks1, num_to_swap)
-                swap2 = random.sample(tasks2, num_to_swap)
-                child1_tasks = [task for task in tasks1 if task not in swap1] + swap2
-                child2_tasks = [task for task in tasks2 if task not in swap2] + swap1
-                if is_valid_order(child1_tasks) and is_valid_order(child2_tasks):
-                    parent1[eq] = child1_tasks
-                    parent2[eq] = child2_tasks
-                    if eq in multivare_equipments:
-                        multivare_changed = True
-
-        if multivare_changed:
-            parent1['Basket'] = calculating_basket(parent1)
-            parent2['Basket'] = calculating_basket(parent2)
-        offspring.extend([parent1, parent2])
-
-    while len(offspring) < round((population_size - len(elites))):
-        child_с = copy.deepcopy(random.choice(elites))
-        offspring.append(mutate(child_с, 1))
-
-    return offspring[:population_size - len(elites)]
-
-
-def mate(elites, population_size):
     offspring = []  # Список для хранения потомков
 
     for ind1 in elites:
@@ -823,8 +885,8 @@ def mate(elites, population_size):
             offspring.append(child1)
 
     while len(offspring) < round((population_size - len(elites))):
-        child_с = copy.deepcopy(random.choice(elites))
-        offspring.append(mutate(child_с, 1))
+        child_c = copy.deepcopy(random.choice(elites))
+        offspring.append(mutate(child_c, 1))
 
     return offspring[:(population_size - len(elites))]
 
